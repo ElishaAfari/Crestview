@@ -5,17 +5,22 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { feeSchema } from "@/lib/validations/fee.schema";
+import { createInvoiceAction } from "@/features/fees/actions";
 
 type FeeFormValues = { studentId: string; amount: number; currency: string; dueDate: string };
 
 export function FeeForm() {
-  const form = useForm<FeeFormValues>({ defaultValues: { currency: "USD" } });
+  const form = useForm<FeeFormValues>({ defaultValues: { currency: "GHS" } });
   const [message, setMessage] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
-  function onSubmit(values: FeeFormValues) {
-    const result = feeSchema.safeParse(values);
-    setMessage(result.success ? "Invoice is ready to issue." : result.error.issues[0]?.message ?? "Check the form.");
+  async function onSubmit(values: FeeFormValues) {
+    const formData = new FormData();
+    Object.entries(values).forEach(([key, value]) => formData.set(key, String(value ?? "")));
+    const result = await createInvoiceAction(formData);
+    setSubmitted(result.ok);
+    setMessage(result.message);
+    if (result.ok) form.reset({ currency: "GHS" });
   }
 
   return (
@@ -24,7 +29,7 @@ export function FeeForm() {
       <div><Label>Amount</Label><Input type="number" {...form.register("amount", { valueAsNumber: true })} /></div>
       <div><Label>Currency</Label><Input {...form.register("currency")} /></div>
       <div><Label>Due date</Label><Input type="date" {...form.register("dueDate")} /></div>
-      <div className="sm:col-span-2 flex items-center gap-3"><Button type="submit">Create invoice</Button>{message ? <p className="text-sm text-slate-400">{message}</p> : null}</div>
+      <div className="sm:col-span-2 flex flex-col items-start gap-3"><Button type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? "Creating..." : "Create invoice"}</Button>{message ? <p className={`text-sm ${submitted ? "text-emerald-300" : "text-red-300"}`}>{message}</p> : null}</div>
     </form>
   );
 }

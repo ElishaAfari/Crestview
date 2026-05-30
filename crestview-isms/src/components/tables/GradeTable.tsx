@@ -3,21 +3,15 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "./DataTable";
 
-type GradeRow = { student: string; subject: string; score: string; status: string };
-
-const data: GradeRow[] = [
-  { student: "Amara Cole", subject: "Mathematics", score: "88%", status: "published" },
-  { student: "Daniel Mensah", subject: "English", score: "84%", status: "published" },
-  { student: "Lina Hassan", subject: "Biology", score: "91%", status: "draft" }
-];
+export type GradeRow = { id: string; student: string; assessment: string; score: string; comments: string };
 
 const columns: ColumnDef<GradeRow>[] = [
   { accessorKey: "student", header: "Student" },
-  { accessorKey: "subject", header: "Subject" },
+  { accessorKey: "assessment", header: "Assessment" },
   { accessorKey: "score", header: "Score" },
-  { accessorKey: "status", header: "Status" }
+  { accessorKey: "comments", header: "Comments" }
 ];
 
-export function GradeTable() {
+export function GradeTable({ data = [] }: { data?: GradeRow[] }) {
   return <DataTable data={data} columns={columns} />;
 }

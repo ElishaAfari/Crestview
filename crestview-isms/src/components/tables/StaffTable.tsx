@@ -3,20 +3,14 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "./DataTable";
 
-type StaffRow = { name: string; role: string; department: string };
-
-const data: StaffRow[] = [
-  { name: "Ada Okoro", role: "Teacher", department: "Mathematics" },
-  { name: "Marcus Lee", role: "Teacher", department: "Languages" },
-  { name: "Sophia Mensah", role: "Teacher", department: "Science" }
-];
+export type StaffRow = { id: string; name: string; role: string; phone: string };
 
 const columns: ColumnDef<StaffRow>[] = [
   { accessorKey: "name", header: "Staff" },
   { accessorKey: "role", header: "Role" },
-  { accessorKey: "department", header: "Department" }
+  { accessorKey: "phone", header: "Phone" }
 ];
 
-export function StaffTable() {
+export function StaffTable({ data = [] }: { data?: StaffRow[] }) {
   return <DataTable data={data} columns={columns} />;
 }

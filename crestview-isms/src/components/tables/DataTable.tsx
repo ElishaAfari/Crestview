@@ -7,6 +7,7 @@ import {
   type ColumnDef
 } from "@tanstack/react-table";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 export function DataTable<TData extends object>({ data, columns }: { data: TData[]; columns: ColumnDef<TData>[] }) {
   const table = useReactTable({
@@ -15,7 +16,7 @@ export function DataTable<TData extends object>({ data, columns }: { data: TData
     getCoreRowModel: getCoreRowModel()
   });
 
-  return (
+  return data.length ? (
     <div className="overflow-hidden rounded-xl border border-white/10">
       <Table>
         <TableHeader>
@@ -40,5 +41,7 @@ export function DataTable<TData extends object>({ data, columns }: { data: TData
         </TableBody>
       </Table>
     </div>
+  ) : (
+    <EmptyState title="No records yet" message="Saved records will appear here." />
   );
 }

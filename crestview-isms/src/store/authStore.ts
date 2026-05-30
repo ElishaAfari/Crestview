@@ -9,6 +9,7 @@ type AuthState = {
   isLoading: boolean;
   setUser: (user: User | null) => void;
   setProfile: (profile: Profile | null) => void;
+  setRole: (role: RoleName | null) => void;
   setLoading: (isLoading: boolean) => void;
   clearAuth: () => void;
 };
@@ -19,7 +20,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   role: null,
   isLoading: true,
   setUser: (user) => set({ user }),
-  setProfile: (profile) => set({ profile, role: null }),
+  setProfile: (profile) => set({ profile }),
+  setRole: (role) => set({ role }),
   setLoading: (isLoading) => set({ isLoading }),
   clearAuth: () => set({ user: null, profile: null, role: null, isLoading: false })
 }));

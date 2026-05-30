@@ -3,13 +3,7 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "./DataTable";
 
-type PayrollRow = { staff: string; gross: string; deductions: string; net: string };
-
-const data: PayrollRow[] = [
-  { staff: "Ada Okoro", gross: "$4,200", deductions: "$420", net: "$3,780" },
-  { staff: "Marcus Lee", gross: "$4,200", deductions: "$420", net: "$3,780" },
-  { staff: "Sophia Mensah", gross: "$4,200", deductions: "$420", net: "$3,780" }
-];
+type PayrollRow = { id: string; staff: string; gross: string; deductions: string; net: string };
 
 const columns: ColumnDef<PayrollRow>[] = [
   { accessorKey: "staff", header: "Staff" },
@@ -18,6 +12,6 @@ const columns: ColumnDef<PayrollRow>[] = [
   { accessorKey: "net", header: "Net" }
 ];
 
-export function PayrollTable() {
+export function PayrollTable({ data = [] }: { data?: PayrollRow[] }) {
   return <DataTable data={data} columns={columns} />;
 }

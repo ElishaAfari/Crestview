@@ -47,5 +47,38 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  if (isDashboard && user) {
+    const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).maybeSingle();
+    const roleId = typeof profile?.role_id === "string" ? profile.role_id : null;
+    const { data: role } = roleId ? await supabase.from("roles").select("name").eq("id", roleId).maybeSingle() : { data: null };
+    const roleName = typeof role?.name === "string" ? role.name : null;
+    const adminRoles = ["super_admin", "school_admin", "hr_staff", "finance_officer", "it_support", "librarian"];
+    const roleHome: Record<string, string> = {
+      teacher: "/teacher",
+      student: "/student",
+      parent: "/parent",
+      super_admin: "/admin",
+      school_admin: "/admin",
+      hr_staff: "/admin",
+      finance_officer: "/admin/fees",
+      it_support: "/admin/settings",
+      librarian: "/admin"
+    };
+    const allowed = request.nextUrl.pathname.startsWith("/admin")
+      ? Boolean(roleName && adminRoles.includes(roleName))
+      : request.nextUrl.pathname.startsWith("/teacher")
+        ? roleName === "teacher"
+        : request.nextUrl.pathname.startsWith("/student")
+          ? roleName === "student"
+          : roleName === "parent";
+
+    if (!allowed) {
+      const destination = request.nextUrl.clone();
+      destination.pathname = roleName ? roleHome[roleName] ?? "/login" : "/login";
+      destination.search = "";
+      return NextResponse.redirect(destination);
+    }
+  }
+
   return response;
 }

@@ -2,20 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap } from "lucide-react";
+import Image from "next/image";
 import { navigationItems } from "@/config/navigation";
+import { ROLES } from "@/config/roles";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/authStore";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const role = "super_admin";
-  const items = navigationItems.filter((item) => item.roles.includes(role));
+  const role = useAuthStore((state) => state.role);
+  const items = role ? navigationItems.filter((item) => item.roles.includes(role)) : [];
+  const home = role ? ROLES[role].dashboard : "/";
 
   return (
     <aside className="hidden min-h-screen w-72 border-r border-white/10 bg-slate-950/80 px-4 py-5 lg:block">
-      <Link href="/admin" className="flex items-center gap-3 px-2">
-        <span className="grid size-10 place-items-center rounded-xl bg-blue-500/20 text-blue-100">
-          <GraduationCap className="size-5" aria-hidden />
+      <Link href={home} className="flex items-center gap-3 px-2">
+        <span className="relative size-10 overflow-hidden rounded-lg bg-white">
+          <Image src="/crestview-logo.png" alt="" fill sizes="40px" className="object-contain p-1" />
         </span>
         <span className="font-heading text-base font-semibold text-white">Crestview ISMS</span>
       </Link>

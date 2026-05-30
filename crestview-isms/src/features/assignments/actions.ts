@@ -1,8 +1,31 @@
 "use server";
 
 import { requireUser } from "@/features/auth/guards";
+import { assignmentSchema } from "@/lib/validations/assignment.schema";
 
-export async function createAssignmentAction() {
-  await requireUser();
-  return { ok: true, message: "Assignment creation passed authentication guard." };
+export async function createAssignmentAction(formData: FormData) {
+  const dueAt = String(formData.get("dueAt") ?? "");
+  const result = assignmentSchema.safeParse({
+    courseId: String(formData.get("courseId") ?? ""),
+    title: String(formData.get("title") ?? ""),
+    description: String(formData.get("description") ?? ""),
+    dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
+    maxScore: String(formData.get("maxScore") ?? "")
+  });
+
+  if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the assignment details." };
+
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("assignments").insert({
+    course_id: result.data.courseId,
+    title: result.data.title.trim(),
+    description: result.data.description?.trim() || null,
+    due_at: result.data.dueAt ?? null,
+    max_score: result.data.maxScore,
+    created_by: user.id
+  });
+
+  return error
+    ? { ok: false, message: "The assignment could not be created. Check the course and your access level." }
+    : { ok: true, message: "Assignment created." };
 }

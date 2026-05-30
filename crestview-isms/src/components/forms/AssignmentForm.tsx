@@ -6,17 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { assignmentSchema } from "@/lib/validations/assignment.schema";
+import { createAssignmentAction } from "@/features/assignments/actions";
 
 type AssignmentFormValues = { courseId: string; title: string; description?: string; dueAt?: string; maxScore: number };
 
 export function AssignmentForm() {
   const form = useForm<AssignmentFormValues>({ defaultValues: { maxScore: 100 } });
   const [message, setMessage] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
-  function onSubmit(values: AssignmentFormValues) {
-    const result = assignmentSchema.safeParse(values);
-    setMessage(result.success ? "Assignment is ready to publish." : result.error.issues[0]?.message ?? "Check the form.");
+  async function onSubmit(values: AssignmentFormValues) {
+    const formData = new FormData();
+    Object.entries(values).forEach(([key, value]) => formData.set(key, String(value ?? "")));
+    const result = await createAssignmentAction(formData);
+    setSubmitted(result.ok);
+    setMessage(result.message);
+    if (result.ok) form.reset({ maxScore: 100 });
   }
 
   return (
@@ -25,7 +30,7 @@ export function AssignmentForm() {
       <div><Label>Title</Label><Input {...form.register("title")} /></div>
       <div><Label>Description</Label><Textarea {...form.register("description")} /></div>
       <div className="grid gap-4 sm:grid-cols-2"><div><Label>Due at</Label><Input type="datetime-local" {...form.register("dueAt")} /></div><div><Label>Max score</Label><Input type="number" {...form.register("maxScore", { valueAsNumber: true })} /></div></div>
-      <div className="flex items-center gap-3"><Button type="submit">Create assignment</Button>{message ? <p className="text-sm text-slate-400">{message}</p> : null}</div>
+      <div className="flex flex-col items-start gap-3"><Button type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? "Creating..." : "Create assignment"}</Button>{message ? <p className={`text-sm ${submitted ? "text-emerald-300" : "text-red-300"}`}>{message}</p> : null}</div>
     </form>
   );
 }

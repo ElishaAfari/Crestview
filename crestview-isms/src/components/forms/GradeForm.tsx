@@ -5,17 +5,22 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { gradeSchema } from "@/lib/validations/grade.schema";
+import { publishGradeAction } from "@/features/grades/actions";
 
 type GradeFormValues = { gradeItemId: string; studentId: string; score: number; comments?: string };
 
 export function GradeForm() {
   const form = useForm<GradeFormValues>();
   const [message, setMessage] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
-  function onSubmit(values: GradeFormValues) {
-    const result = gradeSchema.safeParse(values);
-    setMessage(result.success ? "Grade is ready to publish." : result.error.issues[0]?.message ?? "Check the form.");
+  async function onSubmit(values: GradeFormValues) {
+    const formData = new FormData();
+    Object.entries(values).forEach(([key, value]) => formData.set(key, String(value ?? "")));
+    const result = await publishGradeAction(formData);
+    setSubmitted(result.ok);
+    setMessage(result.message);
+    if (result.ok) form.reset();
   }
 
   return (
@@ -24,7 +29,7 @@ export function GradeForm() {
       <div><Label>Student ID</Label><Input {...form.register("studentId")} /></div>
       <div><Label>Score</Label><Input type="number" {...form.register("score", { valueAsNumber: true })} /></div>
       <div><Label>Comments</Label><Input {...form.register("comments")} /></div>
-      <div className="sm:col-span-2 flex items-center gap-3"><Button type="submit">Save grade</Button>{message ? <p className="text-sm text-slate-400">{message}</p> : null}</div>
+      <div className="sm:col-span-2 flex flex-col items-start gap-3"><Button type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? "Saving..." : "Save grade"}</Button>{message ? <p className={`text-sm ${submitted ? "text-emerald-300" : "text-red-300"}`}>{message}</p> : null}</div>
     </form>
   );
 }

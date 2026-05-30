@@ -1,336 +1,238 @@
-import Image from "next/image";
-import Link from "next/link";
+"use client";
+
+import { motion } from "framer-motion";
 import {
   ArrowRight,
-  BookOpen,
-  CalendarDays,
+  BookOpenCheck,
+  Bot,
   CheckCircle2,
-  Clock,
-  Heart,
-  Mail,
+  FlaskConical,
+  GraduationCap,
   MapPin,
+  Music2,
   Phone,
-  ShieldCheck,
   Sparkles,
-  Star,
-  Trophy,
-  Users
 } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 import { StudentHeroSlideshow } from "@/components/shared/StudentHeroSlideshow";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-
-const navItems = [
-  { label: "About", href: "#about" },
-  { label: "Academics", href: "#academics" },
-  { label: "Admissions", href: "/admissions" },
-  { label: "School Life", href: "#life" },
-  { label: "News", href: "/news" },
-  { label: "Contact", href: "/contact" }
-];
-
-const stats = [
-  { value: "18+", label: "Years nurturing learners" },
-  { value: "24", label: "Bright, active classrooms" },
-  { value: "96%", label: "Weekly attendance average" },
-  { value: "1:14", label: "Teacher mentor ratio" }
-];
-
-const values = [
-  {
-    title: "Academic confidence",
-    body: "Every lesson is planned to build strong foundations, clear thinking, and the courage to ask better questions.",
-    icon: BookOpen,
-    tone: "bg-blue-50 text-blue-700"
-  },
-  {
-    title: "Character and discipline",
-    body: "Learners grow in kindness, responsibility, respect, and the quiet habits that make achievement sustainable.",
-    icon: ShieldCheck,
-    tone: "bg-emerald-50 text-emerald-700"
-  },
-  {
-    title: "Joyful discovery",
-    body: "Music, clubs, science, sport, reading, service, and leadership give each child room to find their spark.",
-    icon: Sparkles,
-    tone: "bg-amber-50 text-amber-700"
-  }
-];
+import { siteConfig } from "@/config/site";
 
 const programmes = [
   {
-    title: "Early Years",
-    stage: "Nursery and Kindergarten",
-    body: "Warm routines, phonics, number sense, movement, art, and guided play for confident first steps."
+    title: "Hybrid Curriculum",
+    kicker: "Cambridge and GES",
+    description: "A thoughtful blend of global learning standards and strong Ghanaian foundations.",
+    image: "/landing/programmes/hybrid-curriculum.png",
+    icon: BookOpenCheck,
+    accent: "bg-[#42d6d0] text-[#06165b]",
   },
   {
-    title: "Primary School",
-    stage: "Grades 1 to 6",
-    body: "Literacy, numeracy, science, social studies, technology, creativity, and character in balance."
+    title: "Robotics",
+    kicker: "Build, code, explore",
+    description: "Hands-on challenges that turn bright ideas into practical problem-solving skills.",
+    image: "/landing/programmes/robotics-lab.png",
+    icon: Bot,
+    accent: "bg-[#ffd83d] text-[#06165b]",
   },
   {
-    title: "Middle School",
-    stage: "Grades 7 to 10",
-    body: "Focused subject mastery, project work, mentoring, and preparation for advanced pathways."
-  }
+    title: "STEM Education",
+    kicker: "Curiosity in action",
+    description: "Experiments, projects, and discovery that help learners understand their world.",
+    image: "/landing/programmes/stem-lab.png",
+    icon: FlaskConical,
+    accent: "bg-[#cf1017] text-white",
+  },
+  {
+    title: "Music",
+    kicker: "Creativity and confidence",
+    description: "A lively creative outlet that strengthens expression, discipline, and collaboration.",
+    image: "/landing/programmes/music-class.png",
+    icon: Music2,
+    accent: "bg-[#082b91] text-white",
+  },
 ];
 
-const life = [
-  "Student leadership and assemblies",
-  "Clubs for STEM, reading, music, art, and debate",
-  "Sports, wellness, and teamwork",
-  "Parent partnership and progress updates",
-  "Safe campus routines and caring supervision",
-  "Service projects that teach responsibility"
+const stages = [
+  { title: "Creche and Nursery", label: "A gentle beginning", color: "border-[#1b9b4f]" },
+  { title: "Kindergarten", label: "Curiosity takes shape", color: "border-[#ff9c23]" },
+  { title: "Primary", label: "Strong foundations", color: "border-[#42d6d0]" },
+  { title: "Junior High School", label: "Ready for what is next", color: "border-[#cf1017]" },
 ];
 
-const news = [
-  { title: "Admissions are open", date: "2026 Intake", body: "Families can begin applications for available spaces across early years, primary, and middle school." },
-  { title: "Science and creativity week", date: "June", body: "Learners will present experiments, art, design projects, and practical problem-solving challenges." },
-  { title: "Parent open morning", date: "Upcoming", body: "Visit classrooms, meet teachers, and see how Crestview balances excellence with care." }
+const highlights = [
+  "Cambridge and GES learning pathways",
+  "Future-ready STEM and robotics",
+  "A caring, values-led community",
+  "Creative confidence through music",
 ];
 
-export default function PublicHomePage() {
+function Reveal({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <main className="bg-slate-50 text-slate-950">
-      <section className="relative min-h-[86svh] overflow-hidden bg-slate-950 text-white">
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.18 }}
+      transition={{ duration: 0.55, ease: "easeOut" }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <main>
+      <section className="relative min-h-[76svh] overflow-hidden bg-[#06165b]">
         <StudentHeroSlideshow />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/78 to-slate-950/20" />
-        <div className="absolute inset-x-0 top-0 z-20 border-b border-white/10 bg-slate-950/45 backdrop-blur">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 text-xs text-slate-200 sm:px-6 lg:px-8">
-            <div className="hidden items-center gap-4 md:flex">
-              <span className="inline-flex items-center gap-2"><MapPin className="size-3.5" aria-hidden /> International District</span>
-              <span className="inline-flex items-center gap-2"><Phone className="size-3.5" aria-hidden /> +1 000 000 0000</span>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#061341] via-[#061341]/90 to-[#061341]/35" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#061341]/75 to-transparent" />
+        <div className="relative mx-auto flex min-h-[76svh] max-w-7xl items-center px-4 py-16 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 22 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+            className="max-w-3xl"
+          >
+            <div className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs font-black uppercase text-[#ffd83d] backdrop-blur-sm">
+              <Sparkles className="size-4" aria-hidden />
+              Admission in progress
             </div>
-            <span className="inline-flex items-center gap-2"><Mail className="size-3.5" aria-hidden /> admissions@crestview.edu</span>
-            <Link href="/login" className="font-semibold text-amber-200 hover:text-white">Portal</Link>
-          </div>
-        </div>
-
-        <nav className="absolute inset-x-0 top-10 z-20">
-          <div className="mx-auto mt-4 flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-            <Link href="/" className="flex items-center gap-3">
-              <span className="relative size-12 overflow-hidden rounded-xl bg-white shadow-lg shadow-slate-950/25 ring-1 ring-white/30">
-                <Image src="/crestview-logo.png" alt="Crestview International School logo" fill sizes="48px" className="object-contain p-1" />
-              </span>
-              <span className="font-heading text-base font-semibold leading-tight sm:text-lg">Crestview International School</span>
-            </Link>
-            <div className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/10 p-1 backdrop-blur md:flex">
-              {navItems.map((item) => (
-                <Link key={item.href} href={item.href} className="rounded-full px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/15 hover:text-white">
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </nav>
-
-        <div className="relative z-10 mx-auto flex min-h-[86svh] max-w-7xl flex-col justify-center px-4 pb-20 pt-36 sm:px-6 lg:px-8">
-          <div className="max-w-4xl">
-            <p className="inline-flex items-center gap-2 rounded-full border border-amber-200/30 bg-amber-300/15 px-4 py-2 text-sm font-semibold text-amber-100">
-              <Star className="size-4" aria-hidden />
-              Quality education, strong character, bright futures
-            </p>
-            <h1 className="mt-6 max-w-4xl font-heading text-5xl font-semibold leading-[1.03] text-white sm:text-6xl lg:text-7xl">
-              A lively school where every learner is known, stretched, and celebrated.
+            <h1 className="mt-5 max-w-3xl font-heading text-4xl font-black uppercase leading-[1.05] text-white sm:text-6xl lg:text-7xl">
+              Crestview <span className="text-[#ffd83d]">International</span> School
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200">
-              Crestview blends rigorous academics, joyful discovery, discipline, and pastoral care so children grow with confidence in class and character in life.
+            <p className="mt-4 text-sm font-black uppercase text-[#42d6d0] sm:text-base">{siteConfig.motto}</p>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-blue-50 sm:text-lg">
+              A lively learning community in Asamankese where children build strong foundations, discover their talents, and grow ready for the world.
             </p>
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link href="/admissions" className={buttonVariants({ className: "bg-amber-400 text-slate-950 hover:bg-amber-300" })}>
-                Apply for admission <ArrowRight className="size-4" aria-hidden />
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/admissions" className={buttonVariants({ className: "bg-[#cf1017] text-white shadow-lg shadow-black/20 hover:bg-[#ad0d13]" })}>
+                Enroll today <ArrowRight className="size-4" aria-hidden />
               </Link>
-              <Link href="#academics" className={buttonVariants({ variant: "secondary", className: "border-white/20 bg-white/10 text-white hover:bg-white/20" })}>
-                Explore academics
+              <Link href="/#programmes" className={buttonVariants({ variant: "secondary", className: "border-white/35 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20" })}>
+                Explore programmes
               </Link>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      <section className="-mt-10 relative z-20 mx-auto grid max-w-7xl gap-3 px-4 sm:px-6 md:grid-cols-4 lg:px-8">
-        {stats.map((stat) => (
-          <div key={stat.label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/70">
-            <p className="font-heading text-3xl font-semibold text-blue-700">{stat.value}</p>
-            <p className="mt-1 text-sm text-slate-600">{stat.label}</p>
-          </div>
-        ))}
-      </section>
-
-      <section id="about" className="mx-auto grid max-w-7xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1fr_0.9fr] lg:px-8">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">About Crestview</p>
-          <h2 className="mt-3 max-w-3xl font-heading text-4xl font-semibold leading-tight text-slate-950 sm:text-5xl">
-            Education for the total development of the child.
-          </h2>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-            Inspired by warm, community-minded schools that put children first, Crestview offers a calm but energetic learning environment where academic excellence sits beside empathy, faithfulness to duty, creativity, and service.
-          </p>
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            {values.map((value) => {
-              const Icon = value.icon;
-              return (
-                <div key={value.title} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <span className={cn("grid size-11 place-items-center rounded-lg", value.tone)}>
-                    <Icon className="size-5" aria-hidden />
-                  </span>
-                  <h3 className="mt-4 font-heading text-lg font-semibold text-slate-950">{value.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{value.body}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <div className="relative overflow-hidden rounded-2xl bg-white shadow-xl">
-          <Image src="/crestview-logo.png" alt="Crestview International School badge" width={900} height={700} className="h-full min-h-[420px] w-full object-contain p-8 sm:p-12" />
-          <div className="absolute inset-x-5 bottom-5 rounded-xl bg-white/92 p-5 text-slate-950 shadow-lg backdrop-blur">
-            <p className="text-sm font-semibold text-blue-700">Our promise</p>
-            <p className="mt-1 text-lg font-semibold leading-7">A safe, inspiring campus where every child can belong, work hard, and shine.</p>
-          </div>
-        </div>
-      </section>
-
-      <section id="academics" className="bg-slate-950 py-20 text-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-300">Academics</p>
-              <h2 className="mt-3 max-w-3xl font-heading text-4xl font-semibold sm:text-5xl">
-                Strong foundations, curious minds, excellent habits.
-              </h2>
+      <section className="relative z-10 bg-[#ffd83d]">
+        <div className="mx-auto grid max-w-7xl gap-px bg-[#d2aa00] sm:grid-cols-2 lg:grid-cols-4">
+          {highlights.map((highlight) => (
+            <div key={highlight} className="flex items-center gap-3 bg-[#ffd83d] px-5 py-5 text-sm font-black text-[#06165b]">
+              <CheckCircle2 className="size-5 shrink-0 text-[#cf1017]" aria-hidden />
+              {highlight}
             </div>
-            <Link href="/admissions" className={buttonVariants({ className: "w-fit bg-emerald-500 text-white hover:bg-emerald-400" })}>
-              Begin admission <ArrowRight className="size-4" aria-hidden />
-            </Link>
-          </div>
-
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {programmes.map((programme) => (
-              <div key={programme.title} className="rounded-xl border border-white/10 bg-white/[0.06] p-6">
-                <p className="text-sm font-semibold text-amber-200">{programme.stage}</p>
-                <h3 className="mt-2 font-heading text-2xl font-semibold text-white">{programme.title}</h3>
-                <p className="mt-4 text-sm leading-6 text-slate-300">{programme.body}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
-            <div className="rounded-xl bg-blue-600 p-6">
-              <Trophy className="size-8 text-blue-100" aria-hidden />
-              <h3 className="mt-5 font-heading text-2xl font-semibold">Achievement with purpose</h3>
-              <p className="mt-3 text-sm leading-6 text-blue-50">Assessment is used to guide support, celebrate growth, and help learners set meaningful goals.</p>
-            </div>
-            <div className="rounded-xl bg-emerald-600 p-6">
-              <Heart className="size-8 text-emerald-100" aria-hidden />
-              <h3 className="mt-5 font-heading text-2xl font-semibold">Care that notices</h3>
-              <p className="mt-3 text-sm leading-6 text-emerald-50">Teachers know learners by name, monitor wellbeing, and keep families connected to progress.</p>
-            </div>
-            <div className="rounded-xl bg-amber-400 p-6 text-slate-950">
-              <Users className="size-8 text-slate-900" aria-hidden />
-              <h3 className="mt-5 font-heading text-2xl font-semibold">Community that lifts</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-800">Assemblies, clubs, service, and house activities help students practice leadership every week.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="life" className="mx-auto grid max-w-7xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[0.9fr_1fr] lg:px-8">
-        <div className="rounded-2xl bg-white p-6 shadow-lg shadow-slate-200/80">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">School life</p>
-          <h2 className="mt-3 font-heading text-4xl font-semibold text-slate-950">A campus with energy, order, and heart.</h2>
-          <p className="mt-5 text-base leading-7 text-slate-600">
-            The best school days are full of rhythm: focused lessons, good manners, healthy play, creative work, and teachers who keep moving children forward.
-          </p>
-          <div className="mt-7 grid gap-3">
-            {life.map((item) => (
-              <div key={item} className="flex items-start gap-3 rounded-lg bg-slate-50 p-3">
-                <CheckCircle2 className="mt-0.5 size-5 flex-none text-emerald-600" aria-hidden />
-                <span className="text-sm font-medium text-slate-700">{item}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="rounded-2xl bg-blue-700 p-6 text-white">
-            <Clock className="size-7 text-blue-100" aria-hidden />
-            <h3 className="mt-5 font-heading text-2xl font-semibold">A day with structure</h3>
-            <p className="mt-3 text-sm leading-6 text-blue-50">Morning routines, guided learning blocks, enrichment, outdoor activity, reflection, and family updates.</p>
-          </div>
-          <div className="rounded-2xl bg-white p-6 shadow-lg shadow-slate-200/80">
-            <Sparkles className="size-7 text-amber-500" aria-hidden />
-            <h3 className="mt-5 font-heading text-2xl font-semibold text-slate-950">Expression encouraged</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-600">Students perform, present, build, debate, design, and learn to speak with confidence.</p>
-          </div>
-          <div className="rounded-2xl bg-white p-6 shadow-lg shadow-slate-200/80 sm:col-span-2">
-            <CalendarDays className="size-7 text-emerald-600" aria-hidden />
-            <h3 className="mt-5 font-heading text-2xl font-semibold text-slate-950">Families are part of the story</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-600">Open mornings, progress reviews, celebrations, and timely communication keep parents close to learning.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-white py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-[0.8fr_1fr] lg:items-center">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">Admissions</p>
-              <h2 className="mt-3 font-heading text-4xl font-semibold text-slate-950 sm:text-5xl">Begin your child&apos;s Crestview journey.</h2>
-              <p className="mt-5 text-lg leading-8 text-slate-600">
-                We welcome families who want a school that is ambitious, caring, organized, and alive with opportunity.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link href="/admissions" className={buttonVariants()}>Apply now <ArrowRight className="size-4" aria-hidden /></Link>
-                <Link href="/contact" className={buttonVariants({ variant: "secondary", className: "bg-slate-100 text-slate-950 hover:bg-slate-200" })}>Book a visit</Link>
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {["Visit", "Apply", "Interview"].map((step, index) => (
-                <div key={step} className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-                  <span className="grid size-10 place-items-center rounded-full bg-blue-700 text-sm font-bold text-white">{index + 1}</span>
-                  <h3 className="mt-4 font-heading text-xl font-semibold text-slate-950">{step}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    {index === 0 ? "Tour the campus and meet the team." : index === 1 ? "Share learner details and records." : "Plan the best start together."}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-700">News and events</p>
-            <h2 className="mt-3 font-heading text-4xl font-semibold text-slate-950">What is happening at Crestview.</h2>
-          </div>
-          <Link href="/news" className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700 hover:text-blue-900">
-            View all news <ArrowRight className="size-4" aria-hidden />
-          </Link>
-        </div>
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {news.map((item) => (
-            <article key={item.title} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm font-semibold text-emerald-700">{item.date}</p>
-              <h3 className="mt-2 font-heading text-2xl font-semibold text-slate-950">{item.title}</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{item.body}</p>
-            </article>
           ))}
         </div>
       </section>
 
-      <section className="bg-slate-950 px-4 py-16 text-white sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-8 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-300">Ready to visit?</p>
-            <h2 className="mt-3 max-w-3xl font-heading text-4xl font-semibold">Come see the classrooms, meet the teachers, and feel the Crestview spirit.</h2>
+      <section id="programmes" className="bg-white px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <Reveal className="max-w-3xl">
+            <p className="text-xs font-black uppercase text-[#cf1017]">Learning with purpose</p>
+            <h2 className="mt-3 font-heading text-3xl font-black leading-tight text-[#06165b] sm:text-5xl">
+              Programmes that keep young minds moving.
+            </h2>
+            <p className="mt-4 text-base leading-7 text-slate-600">
+              Our academic foundation is strengthened by practical exploration, creativity, and the confidence to try something new.
+            </p>
+          </Reveal>
+          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {programmes.map((programme, index) => {
+              const Icon = programme.icon;
+              return (
+                <motion.article
+                  key={programme.title}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.15 }}
+                  transition={{ duration: 0.5, delay: index * 0.08 }}
+                  className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden">
+                    <Image src={programme.image} alt={programme.title} fill className="object-cover transition duration-500 group-hover:scale-105" sizes="(max-width: 768px) 100vw, 25vw" />
+                  </div>
+                  <div className="p-5">
+                    <div className={`flex size-10 items-center justify-center rounded-lg ${programme.accent}`}>
+                      <Icon className="size-5" aria-hidden />
+                    </div>
+                    <p className="mt-5 text-xs font-black uppercase text-[#cf1017]">{programme.kicker}</p>
+                    <h3 className="mt-1 font-heading text-xl font-black text-[#06165b]">{programme.title}</h3>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{programme.description}</p>
+                  </div>
+                </motion.article>
+              );
+            })}
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/contact" className={buttonVariants({ className: "bg-amber-400 text-slate-950 hover:bg-amber-300" })}>Contact admissions</Link>
-            <Link href="/login" className={buttonVariants({ variant: "secondary", className: "border-white/20 bg-white/10 text-white hover:bg-white/20" })}>Family portal</Link>
+        </div>
+      </section>
+
+      <section className="bg-[#06165b] px-4 py-20 text-white sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1fr_1.15fr] lg:items-center">
+          <Reveal>
+            <p className="text-xs font-black uppercase text-[#42d6d0]">A place to grow</p>
+            <h2 className="mt-3 font-heading text-3xl font-black leading-tight sm:text-5xl">One school journey. Four important stages.</h2>
+            <p className="mt-5 max-w-xl text-base leading-7 text-blue-100">
+              Every stage is designed around the needs of the learner in front of us: the right care, the right challenge, and room to flourish.
+            </p>
+            <Link href="/admissions" className={buttonVariants({ className: "mt-7 bg-[#ffd83d] text-[#06165b] hover:bg-[#ffe36b]" })}>
+              Start an application <ArrowRight className="size-4" aria-hidden />
+            </Link>
+          </Reveal>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {stages.map((stage, index) => (
+              <motion.div
+                key={stage.title}
+                initial={{ opacity: 0, x: 20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.08 }}
+                className={`rounded-lg border-l-4 ${stage.color} bg-white/10 p-5 backdrop-blur-sm`}
+              >
+                <GraduationCap className="size-6 text-[#ffd83d]" aria-hidden />
+                <h3 className="mt-5 text-lg font-black">{stage.title}</h3>
+                <p className="mt-1 text-sm text-blue-100">{stage.label}</p>
+              </motion.div>
+            ))}
           </div>
+        </div>
+      </section>
+
+      <section className="bg-[#eaf8f7] px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl overflow-hidden rounded-lg bg-white shadow-sm lg:grid-cols-2">
+          <div className="relative min-h-72">
+            <Image src="/landing/programmes/hybrid-curriculum.png" alt="Students learning together" fill className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
+          </div>
+          <Reveal className="p-7 sm:p-10 lg:p-14">
+            <p className="text-xs font-black uppercase text-[#cf1017]">Hybrid curriculum</p>
+            <h2 className="mt-3 font-heading text-3xl font-black leading-tight text-[#06165b]">Grounded at home. Ready for the world.</h2>
+            <p className="mt-5 leading-7 text-slate-600">
+              Cambridge and GES learning pathways work together to give students a confident academic foundation with a broad outlook.
+            </p>
+            <Link href="/admissions" className="mt-7 inline-flex items-center gap-2 text-sm font-black text-[#cf1017] transition hover:text-[#06165b]">
+              Learn about enrollment <ArrowRight className="size-4" aria-hidden />
+            </Link>
+          </Reveal>
+        </div>
+      </section>
+
+      <section className="bg-[#cf1017] px-4 py-16 text-white sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
+          <Reveal>
+            <p className="text-xs font-black uppercase text-[#ffd83d]">Admission in progress</p>
+            <h2 className="mt-3 font-heading text-3xl font-black leading-tight sm:text-5xl">Give your child a bright place to begin.</h2>
+            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-3 text-sm font-bold text-red-50">
+              <span className="flex items-center gap-2"><MapPin className="size-4 text-[#ffd83d]" aria-hidden />{siteConfig.address}</span>
+              <a href={siteConfig.phones[0].href} className="flex items-center gap-2 transition hover:text-[#ffd83d]"><Phone className="size-4 text-[#ffd83d]" aria-hidden />{siteConfig.phones[0].label}</a>
+            </div>
+          </Reveal>
+          <Link href="/admissions" className={buttonVariants({ className: "w-fit bg-[#ffd83d] text-[#06165b] hover:bg-white" })}>
+            Apply for admission <ArrowRight className="size-4" aria-hidden />
+          </Link>
         </div>
       </section>
     </main>
