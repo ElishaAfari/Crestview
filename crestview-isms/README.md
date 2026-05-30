@@ -21,7 +21,7 @@ Crestview ISMS is a Supabase-native, Next.js App Router PWA for school operation
 
 Copy `.env.local.example` to `.env.local` and fill in Supabase, OpenAI, Cloudinary, Firebase, payment, email, SMS, and app URL values.
 
-The service role key must only be used on the server, in server actions, API routes, or Supabase Edge Functions. Never expose it in client components.
+Use `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in browser-safe code. Keep `SUPABASE_SECRET_KEY` server-only for trusted server actions, API routes, or Supabase Edge Functions. Never expose it in client components. Legacy anon and service-role keys remain optional fallbacks during migration.
 
 ## Supabase Setup
 
