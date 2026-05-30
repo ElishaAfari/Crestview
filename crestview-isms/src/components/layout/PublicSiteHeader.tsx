@@ -45,7 +45,7 @@ export function PublicSiteHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
-          <Link href="/login" className={buttonVariants({ variant: "ghost", className: "text-[#06165b] hover:bg-[#f5f7ff] hover:text-[#06165b]" })}>
+          <Link href="/login" className={buttonVariants({ variant: "ghost", className: "!text-[#06165b] hover:bg-[#f5f7ff] hover:!text-[#06165b]" })}>
             <LogIn className="size-4" aria-hidden />
             Portal
           </Link>
