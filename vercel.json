@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "npm --prefix crestview-isms install",
+  "buildCommand": "npm --prefix crestview-isms run build",
+  "devCommand": "npm --prefix crestview-isms run dev",
+  "outputDirectory": "crestview-isms/.next",
+  "regions": ["lhr1"]
+}
