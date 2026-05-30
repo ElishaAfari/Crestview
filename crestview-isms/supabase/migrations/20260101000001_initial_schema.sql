@@ -36,23 +36,8 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.current_profile_role()
-RETURNS TEXT
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT r.name
-  FROM public.profiles p
-  JOIN public.roles r ON r.id = p.role_id
-  WHERE p.id = auth.uid()
-    AND p.deleted_at IS NULL
-  LIMIT 1;
-$$;
-
 CREATE TABLE public.roles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   display_name TEXT NOT NULL,
   description TEXT,
@@ -62,7 +47,7 @@ CREATE TABLE public.roles (
 );
 
 CREATE TABLE public.permissions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   description TEXT,
   module TEXT NOT NULL,
@@ -101,8 +86,23 @@ CREATE TABLE public.profiles (
   deleted_at TIMESTAMPTZ
 );
 
+CREATE OR REPLACE FUNCTION public.current_profile_role()
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT r.name
+  FROM public.profiles p
+  JOIN public.roles r ON r.id = p.role_id
+  WHERE p.id = auth.uid()
+    AND p.deleted_at IS NULL
+  LIMIT 1;
+$$;
+
 CREATE TABLE public.academic_years (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
@@ -113,7 +113,7 @@ CREATE TABLE public.academic_years (
 );
 
 CREATE TABLE public.departments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   code TEXT NOT NULL UNIQUE,
   head_id UUID REFERENCES public.profiles(id),
@@ -124,7 +124,7 @@ CREATE TABLE public.departments (
 );
 
 CREATE TABLE public.classrooms (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   grade_level TEXT NOT NULL,
   academic_year_id UUID REFERENCES public.academic_years(id),
@@ -137,7 +137,7 @@ CREATE TABLE public.classrooms (
 );
 
 CREATE TABLE public.subjects (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   code TEXT NOT NULL UNIQUE,
   department_id UUID REFERENCES public.departments(id),
@@ -148,7 +148,7 @@ CREATE TABLE public.subjects (
 );
 
 CREATE TABLE public.students (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL UNIQUE REFERENCES public.profiles(id) ON DELETE CASCADE,
   student_number TEXT NOT NULL UNIQUE,
   classroom_id UUID REFERENCES public.classrooms(id),
@@ -170,7 +170,7 @@ CREATE TABLE public.parent_students (
 );
 
 CREATE TABLE public.courses (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   subject_id UUID NOT NULL REFERENCES public.subjects(id),
   classroom_id UUID NOT NULL REFERENCES public.classrooms(id),
   teacher_id UUID REFERENCES public.profiles(id),
@@ -183,7 +183,7 @@ CREATE TABLE public.courses (
 );
 
 CREATE TABLE public.teacher_assignments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   teacher_id UUID NOT NULL REFERENCES public.profiles(id),
   course_id UUID NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
   role TEXT NOT NULL DEFAULT 'lead',
@@ -194,7 +194,7 @@ CREATE TABLE public.teacher_assignments (
 );
 
 CREATE TABLE public.assignments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   course_id UUID NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT,
@@ -207,7 +207,7 @@ CREATE TABLE public.assignments (
 );
 
 CREATE TABLE public.assignment_submissions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   assignment_id UUID NOT NULL REFERENCES public.assignments(id) ON DELETE CASCADE,
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   content TEXT,
@@ -222,7 +222,7 @@ CREATE TABLE public.assignment_submissions (
 );
 
 CREATE TABLE public.attendance_records (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   classroom_id UUID REFERENCES public.classrooms(id),
   course_id UUID REFERENCES public.courses(id),
@@ -237,7 +237,7 @@ CREATE TABLE public.attendance_records (
 );
 
 CREATE TABLE public.grade_items (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   course_id UUID NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'assessment',
@@ -250,7 +250,7 @@ CREATE TABLE public.grade_items (
 );
 
 CREATE TABLE public.grades (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   grade_item_id UUID NOT NULL REFERENCES public.grade_items(id) ON DELETE CASCADE,
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   score NUMERIC(6,2) NOT NULL CHECK (score >= 0),
@@ -263,7 +263,7 @@ CREATE TABLE public.grades (
 );
 
 CREATE TABLE public.timetables (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   classroom_id UUID NOT NULL REFERENCES public.classrooms(id),
   course_id UUID NOT NULL REFERENCES public.courses(id),
   day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
@@ -278,7 +278,7 @@ CREATE TABLE public.timetables (
 );
 
 CREATE TABLE public.invoices (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   invoice_number TEXT NOT NULL UNIQUE,
   amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
@@ -292,7 +292,7 @@ CREATE TABLE public.invoices (
 );
 
 CREATE TABLE public.payments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   invoice_id UUID NOT NULL REFERENCES public.invoices(id) ON DELETE CASCADE,
   provider TEXT NOT NULL,
   provider_reference TEXT NOT NULL UNIQUE,
@@ -306,7 +306,7 @@ CREATE TABLE public.payments (
 );
 
 CREATE TABLE public.payroll_periods (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   starts_on DATE NOT NULL,
   ends_on DATE NOT NULL,
@@ -318,7 +318,7 @@ CREATE TABLE public.payroll_periods (
 );
 
 CREATE TABLE public.payroll_items (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   payroll_period_id UUID NOT NULL REFERENCES public.payroll_periods(id) ON DELETE CASCADE,
   staff_profile_id UUID NOT NULL REFERENCES public.profiles(id),
   gross_pay NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -330,7 +330,7 @@ CREATE TABLE public.payroll_items (
 );
 
 CREATE TABLE public.job_postings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   department_id UUID REFERENCES public.departments(id),
   employment_type TEXT NOT NULL DEFAULT 'full_time',
@@ -343,7 +343,7 @@ CREATE TABLE public.job_postings (
 );
 
 CREATE TABLE public.admission_applications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   applicant_first_name TEXT NOT NULL,
   applicant_last_name TEXT NOT NULL,
   applying_grade TEXT NOT NULL,
@@ -358,7 +358,7 @@ CREATE TABLE public.admission_applications (
 );
 
 CREATE TABLE public.conversations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT,
   created_by UUID REFERENCES public.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -376,7 +376,7 @@ CREATE TABLE public.conversation_members (
 );
 
 CREATE TABLE public.messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
   sender_id UUID NOT NULL REFERENCES public.profiles(id),
   body TEXT NOT NULL,
@@ -387,7 +387,7 @@ CREATE TABLE public.messages (
 );
 
 CREATE TABLE public.notifications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   recipient_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   body TEXT NOT NULL,
@@ -400,7 +400,7 @@ CREATE TABLE public.notifications (
 );
 
 CREATE TABLE public.files (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id UUID REFERENCES public.profiles(id),
   bucket TEXT NOT NULL,
   path TEXT NOT NULL,
@@ -413,7 +413,7 @@ CREATE TABLE public.files (
 );
 
 CREATE TABLE public.reports (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID REFERENCES public.students(id),
   academic_year_id UUID REFERENCES public.academic_years(id),
   term TEXT NOT NULL,
@@ -426,7 +426,7 @@ CREATE TABLE public.reports (
 );
 
 CREATE TABLE public.ai_analytics (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   academic_year_id UUID REFERENCES public.academic_years(id),
   term TEXT,
@@ -441,7 +441,7 @@ CREATE TABLE public.ai_analytics (
 );
 
 CREATE TABLE public.ai_rate_limits (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   route TEXT NOT NULL,
   window_start TIMESTAMPTZ NOT NULL,
@@ -453,7 +453,7 @@ CREATE TABLE public.ai_rate_limits (
 );
 
 CREATE TABLE public.audit_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_id UUID REFERENCES public.profiles(id),
   action TEXT NOT NULL,
   table_name TEXT NOT NULL,

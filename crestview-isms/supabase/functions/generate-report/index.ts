@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb } from "https://cdn.skypack.dev/pdf-lib@1.17.1?dts";
+import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 serve(async (req) => {
