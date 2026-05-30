@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { APP_URL } from "@/lib/constants";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { loginSchema, resetPasswordSchema, updatePasswordSchema } from "@/lib/validations/auth.schema";
 
@@ -31,6 +32,16 @@ export async function signInAction(_: SignInState, formData: FormData): Promise<
     const { data: role } = await supabase.from("roles").select("name").eq("id", profile.role_id).maybeSingle();
     if (typeof role?.name === "string") roleName = role.name;
   }
+
+  const admin = createAdminClient();
+  await admin.from("profiles").update({
+    last_seen_at: new Date().toISOString(),
+    onboarding_completed_at: new Date().toISOString()
+  }).eq("id", data.user.id);
+  await admin.from("portal_invitations").update({
+    status: "active",
+    accepted_at: new Date().toISOString()
+  }).eq("auth_user_id", data.user.id).eq("status", "invited");
 
   const roleHome: Record<string, string> = { teacher: "/teacher", student: "/student", parent: "/parent" };
   redirect(roleHome[roleName ?? ""] ?? "/admin");

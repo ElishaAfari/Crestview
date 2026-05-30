@@ -4,7 +4,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const redirectTo = requestUrl.searchParams.get("next") ?? "/admin";
+  const requestedRedirect = requestUrl.searchParams.get("next") ?? "/admin";
+  const redirectTo = requestedRedirect.startsWith("/") && !requestedRedirect.startsWith("//") ? requestedRedirect : "/admin";
 
   if (code) {
     const supabase = await createServerSupabaseClient();

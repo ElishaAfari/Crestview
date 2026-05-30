@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Settings,
   Sparkles,
+  UserRoundCog,
   Users
 } from "lucide-react";
 import type { NavItem } from "@/types/ui.types";
@@ -18,6 +19,7 @@ export const navigationItems: NavItem[] = [
   { title: "Dashboard", href: "/admin", icon: LayoutDashboard, roles: ["super_admin", "school_admin", "hr_staff", "finance_officer", "it_support", "librarian"] },
   { title: "Students", href: "/admin/students", icon: GraduationCap, roles: ["super_admin", "school_admin"] },
   { title: "Staff", href: "/admin/staff", icon: Users, roles: ["super_admin", "school_admin", "hr_staff"] },
+  { title: "Portal Access", href: "/admin/access", icon: UserRoundCog, roles: ["super_admin", "school_admin"] },
   { title: "Attendance", href: "/admin/attendance", icon: ClipboardCheck, roles: ["super_admin", "school_admin"] },
   { title: "Grades", href: "/admin/grades", icon: BarChart3, roles: ["super_admin", "school_admin"] },
   { title: "Fees", href: "/admin/fees", icon: CreditCard, roles: ["super_admin", "school_admin", "finance_officer"] },

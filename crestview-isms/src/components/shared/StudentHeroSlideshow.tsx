@@ -5,10 +5,10 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 const slides = [
-  "/landing/students-outdoor-group.jpg",
-  "/landing/students-with-teacher.jpg",
-  "/landing/students-classroom-window.jpg",
-  "/landing/students-classroom-smiling.jpg"
+  "/landing/hero/hybrid-curriculum-hero.png",
+  "/landing/hero/robotics-hero.png",
+  "/landing/hero/stem-hero.png",
+  "/landing/hero/music-hero.png"
 ];
 
 export function StudentHeroSlideshow() {

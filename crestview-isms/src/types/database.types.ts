@@ -43,6 +43,12 @@ type ProfileRow = RowWithTimestamps & {
   emergency_contact: Json | null;
   is_active: boolean | null;
   last_seen_at: string | null;
+  preferred_name: string | null;
+  pronouns: string | null;
+  timezone: string | null;
+  locale: string | null;
+  onboarding_completed_at: string | null;
+  metadata: Json | null;
 };
 
 export type Database = {
