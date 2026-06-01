@@ -22,7 +22,7 @@ export async function createStaffAction(formData: FormData) {
   if (!staffRole) return { ok: false, message: "The selected staff role is not configured." };
 
   const { data: invite, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${APP_URL}/api/auth/callback?next=/reset-password`,
+    redirectTo: `${APP_URL}/reset-password`,
     data: { first_name: result.data.firstName.trim(), last_name: result.data.lastName.trim(), role: result.data.role }
   });
   if (inviteError || !invite.user) return { ok: false, message: "The staff invitation could not be sent. The email may already be in use." };

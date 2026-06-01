@@ -12,7 +12,7 @@ export function MobileNav() {
   const items = role ? navigationItems.filter((item) => item.roles.includes(role)).slice(0, 5) : [];
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-white/10 bg-slate-950/95 px-2 py-2 lg:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-[var(--portal-border)] bg-[var(--portal-shell)] px-2 py-2 lg:hidden">
       {items.map((item) => {
         const Icon = item.icon;
         const active = pathname === item.href;

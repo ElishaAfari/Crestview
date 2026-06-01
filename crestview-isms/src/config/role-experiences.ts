@@ -14,8 +14,8 @@ export const roleExperiences: RoleExperience[] = [
   { role: "teacher", label: "Teacher", home: "/teacher", summary: "Classroom delivery and learner progress.", access: ["Classes and attendance", "Grades and assignments", "Lesson planner"] },
   { role: "student", label: "Student", home: "/student", summary: "Personal learning workspace.", access: ["Assignments", "Attendance and grades", "AI tutor"] },
   { role: "parent", label: "Parent or Guardian", home: "/parent", summary: "Linked-child visibility and school communication.", access: ["Children", "Fees", "Messages"] },
-  { role: "hr_staff", label: "HR Staff", home: "/admin", summary: "Staff-focused operational access.", access: ["Staff directory", "Dashboard", "Calendar"] },
-  { role: "finance_officer", label: "Finance Officer", home: "/admin/fees", summary: "Billing and fee operations.", access: ["Fees and invoices", "Dashboard", "Calendar"] },
-  { role: "librarian", label: "Librarian", home: "/admin", summary: "Library-facing operational account.", access: ["Dashboard", "Calendar"] },
-  { role: "it_support", label: "IT Support", home: "/admin/settings", summary: "Platform support and settings.", access: ["Settings", "Dashboard", "Calendar"] }
+  { role: "hr_staff", label: "HR Staff", home: "/hr", summary: "People operations and recruitment workspace.", access: ["Staff profiles", "Leave and recruitment", "Payroll periods"] },
+  { role: "finance_officer", label: "Finance Officer", home: "/finance", summary: "Billing and finance operations workspace.", access: ["Invoices and payments", "Expenses", "Payroll review"] },
+  { role: "librarian", label: "Librarian", home: "/library", summary: "Library catalog and circulation workspace.", access: ["Catalog and copies", "Loans", "Fines"] },
+  { role: "it_support", label: "IT Support", home: "/it", summary: "Technology operations and platform support.", access: ["Devices", "Support tickets", "Integrations and audit"] }
 ];

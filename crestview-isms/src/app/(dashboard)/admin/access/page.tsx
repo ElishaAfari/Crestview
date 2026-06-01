@@ -1,5 +1,6 @@
 import { ExternalLink, ShieldCheck, UserRoundCog } from "lucide-react";
 import Link from "next/link";
+import { PortalAccountControls } from "@/components/forms/PortalAccountControls";
 import { PortalInviteForm } from "@/components/forms/PortalInviteForm";
 import { PageWrapper } from "@/components/layout/PageWrapper";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -11,13 +12,13 @@ export default async function AdminAccessPage() {
   const accounts = await listPortalAccounts();
 
   return (
-    <PageWrapper title="Portal Access" description="Invite beta testers, review account status, and verify the workspace provided to each school role.">
+    <PageWrapper title="User Management" description="Create portal accounts, assign role-specific workspaces, resend secure onboarding, and suspend access from one directory.">
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <Card>
-          <CardHeader><CardTitle>Invite beta tester</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Create portal user</CardTitle></CardHeader>
           <CardContent>
             <PortalInviteForm />
-            <p className="mt-5 text-xs leading-5 text-slate-500">Student and parent beta accounts can inspect their portal immediately. Operational enrollment and guardian links can be added later from the student workflow.</p>
+            <p className="mt-5 text-xs leading-5 text-slate-500">The assigned role takes effect immediately. The user receives a secure email to choose a password and enter their workspace.</p>
           </CardContent>
         </Card>
         <Card>
@@ -26,7 +27,7 @@ export default async function AdminAccessPage() {
             {accounts.length ? (
               <div className="overflow-x-auto rounded-lg border border-white/10">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-white/[0.04] text-xs uppercase text-slate-400"><tr><th className="px-4 py-3">Account</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Home</th></tr></thead>
+                  <thead className="bg-white/[0.04] text-xs uppercase text-slate-400"><tr><th className="px-4 py-3">Account</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Home</th><th className="px-4 py-3">Controls</th></tr></thead>
                   <tbody>
                     {accounts.map((account) => (
                       <tr key={account.id} className="border-t border-white/10">
@@ -34,6 +35,7 @@ export default async function AdminAccessPage() {
                         <td className="px-4 py-3 text-slate-300">{account.role}</td>
                         <td className="px-4 py-3"><StatusBadge status={account.status} /></td>
                         <td className="px-4 py-3"><Link href={account.home} className="inline-flex items-center gap-1 text-xs font-bold text-blue-300 hover:text-white">{account.home}<ExternalLink className="size-3" aria-hidden /></Link></td>
+                        <td className="px-4 py-3"><PortalAccountControls accountId={account.id} role={account.roleName} status={account.status} isSelf={account.isSelf} /></td>
                       </tr>
                     ))}
                   </tbody>

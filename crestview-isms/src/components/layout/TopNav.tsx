@@ -16,14 +16,14 @@ export function TopNav() {
   const displayName = profile ? `${profile.first_name} ${profile.last_name}` : "School workspace";
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/80 px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 border-b border-[var(--portal-border)] bg-[var(--portal-shell)] px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" className="lg:hidden" onClick={toggleSidebar} aria-label="Open navigation">
           <Menu className="size-5" aria-hidden />
         </Button>
         <div>
-          <p className="text-sm font-semibold text-white">{displayName}</p>
-          <p className="text-xs text-slate-400">{role ? ROLES[role].label : "Loading workspace..."}</p>
+          <p className="text-sm font-semibold text-[var(--portal-text)]">{displayName}</p>
+          <p className="text-xs text-[var(--portal-muted)]">{role ? ROLES[role].label : "Loading workspace..."}</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <NotificationBell />

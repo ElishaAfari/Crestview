@@ -23,7 +23,7 @@ export async function createStudentAction(formData: FormData) {
   if (!studentRole) return { ok: false, message: "The student role is not configured." };
 
   const { data: invite, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${APP_URL}/api/auth/callback?next=/reset-password`,
+    redirectTo: `${APP_URL}/reset-password`,
     data: { first_name: result.data.firstName.trim(), last_name: result.data.lastName.trim(), role: "student" }
   });
   if (inviteError || !invite.user) return { ok: false, message: "The student invitation could not be sent. The email may already be in use." };

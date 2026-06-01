@@ -11,6 +11,11 @@ export const inviteRoleSchema = z.enum([
   "it_support"
 ]);
 
+export const managedRoleSchema = z.enum([
+  "super_admin",
+  ...inviteRoleSchema.options
+]);
+
 export const bootstrapAdminSchema = z.object({
   firstName: z.string().trim().min(2, "Enter your first name."),
   lastName: z.string().trim().min(2, "Enter your last name."),
@@ -28,4 +33,14 @@ export const portalInviteSchema = z.object({
   lastName: z.string().trim().min(2, "Enter the last name."),
   email: z.string().trim().email("Enter a valid email address."),
   role: inviteRoleSchema
+});
+
+export const updatePortalAccountSchema = z.object({
+  accountId: z.string().uuid("Select a valid portal account."),
+  role: managedRoleSchema,
+  status: z.enum(["active", "disabled"])
+});
+
+export const resendPortalAccessSchema = z.object({
+  accountId: z.string().uuid("Select a valid portal account.")
 });

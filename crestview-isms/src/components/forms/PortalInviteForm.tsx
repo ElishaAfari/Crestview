@@ -38,7 +38,7 @@ export function PortalInviteForm() {
       </div>
       <div className="sm:col-span-2 flex flex-col items-start gap-3">
         <Button type="submit" disabled={pending}>
-          <Send className="size-4" aria-hidden />{pending ? "Sending invitation..." : "Send beta invitation"}
+          <Send className="size-4" aria-hidden />{pending ? "Creating account..." : "Create user and send access"}
         </Button>
         {state.message ? <p className={`text-sm ${state.ok ? "text-emerald-300" : "text-red-300"}`}>{state.message}</p> : null}
       </div>

@@ -43,7 +43,15 @@ export async function signInAction(_: SignInState, formData: FormData): Promise<
     accepted_at: new Date().toISOString()
   }).eq("auth_user_id", data.user.id).eq("status", "invited");
 
-  const roleHome: Record<string, string> = { teacher: "/teacher", student: "/student", parent: "/parent" };
+  const roleHome: Record<string, string> = {
+    teacher: "/teacher",
+    student: "/student",
+    parent: "/parent",
+    hr_staff: "/hr",
+    finance_officer: "/finance",
+    librarian: "/library",
+    it_support: "/it"
+  };
   redirect(roleHome[roleName ?? ""] ?? "/admin");
 }
 
@@ -59,7 +67,7 @@ export async function requestPasswordResetAction(_: SignInState, formData: FormD
 
   const supabase = await createServerSupabaseClient();
   const { error } = await supabase.auth.resetPasswordForEmail(result.data.email, {
-    redirectTo: `${APP_URL}/api/auth/callback?next=/reset-password`
+    redirectTo: `${APP_URL}/reset-password`
   });
 
   return error

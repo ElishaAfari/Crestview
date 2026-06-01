@@ -15,12 +15,12 @@ export function Sidebar() {
   const home = role ? ROLES[role].dashboard : "/";
 
   return (
-    <aside className="hidden min-h-screen w-72 border-r border-white/10 bg-slate-950/80 px-4 py-5 lg:block">
+    <aside className="hidden min-h-screen w-72 border-r border-[var(--portal-border)] bg-[var(--portal-shell)] px-4 py-5 lg:block">
       <Link href={home} className="flex items-center gap-3 px-2">
         <span className="relative size-10 overflow-hidden rounded-lg bg-white">
           <Image src="/crestview-logo.png" alt="" fill sizes="40px" className="object-contain p-1" />
         </span>
-        <span className="font-heading text-base font-semibold text-white">Crestview ISMS</span>
+        <span className="font-heading text-base font-semibold text-[var(--portal-text)]">Crestview ISMS</span>
       </Link>
       <nav className="mt-8 space-y-1">
         {items.map((item) => {
@@ -31,7 +31,7 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-slate-400 transition hover:bg-white/10 hover:text-white",
+                "flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[var(--portal-muted)] transition hover:bg-white/10 hover:text-[var(--portal-text)]",
                 active && "bg-blue-500/15 text-blue-100"
               )}
             >
