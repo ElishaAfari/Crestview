@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRoles } from "@/features/auth/guards";
+import { requireRoles, requireUser } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { RoleName } from "@/types/database.types";
 
@@ -40,4 +40,32 @@ export async function broadcastNotificationAction(formData: FormData) {
   if (error) return { ok: false, message: "The broadcast could not be queued." };
   revalidatePath("/admin/settings");
   return { ok: true, message: `Broadcast queued for ${recipients.length} recipient${recipients.length === 1 ? "" : "s"}.` };
+}
+
+export async function markNotificationReadAction(formData: FormData) {
+  const notificationId = String(formData.get("notificationId") ?? "");
+  if (!notificationId) return { ok: false, message: "Select a notification." };
+
+  const { user } = await requireUser();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("id", notificationId)
+    .eq("recipient_id", user.id);
+
+  return error ? { ok: false, message: "Notification could not be updated." } : { ok: true, message: "Notification marked as read." };
+}
+
+export async function markAllNotificationsReadAction() {
+  const { user } = await requireUser();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("recipient_id", user.id)
+    .is("read_at", null)
+    .is("deleted_at", null);
+
+  return error ? { ok: false, message: "Notifications could not be updated." } : { ok: true, message: "Notifications marked as read." };
 }

@@ -50,7 +50,7 @@ export async function getAdminDashboardData() {
   await requireRoles(["super_admin", "school_admin"]);
   const admin = createAdminClient();
   const today = new Date().toISOString().slice(0, 10);
-  const [students, staff, invoicesOpen, invoicesAll, paidInvoices, attendance, admissions, events, audit] = await Promise.all([
+  const [students, staff, invoicesOpen, invoicesAll, paidInvoices, attendance, admissions, recruitment, events, audit] = await Promise.all([
     admin.from("students").select("*", { count: "exact", head: true }).is("deleted_at", null),
     admin.from("profiles").select("roles(name)", { count: "exact" }).is("deleted_at", null),
     admin.from("invoices").select("*", { count: "exact", head: true }).in("status", ["draft", "open", "overdue"]).is("deleted_at", null),
@@ -58,6 +58,7 @@ export async function getAdminDashboardData() {
     admin.from("invoices").select("amount").eq("status", "paid").is("deleted_at", null),
     admin.from("attendance_records").select("status").eq("attendance_date", today).is("deleted_at", null),
     admin.from("admission_applications").select("*", { count: "exact", head: true }).in("status", ["submitted", "reviewing"]).is("deleted_at", null),
+    admin.from("job_applications").select("*", { count: "exact", head: true }).in("status", ["submitted", "screening", "interview", "offer"]).is("deleted_at", null),
     admin.from("events").select("id,title,starts_at").is("deleted_at", null).neq("status", "cancelled").order("starts_at", { ascending: true }).limit(5),
     admin.from("audit_logs").select("action,table_name,created_at").order("created_at", { ascending: false }).limit(5)
   ]);
@@ -79,7 +80,8 @@ export async function getAdminDashboardData() {
       openInvoices: invoicesOpen.count ?? 0,
       attendanceRate,
       collectionRate,
-      openAdmissions: admissions.count ?? 0
+      openAdmissions: admissions.count ?? 0,
+      openRecruitment: recruitment.count ?? 0
     },
     events: (events.data ?? []) as Array<{ id: string; title: string; starts_at: string }>,
     activity: (audit.data ?? []).map((item) => `${item.action} ${item.table_name}`).slice(0, 5)
@@ -152,6 +154,76 @@ export async function listReportsForAdmin() {
       term: report.term,
       summary: report.summary ?? "Ready for review",
       createdAt: report.created_at ? new Intl.DateTimeFormat("en-GH", { dateStyle: "medium" }).format(new Date(report.created_at)) : "Just now"
+    };
+  });
+}
+
+export async function listAdmissionApplicationsForAdmin() {
+  await requireRoles(["super_admin", "school_admin"]);
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("admission_applications")
+    .select("id,applicant_first_name,applicant_last_name,applying_grade,guardian_email,guardian_phone,status,submitted_at,notes,source")
+    .is("deleted_at", null)
+    .order("submitted_at", { ascending: false })
+    .limit(100);
+
+  return ((data ?? []) as Array<{
+    id: string;
+    applicant_first_name: string;
+    applicant_last_name: string;
+    applying_grade: string;
+    guardian_email: string;
+    guardian_phone: string | null;
+    status: string;
+    submitted_at: string | null;
+    notes: string | null;
+    source: string | null;
+  }>).map((application) => ({
+    id: application.id,
+    applicant: `${application.applicant_first_name} ${application.applicant_last_name}`,
+    applyingGrade: application.applying_grade,
+    guardian: application.guardian_email,
+    phone: application.guardian_phone ?? "Not provided",
+    status: application.status,
+    submittedAt: application.submitted_at ? new Intl.DateTimeFormat("en-GH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(application.submitted_at)) : "Not recorded",
+    notes: application.notes ?? "",
+    source: application.source ?? "website"
+  }));
+}
+
+export async function listJobApplicationsForAdmin() {
+  await requireRoles(["super_admin", "school_admin"]);
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("job_applications")
+    .select("id,first_name,last_name,email,phone,cover_letter,status,submitted_at,job_postings(title,employment_type)")
+    .is("deleted_at", null)
+    .order("submitted_at", { ascending: false })
+    .limit(100);
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string | null;
+    cover_letter: string | null;
+    status: string;
+    submitted_at: string | null;
+    job_postings: Relation<{ title: string | null; employment_type: string | null }>;
+  }>).map((application) => {
+    const posting = one(application.job_postings);
+    return {
+      id: application.id,
+      applicant: `${application.first_name} ${application.last_name}`,
+      email: application.email,
+      phone: application.phone ?? "Not provided",
+      role: posting?.title ?? "Open application",
+      employmentType: posting?.employment_type?.replaceAll("_", " ") ?? "Not specified",
+      status: application.status,
+      submittedAt: application.submitted_at ? new Intl.DateTimeFormat("en-GH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(application.submitted_at)) : "Not recorded",
+      coverLetter: application.cover_letter ?? ""
     };
   });
 }

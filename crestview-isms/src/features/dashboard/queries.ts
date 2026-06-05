@@ -6,6 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 type Relation<T> = T | T[] | null;
 type ProfileJoin = { first_name: string; last_name: string };
 type SelectOption = { id: string; label: string };
+export type TeacherAttendanceStudent = { id: string; studentNumber: string; name: string };
+export type TeacherAttendanceCourse = { id: string; label: string; classroomId: string; classroomLabel: string; students: TeacherAttendanceStudent[] };
 
 function one<T>(value: Relation<T> | undefined) {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
@@ -297,6 +299,73 @@ export async function listTeacherFormOptions(): Promise<{ courses: SelectOption[
       return { id: student.id, label: `${profile ? `${profile.first_name} ${profile.last_name}` : "Student"} (${student.student_number})` };
     })
   };
+}
+
+export async function listTeacherAttendanceRoster(): Promise<TeacherAttendanceCourse[]> {
+  const { user } = await requireRoles(["teacher"]);
+  const admin = createAdminClient();
+  const [leadCourses, assignedCourses] = await Promise.all([
+    admin
+      .from("courses")
+      .select("id,term,classroom_id,subjects(name),classrooms(name,grade_level)")
+      .eq("teacher_id", user.id)
+      .is("deleted_at", null)
+      .order("term"),
+    admin
+      .from("teacher_assignments")
+      .select("courses(id,term,classroom_id,subjects(name),classrooms(name,grade_level))")
+      .eq("teacher_id", user.id)
+      .is("deleted_at", null)
+  ]);
+
+  type CourseRow = {
+    id: string;
+    term: string;
+    classroom_id: string;
+    subjects: Relation<{ name: string }>;
+    classrooms: Relation<{ name: string; grade_level: string }>;
+  };
+  const courseMap = new Map<string, CourseRow>();
+  for (const course of (leadCourses.data ?? []) as unknown as CourseRow[]) courseMap.set(course.id, course);
+  for (const row of (assignedCourses.data ?? []) as unknown as Array<{ courses: Relation<CourseRow> }>) {
+    const course = one(row.courses);
+    if (course) courseMap.set(course.id, course);
+  }
+
+  const courses = Array.from(courseMap.values());
+  const classroomIds = Array.from(new Set(courses.map((course) => course.classroom_id).filter(Boolean)));
+  const { data: students } = classroomIds.length
+    ? await admin
+        .from("students")
+        .select("id,student_number,classroom_id,profiles!students_profile_id_fkey(first_name,last_name)")
+        .in("classroom_id", classroomIds)
+        .eq("status", "active")
+        .is("deleted_at", null)
+        .order("student_number")
+    : { data: [] };
+
+  const studentsByClassroom = new Map<string, TeacherAttendanceStudent[]>();
+  for (const student of (students ?? []) as unknown as Array<{ id: string; student_number: string; classroom_id: string; profiles: Relation<ProfileJoin> }>) {
+    const profile = one(student.profiles);
+    const roster = studentsByClassroom.get(student.classroom_id) ?? [];
+    roster.push({
+      id: student.id,
+      studentNumber: student.student_number,
+      name: profile ? `${profile.first_name} ${profile.last_name}` : student.student_number
+    });
+    studentsByClassroom.set(student.classroom_id, roster);
+  }
+
+  return courses.map((course) => {
+    const classroom = one(course.classrooms);
+    return {
+      id: course.id,
+      label: `${one(course.subjects)?.name ?? "Course"} - ${classroom?.name ?? "Class"} (${course.term})`,
+      classroomId: course.classroom_id,
+      classroomLabel: `${classroom?.grade_level ?? "Class"} - ${classroom?.name ?? "Class"}`,
+      students: studentsByClassroom.get(course.classroom_id) ?? []
+    };
+  });
 }
 
 export async function listMyNotifications() {

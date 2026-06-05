@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BookOpen,
+  BriefcaseBusiness,
   CalendarDays,
   ClipboardCheck,
   CreditCard,
@@ -10,6 +11,7 @@ import {
   MessageSquare,
   Settings,
   Sparkles,
+  UserCheck,
   UserRoundCog,
   Users
 } from "lucide-react";
@@ -17,6 +19,8 @@ import type { NavItem } from "@/types/ui.types";
 
 export const navigationItems: NavItem[] = [
   { title: "Dashboard", href: "/admin", icon: LayoutDashboard, roles: ["super_admin", "school_admin"] },
+  { title: "Admissions", href: "/admin/admissions", icon: UserCheck, roles: ["super_admin", "school_admin"] },
+  { title: "Recruitment", href: "/admin/recruitment", icon: BriefcaseBusiness, roles: ["super_admin", "school_admin"] },
   { title: "Students", href: "/admin/students", icon: GraduationCap, roles: ["super_admin", "school_admin"] },
   { title: "Staff", href: "/admin/staff", icon: Users, roles: ["super_admin", "school_admin", "hr_staff"] },
   { title: "User Management", href: "/admin/access", icon: UserRoundCog, roles: ["super_admin", "school_admin"] },

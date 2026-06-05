@@ -1,11 +1,12 @@
-import { CalendarPlus, FilePlus2, UserPlus } from "lucide-react";
+import { BriefcaseBusiness, CalendarPlus, FilePlus2, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 const actions = [
-  { label: "New Student", icon: UserPlus, href: "/admin/students#add-student" },
+  { label: "Review Admissions", icon: UserCheck, href: "/admin/admissions" },
+  { label: "Review Recruitment", icon: BriefcaseBusiness, href: "/admin/recruitment" },
   { label: "Create Invoice", icon: FilePlus2, href: "/admin/fees#create-invoice" },
   { label: "Schedule Event", icon: CalendarPlus, href: "/admin/settings#schedule-event" }
 ];
@@ -16,7 +17,7 @@ export function QuickActions() {
       <CardHeader>
         <CardTitle>Quick Actions</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-3">
+      <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {actions.map((action) => {
           const Icon = action.icon;
           return (

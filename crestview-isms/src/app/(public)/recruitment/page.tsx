@@ -1,4 +1,5 @@
 import { Briefcase, CalendarDays, MapPin } from "lucide-react";
+import { JobApplicationForm } from "@/components/forms/JobApplicationForm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { siteConfig } from "@/config/site";
 
@@ -39,14 +40,22 @@ export default async function RecruitmentPage() {
                   <span className="flex items-center gap-1.5"><MapPin className="size-4 text-[#cf1017]" aria-hidden />{siteConfig.address}</span>
                   {job.closes_on ? <span className="flex items-center gap-1.5"><CalendarDays className="size-4 text-[#cf1017]" aria-hidden />Applications close {job.closes_on}</span> : null}
                 </div>
+                <div className="mt-6 rounded-lg border border-slate-200 bg-[#f7f9fc] p-4">
+                  <JobApplicationForm jobPostingId={job.id} compact />
+                </div>
               </article>
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <Briefcase className="mx-auto size-7 text-[#cf1017]" aria-hidden />
-            <h2 className="mt-4 font-heading text-2xl font-black text-[#06165b]">No open roles at the moment</h2>
-            <p className="mt-2 text-sm text-slate-600">Please check back for future opportunities.</p>
+          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="max-w-3xl">
+              <Briefcase className="size-7 text-[#cf1017]" aria-hidden />
+              <h2 className="mt-4 font-heading text-2xl font-black text-[#06165b]">Send a professional profile</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Teachers and future school staff can apply here for upcoming Crestview opportunities.</p>
+            </div>
+            <div className="mt-6">
+              <JobApplicationForm />
+            </div>
           </div>
         )}
       </section>
