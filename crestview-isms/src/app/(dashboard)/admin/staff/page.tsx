@@ -9,7 +9,7 @@ export default async function AdminStaffPage() {
   return (
     <PageWrapper title="Staff" description="Manage teacher and operational staff profiles.">
       <Card><CardHeader><CardTitle>Staff Directory</CardTitle></CardHeader><CardContent><StaffTable data={staff} /></CardContent></Card>
-      <Card><CardHeader><CardTitle>Add Staff</CardTitle></CardHeader><CardContent><StaffForm /></CardContent></Card>
+      <Card id="add-staff"><CardHeader><CardTitle>Add Staff</CardTitle></CardHeader><CardContent><StaffForm /></CardContent></Card>
     </PageWrapper>
   );
 }

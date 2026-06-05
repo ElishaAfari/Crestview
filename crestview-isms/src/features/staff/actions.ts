@@ -11,6 +11,9 @@ export async function createStaffAction(formData: FormData) {
     lastName: String(formData.get("lastName") ?? ""),
     email: String(formData.get("email") ?? ""),
     phone: String(formData.get("phone") ?? "") || undefined,
+    staffNumber: String(formData.get("staffNumber") ?? "") || undefined,
+    jobTitle: String(formData.get("jobTitle") ?? "") || undefined,
+    employmentType: String(formData.get("employmentType") ?? "full_time"),
     role: String(formData.get("role") ?? "")
   });
   if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the staff details." };
@@ -27,7 +30,7 @@ export async function createStaffAction(formData: FormData) {
   });
   if (inviteError || !invite.user) return { ok: false, message: "The staff invitation could not be sent. The email may already be in use." };
 
-  const { error } = await admin.from("profiles").insert({
+  const { error: profileError } = await admin.from("profiles").insert({
     id: invite.user.id,
     role_id: staffRole.id,
     first_name: result.data.firstName.trim(),
@@ -35,11 +38,21 @@ export async function createStaffAction(formData: FormData) {
     email,
     phone: result.data.phone?.trim() || null
   });
+  const staffNumber = result.data.staffNumber?.trim()
+    || `CIS-STF-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 5).toUpperCase()}`;
+  const { error: staffProfileError } = profileError ? { error: profileError } : await admin.from("staff_profiles").insert({
+    profile_id: invite.user.id,
+    staff_number: staffNumber,
+    job_title: result.data.jobTitle?.trim() || result.data.role.replaceAll("_", " "),
+    employment_type: result.data.employmentType,
+    hire_date: new Date().toISOString().slice(0, 10),
+    metadata: { role: result.data.role }
+  });
 
-  if (error) {
+  if (profileError || staffProfileError) {
     await admin.auth.admin.deleteUser(invite.user.id);
-    return { ok: false, message: "The staff profile could not be created." };
+    return { ok: false, message: "The staff profile could not be created. Check the staff number and role." };
   }
 
-  return { ok: true, message: "Staff member invited." };
+  return { ok: true, message: `Staff member invited with staff number ${staffNumber}.` };
 }

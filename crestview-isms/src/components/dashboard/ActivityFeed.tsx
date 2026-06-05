@@ -7,7 +7,9 @@ const activities = [
   "Fee reminder queued for five guardians"
 ];
 
-export function ActivityFeed() {
+export function ActivityFeed({ items }: { items?: string[] }) {
+  const displayActivities = items?.length ? items : activities;
+
   return (
     <Card>
       <CardHeader>
@@ -15,7 +17,7 @@ export function ActivityFeed() {
       </CardHeader>
       <CardContent>
         <ol className="space-y-4">
-          {activities.map((activity) => (
+          {displayActivities.map((activity) => (
             <li key={activity} className="flex gap-3 text-sm text-slate-300">
               <span className="mt-1 size-2 rounded-full bg-blue-400" />
               {activity}

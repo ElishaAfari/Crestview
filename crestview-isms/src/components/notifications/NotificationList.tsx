@@ -1,14 +1,14 @@
+import { EmptyState } from "@/components/shared/EmptyState";
 import { NotificationItem } from "./NotificationItem";
 
-const notifications = [
-  { title: "Grade published", body: "Mathematics midterm results are available.", unread: true },
-  { title: "Fee reminder", body: "Term invoice reminders were sent to guardians.", unread: false }
-];
+type NotificationRow = { id: string; title: string; body: string; unread?: boolean };
 
-export function NotificationList() {
+export function NotificationList({ notifications = [] }: { notifications?: NotificationRow[] }) {
+  if (!notifications.length) return <EmptyState title="No messages yet" message="School messages and broadcasts will appear here." />;
+
   return (
     <div className="space-y-3">
-      {notifications.map((notification) => <NotificationItem key={notification.title} {...notification} />)}
+      {notifications.map((notification) => <NotificationItem key={notification.id} {...notification} />)}
     </div>
   );
 }

@@ -7,14 +7,21 @@ const events = [
   { date: "Jun 10", title: "Term reports" }
 ];
 
-export function CalendarWidget() {
+export function CalendarWidget({ items }: { items?: Array<{ id: string; title: string; starts_at: string }> }) {
+  const displayEvents = items?.length
+    ? items.map((event) => ({
+      date: new Intl.DateTimeFormat("en-GH", { month: "short", day: "2-digit" }).format(new Date(event.starts_at)),
+      title: event.title
+    }))
+    : events;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Calendar</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {events.map((event) => (
+        {displayEvents.map((event) => (
           <div key={event.title} className="flex items-center justify-between gap-4 rounded-lg bg-white/[0.03] p-3">
             <span className="text-sm text-slate-200">{event.title}</span>
             <Badge tone="blue">{event.date}</Badge>

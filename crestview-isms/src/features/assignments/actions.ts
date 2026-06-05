@@ -1,6 +1,8 @@
 "use server";
 
-import { requireUser } from "@/features/auth/guards";
+import { revalidatePath } from "next/cache";
+import { requireRoles } from "@/features/auth/guards";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { assignmentSchema } from "@/lib/validations/assignment.schema";
 
 export async function createAssignmentAction(formData: FormData) {
@@ -15,8 +17,9 @@ export async function createAssignmentAction(formData: FormData) {
 
   if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the assignment details." };
 
-  const { supabase, user } = await requireUser();
-  const { error } = await supabase.from("assignments").insert({
+  const { user } = await requireRoles(["super_admin", "school_admin", "teacher"]);
+  const admin = createAdminClient();
+  const { error } = await admin.from("assignments").insert({
     course_id: result.data.courseId,
     title: result.data.title.trim(),
     description: result.data.description?.trim() || null,
@@ -25,7 +28,8 @@ export async function createAssignmentAction(formData: FormData) {
     created_by: user.id
   });
 
-  return error
-    ? { ok: false, message: "The assignment could not be created. Check the course and your access level." }
-    : { ok: true, message: "Assignment created." };
+  if (error) return { ok: false, message: "The assignment could not be created. Check the course and your access level." };
+  revalidatePath("/teacher/assignments");
+  revalidatePath("/student/assignments");
+  return { ok: true, message: "Assignment created." };
 }

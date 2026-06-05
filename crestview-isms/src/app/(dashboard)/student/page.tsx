@@ -4,18 +4,21 @@ import { PerformanceChart } from "@/components/charts/PerformanceChart";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { PageWrapper } from "@/components/layout/PageWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getStudentDashboardData } from "@/features/dashboard/queries";
 
-export default function StudentDashboardPage() {
+export default async function StudentDashboardPage() {
+  const dashboard = await getStudentDashboardData();
+
   return (
     <PageWrapper title="Student Portal" description="Academic progress, assignments, attendance, and AI-guided support.">
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KPICard label="Average" value="86%" change="+4% this term" tone="green" />
-        <KPICard label="Attendance" value="94%" change="2 late marks" tone="blue" />
-        <KPICard label="Assignments" value="5" change="2 due this week" tone="amber" />
-        <KPICard label="Risk" value="Low" change="On track" tone="green" />
+        <KPICard label="Average" value={`${dashboard.average}%`} change="Published grade average" tone="green" />
+        <KPICard label="Attendance" value={`${dashboard.attendanceRate}%`} change="Recorded attendance rate" tone="blue" />
+        <KPICard label="Assignments" value={String(dashboard.assignmentCount)} change="Assigned to your class" tone="amber" />
+        <KPICard label="Invoices" value={String(dashboard.openInvoices)} change={`${dashboard.reportCount} saved report${dashboard.reportCount === 1 ? "" : "s"}`} tone="red" />
       </section>
-      <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-900/70 p-5">
-        <span className="text-sm text-slate-400">AI learning status</span>
+      <div className="flex items-center gap-3 rounded-xl border border-[var(--portal-border)] bg-[var(--portal-surface)] p-5">
+        <span className="text-sm text-[var(--portal-muted)]">AI learning status</span>
         <AIPredictionBadge level="green" />
       </div>
       <section className="grid gap-4 lg:grid-cols-2">

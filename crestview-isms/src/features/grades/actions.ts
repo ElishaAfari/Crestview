@@ -1,6 +1,7 @@
 "use server";
 
-import { requireUser } from "@/features/auth/guards";
+import { requireRoles } from "@/features/auth/guards";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { gradeSchema } from "@/lib/validations/grade.schema";
 
 export async function publishGradeAction(formData: FormData) {
@@ -13,8 +14,9 @@ export async function publishGradeAction(formData: FormData) {
 
   if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the grade details." };
 
-  const { supabase, user } = await requireUser();
-  const { error } = await supabase.from("grades").upsert({
+  const { user } = await requireRoles(["super_admin", "school_admin", "teacher"]);
+  const admin = createAdminClient();
+  const { error } = await admin.from("grades").upsert({
     grade_item_id: result.data.gradeItemId,
     student_id: result.data.studentId,
     score: result.data.score,

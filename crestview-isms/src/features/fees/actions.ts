@@ -1,6 +1,7 @@
 "use server";
 
-import { requireUser } from "@/features/auth/guards";
+import { requireRoles } from "@/features/auth/guards";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { feeSchema } from "@/lib/validations/fee.schema";
 
 export async function createInvoiceAction(formData: FormData) {
@@ -13,9 +14,10 @@ export async function createInvoiceAction(formData: FormData) {
 
   if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the invoice details." };
 
-  const { supabase } = await requireUser();
+  await requireRoles(["super_admin", "school_admin", "finance_officer"]);
+  const admin = createAdminClient();
   const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-  const { error } = await supabase.from("invoices").insert({
+  const { error } = await admin.from("invoices").insert({
     student_id: result.data.studentId,
     invoice_number: invoiceNumber,
     amount: result.data.amount,

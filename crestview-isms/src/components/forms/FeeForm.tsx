@@ -5,12 +5,14 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { createInvoiceAction } from "@/features/fees/actions";
+import type { SelectOption } from "@/features/admin/queries";
 
 type FeeFormValues = { studentId: string; amount: number; currency: string; dueDate: string };
 
-export function FeeForm() {
-  const form = useForm<FeeFormValues>({ defaultValues: { currency: "GHS" } });
+export function FeeForm({ students = [] }: { students?: SelectOption[] }) {
+  const form = useForm<FeeFormValues>({ defaultValues: { currency: "GHS", studentId: students[0]?.id ?? "" } });
   const [message, setMessage] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
@@ -20,12 +22,18 @@ export function FeeForm() {
     const result = await createInvoiceAction(formData);
     setSubmitted(result.ok);
     setMessage(result.message);
-    if (result.ok) form.reset({ currency: "GHS" });
+    if (result.ok) form.reset({ currency: "GHS", studentId: students[0]?.id ?? "" });
   }
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
-      <div><Label>Student ID</Label><Input {...form.register("studentId")} /></div>
+      <div>
+        <Label>Student</Label>
+        <Select {...form.register("studentId")}>
+          <option value="">Choose student</option>
+          {students.map((student) => <option key={student.id} value={student.id}>{student.label}</option>)}
+        </Select>
+      </div>
       <div><Label>Amount</Label><Input type="number" {...form.register("amount", { valueAsNumber: true })} /></div>
       <div><Label>Currency</Label><Input {...form.register("currency")} /></div>
       <div><Label>Due date</Label><Input type="date" {...form.register("dueDate")} /></div>
