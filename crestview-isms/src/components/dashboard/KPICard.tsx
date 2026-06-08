@@ -15,7 +15,7 @@ const toneClasses = {
 export function KPICard({ label, value, change, tone }: { label: string; value: string; change: string; tone: keyof typeof toneClasses }) {
   return (
     <motion.div {...ANIMATIONS.fadeInUp} {...ANIMATIONS.cardHover}>
-      <Card className="bg-[linear-gradient(135deg,#ffffff_0%,#ffffff_60%,#f2f7ff_100%)] dark:bg-[var(--portal-surface)]">
+      <Card className="portal-metric-card">
         <CardContent className="p-5">
           <div className="flex items-start justify-between gap-3">
             <div>

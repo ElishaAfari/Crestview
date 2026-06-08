@@ -83,7 +83,7 @@ function DashboardMetric({
 }) {
   return (
     <motion.div {...ANIMATIONS.fadeInUp} {...ANIMATIONS.cardHover}>
-      <Card className="overflow-hidden bg-[linear-gradient(135deg,#ffffff_0%,#ffffff_58%,#f2f7ff_100%)] dark:bg-[var(--portal-surface)]">
+      <Card className="portal-metric-card overflow-hidden">
         <CardContent className="p-5">
           <div className="flex items-start justify-between gap-3">
             <div>

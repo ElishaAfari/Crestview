@@ -71,6 +71,14 @@ body {
   box-shadow: var(--portal-card-shadow);
 }
 
+.portal-metric-card {
+  background: linear-gradient(135deg, #ffffff 0%, #ffffff 60%, #f2f7ff 100%);
+}
+
+.dark .portal-metric-card {
+  background: var(--portal-surface);
+}
+
 button,
 input,
 textarea {
