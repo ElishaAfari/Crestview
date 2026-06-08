@@ -82,7 +82,7 @@ export function NotificationBell() {
         ) : null}
       </Button>
       {open ? (
-        <div className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[var(--portal-border)] bg-[var(--portal-surface)] shadow-2xl">
+        <div className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[var(--portal-border)] bg-[var(--portal-surface)] shadow-2xl ring-1 ring-white/70 dark:ring-0">
           <div className="flex items-center justify-between gap-3 border-b border-[var(--portal-border)] px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-[var(--portal-text)]">Notifications</p>
@@ -101,8 +101,8 @@ export function NotificationBell() {
                   type="button"
                   onClick={() => handleMarkRead(notification.id)}
                   className={cn(
-                    "w-full rounded-lg p-3 text-left transition hover:bg-white/10",
-                    !notification.read_at && "bg-blue-500/10"
+                    "w-full rounded-lg p-3 text-left transition hover:bg-blue-50 dark:hover:bg-white/10",
+                    !notification.read_at && "bg-blue-50 dark:bg-blue-500/10"
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -110,7 +110,7 @@ export function NotificationBell() {
                     {!notification.read_at ? <span className="mt-1 size-2 rounded-full bg-blue-300" aria-label="Unread" /> : null}
                   </div>
                   <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--portal-muted)]">{notification.body}</p>
-                  <p className="mt-2 text-[11px] font-medium text-blue-300">{formatWhen(notification.created_at)}</p>
+                  <p className="mt-2 text-[11px] font-semibold text-blue-700 dark:text-blue-300">{formatWhen(notification.created_at)}</p>
                 </button>
               ))
             ) : (

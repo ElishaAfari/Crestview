@@ -19,7 +19,7 @@ export function TopNav() {
   const avatarSrc = profile?.avatar_url?.startsWith("/") ? profile.avatar_url : "/crestview-logo.png";
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--portal-border)] bg-[var(--portal-surface)]/95 px-3 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 border-b border-[var(--portal-border)] bg-[var(--portal-surface)]/95 px-3 py-3 shadow-[0_8px_28px_-26px_rgba(7,55,127,0.65)] backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-3">
         <Button variant="ghost" size="icon" className="shrink-0 lg:hidden" onClick={toggleSidebar} aria-label="Open navigation">
           <Menu className="size-5" aria-hidden />
@@ -28,8 +28,8 @@ export function TopNav() {
           <p className="truncate text-sm font-black text-[var(--portal-text)]">{role ? ROLES[role].label : "Workspace"}</p>
           <p className="truncate text-xs font-medium text-[var(--portal-muted)]">{today}</p>
         </div>
-        <div className="mx-auto hidden w-full max-w-xl items-center gap-2 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-3 py-2 shadow-sm md:flex">
-          <Search className="size-4 shrink-0 text-[var(--portal-muted)]" aria-hidden />
+        <div className="mx-auto hidden w-full max-w-xl items-center gap-2 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-3 py-2 shadow-sm ring-1 ring-white/70 dark:ring-0 md:flex">
+          <Search className="size-4 shrink-0 text-blue-700 dark:text-blue-200" aria-hidden />
           <input
             aria-label="Search workspace"
             className="h-7 min-w-0 flex-1 bg-transparent text-sm text-[var(--portal-text)] outline-none placeholder:text-[var(--portal-muted)]"
@@ -40,7 +40,7 @@ export function TopNav() {
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <NotificationBell />
           <ThemeToggle />
-          <div className="hidden items-center gap-3 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-2 py-1.5 sm:flex">
+          <div className="hidden items-center gap-3 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-2 py-1.5 shadow-sm sm:flex">
             <span className="relative size-9 overflow-hidden rounded-lg bg-white">
               <Image src={avatarSrc} alt="" fill sizes="36px" className="object-contain p-1" />
             </span>

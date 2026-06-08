@@ -21,8 +21,10 @@ export function QuickActions() {
         {actions.map((action) => {
           const Icon = action.icon;
           return (
-            <Link key={action.label} href={action.href} className={cn(buttonVariants({ variant: "secondary" }), "h-12 justify-start bg-[var(--portal-surface-strong)]")}>
-              <Icon className="size-4" aria-hidden />
+            <Link key={action.label} href={action.href} className={cn(buttonVariants({ variant: "secondary" }), "h-12 justify-start bg-[var(--portal-surface-strong)] shadow-sm")}>
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-800 ring-1 ring-blue-200 dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20">
+                <Icon className="size-4" aria-hidden />
+              </span>
               {action.label}
             </Link>
           );

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 .dark {
@@ -18,29 +18,30 @@
 
 html {
   min-width: 320px;
-  background: #f5f7fb;
+  background: #f2f6ff;
 }
 
 body {
   min-height: 100vh;
-  background: #f5f7fb;
-  color: #0f172a;
+  background: #f2f6ff;
+  color: #081a3f;
 }
 
 .dashboard-theme {
-  --portal-bg: #eef4ff;
+  --portal-bg: #f0f6ff;
   --portal-shell: #07377f;
   --portal-shell-strong: #05265f;
-  --portal-surface: rgba(255, 255, 255, 0.96);
-  --portal-surface-strong: #f8fbff;
-  --portal-border: rgba(15, 23, 42, 0.11);
-  --portal-text: #0f172a;
-  --portal-muted: #64748b;
+  --portal-surface: #ffffff;
+  --portal-surface-strong: #f7fbff;
+  --portal-border: rgba(7, 55, 127, 0.18);
+  --portal-text: #081a3f;
+  --portal-muted: #475569;
   --portal-accent: #0f766e;
   --portal-warning: #f59e0b;
   --portal-danger: #dc2626;
-  --portal-card-shadow: 0 18px 50px -30px rgba(15, 23, 42, 0.48);
-  --portal-control: rgba(15, 23, 42, 0.06);
+  --portal-card-shadow: 0 18px 42px -24px rgba(7, 55, 127, 0.42), 0 3px 10px -6px rgba(15, 23, 42, 0.22);
+  --portal-control: #edf5ff;
+  --portal-control-strong: #dcecff;
   background: var(--portal-bg);
   color: var(--portal-text);
 }
@@ -59,6 +60,7 @@ body {
   --portal-danger: #f87171;
   --portal-card-shadow: 0 20px 60px -32px rgba(2, 6, 23, 0.8);
   --portal-control: rgba(255, 255, 255, 0.08);
+  --portal-control-strong: rgba(255, 255, 255, 0.14);
 }
 
 .dashboard-theme .recharts-default-tooltip {

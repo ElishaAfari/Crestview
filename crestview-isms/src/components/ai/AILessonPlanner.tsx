@@ -20,7 +20,7 @@ export function AILessonPlanner() {
       <Button type="button" className="w-fit" onClick={() => setPlan(`Hook, instruction, practice, assessment, and differentiation plan for ${topic || "the selected topic"}.`)}>
         Generate plan
       </Button>
-      <div className="rounded-xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">{plan}</div>
+      <div className="rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] p-4 text-sm font-medium text-[var(--portal-text)] shadow-sm">{plan}</div>
     </div>
   );
 }

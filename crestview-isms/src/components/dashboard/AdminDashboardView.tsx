@@ -36,10 +36,10 @@ import type { AdminDashboardData } from "@/features/admin/queries";
 import { ANIMATIONS, cn } from "@/lib/utils";
 
 const toneStyles = {
-  blue: "bg-blue-50 text-blue-700 ring-blue-100 dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20",
-  green: "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20",
-  amber: "bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20",
-  red: "bg-rose-50 text-rose-700 ring-rose-100 dark:bg-rose-500/15 dark:text-rose-200 dark:ring-rose-400/20"
+  blue: "bg-blue-100 text-blue-800 ring-blue-200 dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20",
+  green: "bg-emerald-100 text-emerald-800 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20",
+  amber: "bg-amber-100 text-amber-800 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20",
+  red: "bg-rose-100 text-rose-800 ring-rose-200 dark:bg-rose-500/15 dark:text-rose-200 dark:ring-rose-400/20"
 };
 
 const quickActions = [
@@ -83,7 +83,7 @@ function DashboardMetric({
 }) {
   return (
     <motion.div {...ANIMATIONS.fadeInUp} {...ANIMATIONS.cardHover}>
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden bg-[linear-gradient(135deg,#ffffff_0%,#ffffff_58%,#f2f7ff_100%)] dark:bg-[var(--portal-surface)]">
         <CardContent className="p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -116,7 +116,7 @@ function ProgressRow({ label, count, total, tone }: { label: string; count: numb
         <span className="font-bold text-[var(--portal-text)]">{label}</span>
         <span className="font-black text-[var(--portal-text)]">{percent}%</span>
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-300/80 dark:bg-white/10">
         <div className={cn("h-full rounded-full", barClass)} style={{ width: `${percent}%` }} />
       </div>
       <p className="mt-1 text-xs font-medium text-[var(--portal-muted)]">
@@ -136,7 +136,7 @@ function AttendancePanel({ data, breakdown }: { data: AdminDashboardData["attend
           <CardTitle>Daily Attendance</CardTitle>
           <p className="mt-1 text-sm font-medium text-[var(--portal-muted)]">Live present and absent records for the current week.</p>
         </div>
-        <span className="grid size-10 place-items-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20">
+        <span className="grid size-10 place-items-center rounded-lg bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20">
           <ClipboardCheck className="size-5" aria-hidden />
         </span>
       </CardHeader>
@@ -184,7 +184,7 @@ function FinancePanel({ data, collectionRate, paidAmount, openAmount }: { data: 
           <CardTitle>Fee Collection and Finance</CardTitle>
           <p className="mt-1 text-sm font-medium text-[var(--portal-muted)]">{collectionRate}% collection rate from current invoice records.</p>
         </div>
-        <span className="grid size-10 place-items-center rounded-lg bg-amber-50 text-amber-700 ring-1 ring-amber-100 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20">
+        <span className="grid size-10 place-items-center rounded-lg bg-amber-100 text-amber-800 ring-1 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20">
           <CreditCard className="size-5" aria-hidden />
         </span>
       </CardHeader>
@@ -204,11 +204,11 @@ function FinancePanel({ data, collectionRate, paidAmount, openAmount }: { data: 
             </ResponsiveContainer>
           </div>
           <div className="space-y-3">
-            <div className="rounded-lg bg-emerald-50 p-4 text-emerald-900 ring-1 ring-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-100 dark:ring-emerald-400/20">
+            <div className="rounded-lg bg-emerald-100 p-4 text-emerald-950 ring-1 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-100 dark:ring-emerald-400/20">
               <p className="text-xs font-black uppercase tracking-normal">Collected</p>
               <p className="mt-2 text-xl font-black">{formatCurrency(paidAmount)}</p>
             </div>
-            <div className="rounded-lg bg-amber-50 p-4 text-amber-900 ring-1 ring-amber-100 dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-400/20">
+            <div className="rounded-lg bg-amber-100 p-4 text-amber-950 ring-1 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-400/20">
               <p className="text-xs font-black uppercase tracking-normal">Outstanding</p>
               <p className="mt-2 text-xl font-black">{formatCurrency(openAmount)}</p>
             </div>
@@ -253,7 +253,7 @@ function MiniCalendar({ events }: { events: AdminDashboardData["events"] }) {
                 className={cn(
                   "grid aspect-square place-items-center rounded-lg font-bold",
                   active && "bg-blue-700 text-white",
-                  !active && hasEvent && "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20"
+                  !active && hasEvent && "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20"
                 )}
               >
                 {day}
@@ -351,7 +351,7 @@ function RolePanel({ data }: { data: AdminDashboardData["roleCounts"] }) {
         {data.length ? data.slice(0, 7).map((role) => (
           <div key={role.label} className="flex items-center justify-between gap-4 border-b border-[var(--portal-border)] pb-3 last:border-0 last:pb-0">
             <span className="flex min-w-0 items-center gap-3">
-              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-200 dark:ring-cyan-400/20">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-cyan-100 text-cyan-800 ring-1 ring-cyan-200 dark:bg-cyan-500/15 dark:text-cyan-200 dark:ring-cyan-400/20">
                 <Users className="size-4" aria-hidden />
               </span>
               <span className="truncate text-sm font-bold text-[var(--portal-text)]">{role.label}</span>
@@ -383,7 +383,7 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboardDat
               href={action.href}
               className={cn(
                 buttonVariants({ variant: "secondary" }),
-                "h-auto min-h-16 justify-between rounded-lg bg-[var(--portal-surface)] p-4 !whitespace-normal text-left shadow-[var(--portal-card-shadow)]"
+                "h-auto min-h-16 justify-between rounded-lg bg-[var(--portal-surface)] p-4 !whitespace-normal text-left shadow-[var(--portal-card-shadow)] hover:-translate-y-0.5"
               )}
             >
               <span className="flex min-w-0 items-center gap-3">
@@ -432,7 +432,7 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboardDat
           <RolePanel data={dashboard.roleCounts} />
           <Card>
             <CardContent className="flex items-start gap-3 p-5">
-              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-700 ring-1 ring-blue-100 dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20">
+              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-800 ring-1 ring-blue-200 dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20">
                 <ShieldCheck className="size-5" aria-hidden />
               </span>
               <div>
