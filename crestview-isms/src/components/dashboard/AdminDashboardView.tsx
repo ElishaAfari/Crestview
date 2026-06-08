@@ -36,10 +36,17 @@ import type { AdminDashboardData } from "@/features/admin/queries";
 import { ANIMATIONS, cn } from "@/lib/utils";
 
 const toneStyles = {
-  blue: "bg-[#174ea6] text-white ring-[#174ea6]/20 shadow-[0_10px_22px_-12px_rgba(23,78,166,0.7)] dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20 dark:shadow-none",
-  green: "bg-[#047857] text-white ring-[#047857]/20 shadow-[0_10px_22px_-12px_rgba(4,120,87,0.65)] dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20 dark:shadow-none",
-  amber: "bg-[#b45309] text-white ring-[#b45309]/20 shadow-[0_10px_22px_-12px_rgba(180,83,9,0.7)] dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20 dark:shadow-none",
-  red: "bg-[#be123c] text-white ring-[#be123c]/20 shadow-[0_10px_22px_-12px_rgba(190,18,60,0.68)] dark:bg-rose-500/15 dark:text-rose-200 dark:ring-rose-400/20 dark:shadow-none"
+  blue: "portal-tone-blue",
+  green: "portal-tone-green",
+  amber: "portal-tone-amber",
+  red: "portal-tone-red"
+};
+
+const accentStyles = {
+  blue: "portal-accent-blue",
+  green: "portal-accent-green",
+  amber: "portal-accent-amber",
+  red: "portal-accent-red"
 };
 
 const quickActions = [
@@ -83,18 +90,18 @@ function DashboardMetric({
 }) {
   return (
     <motion.div {...ANIMATIONS.fadeInUp} {...ANIMATIONS.cardHover}>
-      <Card className="portal-metric-card overflow-hidden">
+      <Card className={cn("portal-metric-card overflow-hidden", accentStyles[tone])}>
         <CardContent className="p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-[var(--portal-muted)]">{label}</p>
               <p className="mt-2 font-heading text-3xl font-black text-[var(--portal-text)]">{value}</p>
             </div>
-            <span className={cn("grid size-12 place-items-center rounded-lg ring-1", toneStyles[tone])}>
-              <Icon className="size-5" aria-hidden />
+            <span className={cn("portal-icon-tile size-14 rounded-lg", toneStyles[tone])}>
+              <Icon className="size-6 stroke-[2.5]" aria-hidden />
             </span>
           </div>
-          <p className="mt-4 text-sm font-semibold text-[var(--portal-muted)]">{detail}</p>
+          <p className="mt-4 text-sm font-bold text-[var(--portal-muted)]">{detail}</p>
         </CardContent>
       </Card>
     </motion.div>
@@ -136,8 +143,8 @@ function AttendancePanel({ data, breakdown }: { data: AdminDashboardData["attend
           <CardTitle>Daily Attendance</CardTitle>
           <p className="mt-1 text-sm font-medium text-[var(--portal-muted)]">Live present and absent records for the current week.</p>
         </div>
-        <span className="grid size-10 place-items-center rounded-lg bg-[#047857] text-white ring-1 ring-[#047857]/20 shadow-[0_10px_22px_-12px_rgba(4,120,87,0.65)] dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20 dark:shadow-none">
-          <ClipboardCheck className="size-5" aria-hidden />
+        <span className="portal-icon-tile portal-tone-green size-12 rounded-lg">
+          <ClipboardCheck className="size-5 stroke-[2.5]" aria-hidden />
         </span>
       </CardHeader>
       <CardContent>
@@ -184,8 +191,8 @@ function FinancePanel({ data, collectionRate, paidAmount, openAmount }: { data: 
           <CardTitle>Fee Collection and Finance</CardTitle>
           <p className="mt-1 text-sm font-medium text-[var(--portal-muted)]">{collectionRate}% collection rate from current invoice records.</p>
         </div>
-        <span className="grid size-10 place-items-center rounded-lg bg-[#b45309] text-white ring-1 ring-[#b45309]/20 shadow-[0_10px_22px_-12px_rgba(180,83,9,0.7)] dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20 dark:shadow-none">
-          <CreditCard className="size-5" aria-hidden />
+        <span className="portal-icon-tile portal-tone-amber size-12 rounded-lg">
+          <CreditCard className="size-5 stroke-[2.5]" aria-hidden />
         </span>
       </CardHeader>
       <CardContent>
@@ -253,7 +260,7 @@ function MiniCalendar({ events }: { events: AdminDashboardData["events"] }) {
                 className={cn(
                   "grid aspect-square place-items-center rounded-lg font-bold",
                   active && "bg-blue-700 text-white",
-                  !active && hasEvent && "bg-[#047857] text-white ring-1 ring-[#047857]/20 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20"
+                  !active && hasEvent && "portal-icon-tile portal-tone-green text-white"
                 )}
               >
                 {day}
@@ -351,8 +358,8 @@ function RolePanel({ data }: { data: AdminDashboardData["roleCounts"] }) {
         {data.length ? data.slice(0, 7).map((role) => (
           <div key={role.label} className="flex items-center justify-between gap-4 border-b border-[var(--portal-border)] pb-3 last:border-0 last:pb-0">
             <span className="flex min-w-0 items-center gap-3">
-              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#0e7490] text-white ring-1 ring-[#0e7490]/20 dark:bg-cyan-500/15 dark:text-cyan-200 dark:ring-cyan-400/20">
-                <Users className="size-4" aria-hidden />
+              <span className="portal-icon-tile portal-tone-cyan size-9 rounded-lg">
+                <Users className="size-4 stroke-[2.5]" aria-hidden />
               </span>
               <span className="truncate text-sm font-bold text-[var(--portal-text)]">{role.label}</span>
             </span>
@@ -383,14 +390,15 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboardDat
               href={action.href}
               className={cn(
                 buttonVariants({ variant: "secondary" }),
-                "h-auto min-h-16 justify-between rounded-lg border-[var(--portal-border)] bg-[var(--portal-surface-strong)] p-4 !whitespace-normal text-left shadow-[var(--portal-card-shadow)] hover:-translate-y-0.5 hover:bg-white"
+                "portal-action-card h-auto min-h-16 justify-between rounded-lg p-4 pl-5 !whitespace-normal text-left hover:-translate-y-0.5",
+                accentStyles[action.tone]
               )}
             >
               <span className="flex min-w-0 items-center gap-3">
-                <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg ring-1", toneStyles[action.tone])}>
-                  <Icon className="size-4" aria-hidden />
+                <span className={cn("portal-icon-tile size-10 rounded-lg", toneStyles[action.tone])}>
+                  <Icon className="size-5 stroke-[2.5]" aria-hidden />
                 </span>
-                <span>{action.label}</span>
+                <span className="font-black">{action.label}</span>
               </span>
               <ArrowUpRight className="size-4 shrink-0" aria-hidden />
             </Link>
@@ -432,8 +440,8 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboardDat
           <RolePanel data={dashboard.roleCounts} />
           <Card>
             <CardContent className="flex items-start gap-3 p-5">
-              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[#174ea6] text-white ring-1 ring-[#174ea6]/20 dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20">
-                <ShieldCheck className="size-5" aria-hidden />
+              <span className="portal-icon-tile portal-tone-blue size-12 rounded-lg">
+                <ShieldCheck className="size-5 stroke-[2.5]" aria-hidden />
               </span>
               <div>
                 <p className="text-sm font-black text-[var(--portal-text)]">Connected suites</p>
