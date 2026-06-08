@@ -6,10 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ANIMATIONS, cn } from "@/lib/utils";
 
 const toneClasses = {
-  blue: "text-blue-800 bg-blue-100 ring-blue-200 dark:text-blue-200 dark:bg-blue-500/15 dark:ring-blue-400/20",
-  green: "text-emerald-800 bg-emerald-100 ring-emerald-200 dark:text-emerald-200 dark:bg-emerald-500/15 dark:ring-emerald-400/20",
-  amber: "text-amber-800 bg-amber-100 ring-amber-200 dark:text-amber-200 dark:bg-amber-500/15 dark:ring-amber-400/20",
-  red: "text-rose-800 bg-rose-100 ring-rose-200 dark:text-rose-200 dark:bg-rose-500/15 dark:ring-rose-400/20"
+  blue: "bg-[#174ea6] text-white ring-[#174ea6]/20 shadow-[0_10px_22px_-12px_rgba(23,78,166,0.7)] dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20 dark:shadow-none",
+  green: "bg-[#047857] text-white ring-[#047857]/20 shadow-[0_10px_22px_-12px_rgba(4,120,87,0.65)] dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20 dark:shadow-none",
+  amber: "bg-[#b45309] text-white ring-[#b45309]/20 shadow-[0_10px_22px_-12px_rgba(180,83,9,0.7)] dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20 dark:shadow-none",
+  red: "bg-[#be123c] text-white ring-[#be123c]/20 shadow-[0_10px_22px_-12px_rgba(190,18,60,0.68)] dark:bg-rose-500/15 dark:text-rose-200 dark:ring-rose-400/20 dark:shadow-none"
 };
 
 export function KPICard({ label, value, change, tone }: { label: string; value: string; change: string; tone: keyof typeof toneClasses }) {

@@ -21,8 +21,8 @@ export function QuickActions() {
         {actions.map((action) => {
           const Icon = action.icon;
           return (
-            <Link key={action.label} href={action.href} className={cn(buttonVariants({ variant: "secondary" }), "h-12 justify-start bg-[var(--portal-surface-strong)] shadow-sm")}>
-              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-800 ring-1 ring-blue-200 dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20">
+            <Link key={action.label} href={action.href} className={cn(buttonVariants({ variant: "secondary" }), "h-12 justify-start bg-[var(--portal-surface-strong)] shadow-[var(--portal-card-shadow)] hover:bg-white")}>
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#174ea6] text-white ring-1 ring-[#174ea6]/20 shadow-[0_10px_22px_-12px_rgba(23,78,166,0.7)] dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20 dark:shadow-none">
                 <Icon className="size-4" aria-hidden />
               </span>
               {action.label}

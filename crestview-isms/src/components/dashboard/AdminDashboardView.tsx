@@ -36,10 +36,10 @@ import type { AdminDashboardData } from "@/features/admin/queries";
 import { ANIMATIONS, cn } from "@/lib/utils";
 
 const toneStyles = {
-  blue: "bg-blue-100 text-blue-800 ring-blue-200 dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20",
-  green: "bg-emerald-100 text-emerald-800 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20",
-  amber: "bg-amber-100 text-amber-800 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20",
-  red: "bg-rose-100 text-rose-800 ring-rose-200 dark:bg-rose-500/15 dark:text-rose-200 dark:ring-rose-400/20"
+  blue: "bg-[#174ea6] text-white ring-[#174ea6]/20 shadow-[0_10px_22px_-12px_rgba(23,78,166,0.7)] dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20 dark:shadow-none",
+  green: "bg-[#047857] text-white ring-[#047857]/20 shadow-[0_10px_22px_-12px_rgba(4,120,87,0.65)] dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20 dark:shadow-none",
+  amber: "bg-[#b45309] text-white ring-[#b45309]/20 shadow-[0_10px_22px_-12px_rgba(180,83,9,0.7)] dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20 dark:shadow-none",
+  red: "bg-[#be123c] text-white ring-[#be123c]/20 shadow-[0_10px_22px_-12px_rgba(190,18,60,0.68)] dark:bg-rose-500/15 dark:text-rose-200 dark:ring-rose-400/20 dark:shadow-none"
 };
 
 const quickActions = [
@@ -136,7 +136,7 @@ function AttendancePanel({ data, breakdown }: { data: AdminDashboardData["attend
           <CardTitle>Daily Attendance</CardTitle>
           <p className="mt-1 text-sm font-medium text-[var(--portal-muted)]">Live present and absent records for the current week.</p>
         </div>
-        <span className="grid size-10 place-items-center rounded-lg bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20">
+        <span className="grid size-10 place-items-center rounded-lg bg-[#047857] text-white ring-1 ring-[#047857]/20 shadow-[0_10px_22px_-12px_rgba(4,120,87,0.65)] dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20 dark:shadow-none">
           <ClipboardCheck className="size-5" aria-hidden />
         </span>
       </CardHeader>
@@ -184,7 +184,7 @@ function FinancePanel({ data, collectionRate, paidAmount, openAmount }: { data: 
           <CardTitle>Fee Collection and Finance</CardTitle>
           <p className="mt-1 text-sm font-medium text-[var(--portal-muted)]">{collectionRate}% collection rate from current invoice records.</p>
         </div>
-        <span className="grid size-10 place-items-center rounded-lg bg-amber-100 text-amber-800 ring-1 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20">
+        <span className="grid size-10 place-items-center rounded-lg bg-[#b45309] text-white ring-1 ring-[#b45309]/20 shadow-[0_10px_22px_-12px_rgba(180,83,9,0.7)] dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20 dark:shadow-none">
           <CreditCard className="size-5" aria-hidden />
         </span>
       </CardHeader>
@@ -204,11 +204,11 @@ function FinancePanel({ data, collectionRate, paidAmount, openAmount }: { data: 
             </ResponsiveContainer>
           </div>
           <div className="space-y-3">
-            <div className="rounded-lg bg-emerald-100 p-4 text-emerald-950 ring-1 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-100 dark:ring-emerald-400/20">
+            <div className="rounded-lg bg-[#047857] p-4 text-white shadow-[0_16px_28px_-18px_rgba(4,120,87,0.8)] ring-1 ring-[#047857]/20 dark:bg-emerald-500/15 dark:text-emerald-100 dark:ring-emerald-400/20 dark:shadow-none">
               <p className="text-xs font-black uppercase tracking-normal">Collected</p>
               <p className="mt-2 text-xl font-black">{formatCurrency(paidAmount)}</p>
             </div>
-            <div className="rounded-lg bg-amber-100 p-4 text-amber-950 ring-1 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-400/20">
+            <div className="rounded-lg bg-[#b45309] p-4 text-white shadow-[0_16px_28px_-18px_rgba(180,83,9,0.8)] ring-1 ring-[#b45309]/20 dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-400/20 dark:shadow-none">
               <p className="text-xs font-black uppercase tracking-normal">Outstanding</p>
               <p className="mt-2 text-xl font-black">{formatCurrency(openAmount)}</p>
             </div>
@@ -253,7 +253,7 @@ function MiniCalendar({ events }: { events: AdminDashboardData["events"] }) {
                 className={cn(
                   "grid aspect-square place-items-center rounded-lg font-bold",
                   active && "bg-blue-700 text-white",
-                  !active && hasEvent && "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20"
+                  !active && hasEvent && "bg-[#047857] text-white ring-1 ring-[#047857]/20 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20"
                 )}
               >
                 {day}
@@ -351,7 +351,7 @@ function RolePanel({ data }: { data: AdminDashboardData["roleCounts"] }) {
         {data.length ? data.slice(0, 7).map((role) => (
           <div key={role.label} className="flex items-center justify-between gap-4 border-b border-[var(--portal-border)] pb-3 last:border-0 last:pb-0">
             <span className="flex min-w-0 items-center gap-3">
-              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-cyan-100 text-cyan-800 ring-1 ring-cyan-200 dark:bg-cyan-500/15 dark:text-cyan-200 dark:ring-cyan-400/20">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#0e7490] text-white ring-1 ring-[#0e7490]/20 dark:bg-cyan-500/15 dark:text-cyan-200 dark:ring-cyan-400/20">
                 <Users className="size-4" aria-hidden />
               </span>
               <span className="truncate text-sm font-bold text-[var(--portal-text)]">{role.label}</span>
@@ -383,7 +383,7 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboardDat
               href={action.href}
               className={cn(
                 buttonVariants({ variant: "secondary" }),
-                "h-auto min-h-16 justify-between rounded-lg bg-[var(--portal-surface)] p-4 !whitespace-normal text-left shadow-[var(--portal-card-shadow)] hover:-translate-y-0.5"
+                "h-auto min-h-16 justify-between rounded-lg border-[var(--portal-border)] bg-[var(--portal-surface-strong)] p-4 !whitespace-normal text-left shadow-[var(--portal-card-shadow)] hover:-translate-y-0.5 hover:bg-white"
               )}
             >
               <span className="flex min-w-0 items-center gap-3">
@@ -432,7 +432,7 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboardDat
           <RolePanel data={dashboard.roleCounts} />
           <Card>
             <CardContent className="flex items-start gap-3 p-5">
-              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-800 ring-1 ring-blue-200 dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20">
+              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[#174ea6] text-white ring-1 ring-[#174ea6]/20 dark:bg-blue-500/15 dark:text-blue-200 dark:ring-blue-400/20">
                 <ShieldCheck className="size-5" aria-hidden />
               </span>
               <div>

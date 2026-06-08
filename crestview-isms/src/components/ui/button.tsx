@@ -8,7 +8,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground shadow-blue-soft hover:bg-primary/90",
-        secondary: "border border-[var(--portal-border)] bg-[var(--portal-surface)] text-[var(--portal-text)] shadow-sm hover:border-blue-300 hover:bg-[var(--portal-control)] hover:text-primary dark:bg-[var(--portal-control)] dark:shadow-none",
+        secondary: "border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] text-[var(--portal-text)] shadow-sm hover:border-[#174ea6] hover:bg-white hover:text-[#07377f] dark:bg-[var(--portal-control)] dark:hover:bg-[var(--portal-control-strong)] dark:shadow-none",
         ghost: "text-[var(--portal-muted)] hover:bg-[var(--portal-control)] hover:text-[var(--portal-text)]",
         danger: "bg-danger text-white hover:bg-danger/90"
       },
