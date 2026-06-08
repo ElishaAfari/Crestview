@@ -281,7 +281,7 @@ function EventsPanel({ events }: { events: AdminDashboardData["events"] }) {
       </CardHeader>
       <CardContent className="space-y-3">
         {events.length ? events.slice(0, 4).map((event) => (
-          <Link key={event.id} href="/events" className="flex items-center gap-3 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] p-3 transition hover:border-blue-200 hover:bg-blue-50/70 dark:hover:bg-blue-500/10">
+          <Link key={event.id} href="/events" className="portal-subtle-card flex items-center gap-3 rounded-lg p-3 transition hover:border-[#174ea6] dark:hover:bg-blue-500/10">
             <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-blue-700 text-center text-xs font-black text-white">
               {formatEventDate(event.starts_at)}
             </span>
@@ -291,7 +291,7 @@ function EventsPanel({ events }: { events: AdminDashboardData["events"] }) {
             </span>
           </Link>
         )) : (
-          <div className="rounded-lg border border-dashed border-[var(--portal-border)] p-5 text-sm font-medium text-[var(--portal-muted)]">No upcoming events yet.</div>
+          <div className="portal-subtle-card rounded-lg border-dashed p-5 text-sm font-bold text-[var(--portal-muted)]">No upcoming events yet.</div>
         )}
       </CardContent>
     </Card>
@@ -308,7 +308,7 @@ function OperationsPanel({ queues, activity }: { queues: AdminDashboardData["rev
       <CardContent className="space-y-4">
         <div className="space-y-2">
           {queues.map((queue) => (
-            <Link key={queue.label} href={queue.href} className="flex items-center justify-between gap-4 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] p-3 transition hover:border-blue-200 hover:bg-blue-50/70 dark:hover:bg-blue-500/10">
+            <Link key={queue.label} href={queue.href} className="portal-subtle-card flex items-center justify-between gap-4 rounded-lg p-3 transition hover:border-[#174ea6] dark:hover:bg-blue-500/10">
               <span className="text-sm font-black text-[var(--portal-text)]">{queue.label}</span>
               <span className={cn("rounded-full px-2.5 py-1 text-xs font-black ring-1", toneStyles[queue.tone])}>{queue.count}</span>
             </Link>
@@ -417,7 +417,7 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboardDat
           />
           <div className="grid gap-6 xl:grid-cols-2">
             <ClassLoadPanel data={dashboard.classLoad} />
-            <Card className="self-start overflow-hidden bg-gradient-to-br from-[#07377f] via-[#0f4ca2] to-[#0f766e] text-white">
+            <Card className="portal-brand-card self-start overflow-hidden">
               <CardContent className="p-6">
                 <Sparkles className="size-7 text-yellow-300" aria-hidden />
                 <h2 className="mt-5 font-heading text-2xl font-black text-white">Operations Pulse</h2>

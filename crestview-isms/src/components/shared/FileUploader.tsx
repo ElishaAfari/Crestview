@@ -7,8 +7,8 @@ export function FileUploader({ onValidFile }: { onValidFile?: (file: File) => vo
   const { error, validateFile } = useFileUpload();
 
   return (
-    <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[var(--portal-border)] bg-[var(--portal-surface-strong)] p-6 text-center transition hover:bg-blue-50/70 dark:hover:bg-blue-500/10">
-      <Upload className="mb-2 size-6 text-blue-600 dark:text-blue-300" aria-hidden />
+    <label className="portal-subtle-card flex cursor-pointer flex-col items-center justify-center rounded-lg border-dashed p-6 text-center transition hover:border-blue-700 dark:hover:bg-blue-500/10">
+      <Upload className="portal-icon-tile portal-tone-blue mb-2 size-10 rounded-lg p-2.5" aria-hidden />
       <span className="text-sm font-bold text-[var(--portal-text)]">Upload file</span>
       <span className="mt-1 text-xs text-[var(--portal-muted)]">PDF, DOCX, PNG, JPG, or WEBP</span>
       <input

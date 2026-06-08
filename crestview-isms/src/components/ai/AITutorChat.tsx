@@ -25,7 +25,7 @@ export function AITutorChat() {
 
   return (
     <div className="grid gap-4">
-      <div className="min-h-40 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] p-4 text-sm font-medium leading-6 text-[var(--portal-text)] shadow-sm">{reply}</div>
+      <div className="portal-subtle-card min-h-40 rounded-lg p-4 text-sm font-semibold leading-6 text-[var(--portal-text)]">{reply}</div>
       <Textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="What are you working on?" />
       <Button type="button" onClick={submitQuestion} className="w-fit">
         <Send className="size-4" aria-hidden />

@@ -17,9 +17,9 @@ export default async function AdminAdmissionsPage() {
         </CardHeader>
         <CardContent>
           {applications.length ? (
-            <div className="overflow-x-auto rounded-lg border border-[var(--portal-border)]">
+            <div className="portal-table-wrap">
               <table className="w-full text-left text-sm">
-                <thead className="bg-[var(--portal-surface-strong)] text-xs uppercase text-[var(--portal-muted)]">
+                <thead className="portal-table-head text-xs uppercase">
                   <tr>
                     <th className="px-4 py-3">Applicant</th>
                     <th className="px-4 py-3">Grade</th>
@@ -32,9 +32,9 @@ export default async function AdminAdmissionsPage() {
                 </thead>
                 <tbody>
                   {applications.map((application) => (
-                    <tr key={application.id} className="border-t border-[var(--portal-border)]">
+                    <tr key={application.id} className="portal-table-row">
                       <td className="px-4 py-3">
-                        <p className="font-semibold text-[var(--portal-text)]">{application.applicant}</p>
+                        <p className="font-black text-[var(--portal-text)]">{application.applicant}</p>
                         <p className="text-xs text-[var(--portal-muted)]">{application.source}</p>
                       </td>
                       <td className="px-4 py-3 text-[var(--portal-text)]">{application.applyingGrade}</td>
@@ -42,7 +42,7 @@ export default async function AdminAdmissionsPage() {
                         <p className="text-[var(--portal-text)]">{application.guardian}</p>
                         <p className="text-xs text-[var(--portal-muted)]">{application.phone}</p>
                       </td>
-                      <td className="px-4 py-3 text-[var(--portal-muted)]">{application.submittedAt}</td>
+                      <td className="px-4 py-3 font-semibold text-[var(--portal-muted)]">{application.submittedAt}</td>
                       <td className="px-4 py-3"><StatusBadge status={application.status} /></td>
                       <td className="max-w-72 px-4 py-3 text-[var(--portal-muted)]">{application.notes || "No notes"}</td>
                       <td className="px-4 py-3">

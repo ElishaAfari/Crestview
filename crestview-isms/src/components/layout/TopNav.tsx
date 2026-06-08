@@ -28,7 +28,7 @@ export function TopNav() {
           <p className="truncate text-sm font-black text-[var(--portal-text)]">{role ? ROLES[role].label : "Workspace"}</p>
           <p className="truncate text-xs font-medium text-[var(--portal-muted)]">{today}</p>
         </div>
-        <div className="mx-auto hidden w-full max-w-xl items-center gap-2 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-3 py-2 shadow-sm ring-1 ring-white/70 dark:ring-0 md:flex">
+        <div className="portal-field mx-auto hidden w-full max-w-xl items-center gap-2 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-3 py-2 md:flex">
           <Search className="size-4 shrink-0 text-blue-700 dark:text-blue-200" aria-hidden />
           <input
             aria-label="Search workspace"
@@ -40,7 +40,7 @@ export function TopNav() {
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <NotificationBell />
           <ThemeToggle />
-          <div className="hidden items-center gap-3 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-2 py-1.5 shadow-sm sm:flex">
+          <div className="portal-subtle-card hidden items-center gap-3 rounded-lg px-2 py-1.5 sm:flex">
             <span className="relative size-9 overflow-hidden rounded-lg bg-white">
               <Image src={avatarSrc} alt="" fill sizes="36px" className="object-contain p-1" />
             </span>

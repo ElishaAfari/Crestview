@@ -18,7 +18,7 @@ export function AdmissionDecisionControls({ applicationId }: { applicationId: st
         <Button size="sm" type="submit" name="decision" value="accept" disabled={pending}><CheckCircle2 className="size-4" aria-hidden />Accept</Button>
         <Button size="sm" variant="danger" type="submit" name="decision" value="deny" disabled={pending}><XCircle className="size-4" aria-hidden />Deny</Button>
       </div>
-      {state.message ? <p className={`text-xs ${state.ok ? "text-emerald-300" : "text-red-300"}`}>{state.message}</p> : null}
+      {state.message ? <p className={`text-xs font-bold ${state.ok ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>{state.message}</p> : null}
     </form>
   );
 }
@@ -27,12 +27,12 @@ export function BulkAdmissionDecisionControls() {
   const [state, action, pending] = useActionState(async (_: State, formData: FormData) => bulkDecideAdmissionApplicationsAction(formData), initialState);
 
   return (
-    <form action={action} className="flex flex-col items-start gap-3 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] p-4">
+    <form action={action} className="portal-subtle-card flex flex-col items-start gap-3 rounded-lg p-4">
       <div className="flex flex-wrap gap-2">
         <Button type="submit" name="decision" value="accept" disabled={pending}><CheckCircle2 className="size-4" aria-hidden />Accept all waiting</Button>
         <Button type="submit" variant="danger" name="decision" value="deny" disabled={pending}><XCircle className="size-4" aria-hidden />Deny all waiting</Button>
       </div>
-      {state.message ? <p className={`text-sm ${state.ok ? "text-emerald-300" : "text-red-300"}`}>{state.message}</p> : null}
+      {state.message ? <p className={`text-sm font-bold ${state.ok ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>{state.message}</p> : null}
     </form>
   );
 }

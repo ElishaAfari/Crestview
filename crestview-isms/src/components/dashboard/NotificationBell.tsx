@@ -82,11 +82,11 @@ export function NotificationBell() {
         ) : null}
       </Button>
       {open ? (
-        <div className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[var(--portal-border)] bg-[var(--portal-surface)] shadow-2xl ring-1 ring-white/70 dark:ring-0">
+        <div className="portal-panel absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[var(--portal-border)] bg-[var(--portal-surface)] shadow-2xl ring-1 ring-[#bfd8fa] dark:ring-0">
           <div className="flex items-center justify-between gap-3 border-b border-[var(--portal-border)] px-4 py-3">
             <div>
-              <p className="text-sm font-semibold text-[var(--portal-text)]">Notifications</p>
-              <p className="text-xs text-[var(--portal-muted)]">{unreadCount} unread</p>
+              <p className="text-sm font-black text-[var(--portal-text)]">Notifications</p>
+              <p className="text-xs font-semibold text-[var(--portal-muted)]">{unreadCount} unread</p>
             </div>
             <Button type="button" size="sm" variant="ghost" onClick={handleMarkAllRead} disabled={!unreadCount}>
               <CheckCheck className="size-4" aria-hidden />
@@ -101,12 +101,12 @@ export function NotificationBell() {
                   type="button"
                   onClick={() => handleMarkRead(notification.id)}
                   className={cn(
-                    "w-full rounded-lg p-3 text-left transition hover:bg-blue-50 dark:hover:bg-white/10",
-                    !notification.read_at && "bg-blue-50 dark:bg-blue-500/10"
+                    "w-full rounded-lg border border-transparent p-3 text-left transition hover:border-[#174ea6] hover:bg-[#eef6ff] dark:hover:bg-white/10",
+                    !notification.read_at && "border-[#8fb4e3] bg-[#e8f2ff] dark:bg-blue-500/10"
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-semibold text-[var(--portal-text)]">{notification.title}</p>
+                    <p className="text-sm font-black text-[var(--portal-text)]">{notification.title}</p>
                     {!notification.read_at ? <span className="mt-1 size-2 rounded-full bg-blue-300" aria-label="Unread" /> : null}
                   </div>
                   <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--portal-muted)]">{notification.body}</p>
@@ -114,10 +114,10 @@ export function NotificationBell() {
                 </button>
               ))
             ) : (
-              <div className="grid min-h-40 place-items-center rounded-lg border border-dashed border-[var(--portal-border)] text-center">
+              <div className="portal-subtle-card grid min-h-40 place-items-center rounded-lg border-dashed text-center">
                 <div>
-                  <Inbox className="mx-auto size-6 text-[var(--portal-muted)]" aria-hidden />
-                  <p className="mt-3 text-sm text-[var(--portal-muted)]">No notifications yet.</p>
+                  <Inbox className="portal-icon-tile portal-tone-blue mx-auto size-10 rounded-lg p-2.5" aria-hidden />
+                  <p className="mt-3 text-sm font-bold text-[var(--portal-muted)]">No notifications yet.</p>
                 </div>
               </div>
             )}

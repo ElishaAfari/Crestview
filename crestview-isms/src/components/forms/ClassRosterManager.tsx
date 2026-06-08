@@ -82,15 +82,15 @@ export function ClassRosterManager({ rosters = [] }: { rosters?: TeacherClassRos
         </div>
         <div>
           <Label>Subjects</Label>
-          <div className="mt-1 flex min-h-10 flex-wrap gap-2 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-3 py-2">
+          <div className="portal-subtle-card mt-1 flex min-h-10 flex-wrap gap-2 rounded-lg px-3 py-2">
             {selectedRoster?.subjects.length ? selectedRoster.subjects.map((subject) => <Badge key={subject} tone="blue">{subject}</Badge>) : <span className="text-sm text-[var(--portal-muted)]">No subjects configured</span>}
           </div>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-[var(--portal-border)]">
+      <div className="portal-table-wrap">
         <table className="w-full min-w-[680px] text-left text-sm">
-          <thead className="bg-[var(--portal-surface-strong)] text-xs uppercase text-[var(--portal-muted)]">
+          <thead className="portal-table-head text-xs uppercase">
             <tr>
               <th className="w-44 px-4 py-3">Student ID</th>
               <th className="px-4 py-3">First name</th>
@@ -100,7 +100,7 @@ export function ClassRosterManager({ rosters = [] }: { rosters?: TeacherClassRos
           </thead>
           <tbody>
             {rows.map((row, index) => (
-              <tr key={index} className="border-t border-[var(--portal-border)]">
+              <tr key={index} className="portal-table-row">
                 <td className="px-4 py-3"><Input value={row.studentNumber} onChange={(event) => updateRow(index, "studentNumber", event.target.value)} placeholder="CIS-001" /></td>
                 <td className="px-4 py-3"><Input value={row.firstName} onChange={(event) => updateRow(index, "firstName", event.target.value)} /></td>
                 <td className="px-4 py-3"><Input value={row.lastName} onChange={(event) => updateRow(index, "lastName", event.target.value)} /></td>

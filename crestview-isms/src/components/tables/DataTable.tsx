@@ -17,7 +17,7 @@ export function DataTable<TData extends object>({ data, columns }: { data: TData
   });
 
   return data.length ? (
-    <div className="overflow-hidden rounded-lg border border-[var(--portal-border)]">
+    <div className="portal-table-wrap overflow-hidden">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (

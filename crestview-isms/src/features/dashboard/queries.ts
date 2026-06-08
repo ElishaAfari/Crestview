@@ -114,6 +114,101 @@ export async function listGrades() {
   });
 }
 
+export async function listParentStudents() {
+  const { user } = await requireRoles(["parent"]);
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("parent_students")
+    .select("students(id,student_number,status,classrooms(name),profiles!students_profile_id_fkey(first_name,last_name))")
+    .eq("parent_profile_id", user.id)
+    .is("deleted_at", null);
+
+  return ((data ?? []) as unknown as Array<{
+    students: Relation<{
+      id: string;
+      student_number: string;
+      status: string;
+      classrooms: Relation<{ name: string }>;
+      profiles: Relation<ProfileJoin>;
+    }>;
+  }>).flatMap((link) => {
+    const student = one(link.students);
+    if (!student) return [];
+    const profile = one(student.profiles);
+    return [{
+      id: student.id,
+      name: profile ? `${profile.first_name} ${profile.last_name}` : student.student_number,
+      studentNumber: student.student_number,
+      classroom: one(student.classrooms)?.name ?? "Unassigned",
+      status: student.status
+    }];
+  });
+}
+
+export async function listCurrentStudentAttendanceRecords() {
+  const { user } = await requireRoles(["student"]);
+  const admin = createAdminClient();
+  const { data: studentRecord } = await admin.from("students").select("id").eq("profile_id", user.id).is("deleted_at", null).maybeSingle();
+  const student = studentRecord as { id: string } | null;
+  if (!student) return [];
+
+  const { data } = await admin
+    .from("attendance_records")
+    .select("id,attendance_date,status,students(profiles!students_profile_id_fkey(first_name,last_name))")
+    .eq("student_id", student.id)
+    .is("deleted_at", null)
+    .order("attendance_date", { ascending: false })
+    .limit(50);
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    attendance_date: string;
+    status: string;
+    students: Relation<{ profiles: Relation<ProfileJoin> }>;
+  }>).map((record) => {
+    const profile = one(one(record.students)?.profiles);
+    return {
+      id: record.id,
+      student: profile ? `${profile.first_name} ${profile.last_name}` : "Student",
+      date: record.attendance_date,
+      status: record.status
+    };
+  });
+}
+
+export async function listCurrentStudentGrades() {
+  const { user } = await requireRoles(["student"]);
+  const admin = createAdminClient();
+  const { data: studentRecord } = await admin.from("students").select("id").eq("profile_id", user.id).is("deleted_at", null).maybeSingle();
+  const student = studentRecord as { id: string } | null;
+  if (!student) return [];
+
+  const { data } = await admin
+    .from("grades")
+    .select("id,score,comments,grade_items(title),students(profiles!students_profile_id_fkey(first_name,last_name))")
+    .eq("student_id", student.id)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    score: number;
+    comments: string | null;
+    grade_items: Relation<{ title: string }>;
+    students: Relation<{ profiles: Relation<ProfileJoin> }>;
+  }>).map((record) => {
+    const profile = one(one(record.students)?.profiles);
+    return {
+      id: record.id,
+      student: profile ? `${profile.first_name} ${profile.last_name}` : "Student",
+      assessment: one(record.grade_items)?.title ?? "Assessment",
+      score: String(record.score),
+      comments: record.comments ?? ""
+    };
+  });
+}
+
 export async function getStudentDashboardData() {
   const { user } = await requireRoles(["student"]);
   const admin = createAdminClient();

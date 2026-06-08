@@ -44,10 +44,10 @@ export function BulkAttendanceForm({ courses = [] }: { courses?: TeacherAttendan
       <input type="hidden" name="classroomId" value={selectedClass?.classroomId ?? ""} />
       {selectedClass ? (
         <div>
-          <p className="text-sm font-semibold text-[var(--portal-text)]">{selectedClass.classroomLabel}</p>
-          <div className="mt-3 overflow-x-auto rounded-lg border border-[var(--portal-border)]">
+          <p className="text-sm font-black text-[var(--portal-text)]">{selectedClass.classroomLabel}</p>
+          <div className="portal-table-wrap mt-3">
             <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="bg-[var(--portal-surface-strong)] text-xs uppercase text-[var(--portal-muted)]">
+              <thead className="portal-table-head text-xs uppercase">
                 <tr>
                   <th className="px-4 py-3">Student</th>
                   <th className="px-4 py-3">Student number</th>
@@ -56,9 +56,9 @@ export function BulkAttendanceForm({ courses = [] }: { courses?: TeacherAttendan
               </thead>
               <tbody>
                 {selectedClass.students.length ? selectedClass.students.map((student) => (
-                  <tr key={student.id} className="border-t border-[var(--portal-border)]">
-                    <td className="px-4 py-3 font-medium text-[var(--portal-text)]">{student.name}</td>
-                    <td className="px-4 py-3 text-[var(--portal-muted)]">{student.studentNumber}</td>
+                  <tr key={student.id} className="portal-table-row">
+                    <td className="px-4 py-3 font-black text-[var(--portal-text)]">{student.name}</td>
+                    <td className="px-4 py-3 font-semibold text-[var(--portal-muted)]">{student.studentNumber}</td>
                     {statuses.map((status) => (
                       <td key={status.value} className="px-4 py-3 text-center">
                         <input

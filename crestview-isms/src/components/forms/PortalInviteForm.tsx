@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { invitePortalUserAction } from "@/features/access/actions";
 import type { AccessActionState } from "@/features/access/actions";
 
@@ -25,7 +26,7 @@ export function PortalInviteForm() {
       <div><Label>Email</Label><Input required name="email" type="email" /></div>
       <div>
         <Label>Portal role</Label>
-        <select name="role" defaultValue="teacher" className="mt-1 h-10 w-full rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-3 text-sm text-[var(--portal-text)] outline-none focus:border-primary focus:ring-2 focus:ring-primary/30">
+        <Select name="role" defaultValue="teacher" className="mt-1">
           <option value="school_admin">School administrator</option>
           <option value="teacher">Teacher</option>
           <option value="student">Student beta account</option>
@@ -34,7 +35,7 @@ export function PortalInviteForm() {
           <option value="finance_officer">Finance officer</option>
           <option value="librarian">Librarian</option>
           <option value="it_support">IT support</option>
-        </select>
+        </Select>
       </div>
       <div className="sm:col-span-2 flex flex-col items-start gap-3">
         <Button type="submit" disabled={pending}>

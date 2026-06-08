@@ -25,14 +25,14 @@ export default async function AdminAccessPage() {
           <CardHeader><CardTitle>Account directory</CardTitle></CardHeader>
           <CardContent>
             {accounts.length ? (
-              <div className="overflow-x-auto rounded-lg border border-[var(--portal-border)]">
+              <div className="portal-table-wrap">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-[var(--portal-surface-strong)] text-xs uppercase text-[var(--portal-muted)]"><tr><th className="px-4 py-3">Account</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Home</th><th className="px-4 py-3">Controls</th></tr></thead>
+                  <thead className="portal-table-head text-xs uppercase"><tr><th className="px-4 py-3">Account</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Home</th><th className="px-4 py-3">Controls</th></tr></thead>
                   <tbody>
                     {accounts.map((account) => (
-                      <tr key={account.id} className="border-t border-[var(--portal-border)]">
-                        <td className="px-4 py-3"><p className="font-medium text-[var(--portal-text)]">{account.name}</p><p className="text-xs text-[var(--portal-muted)]">{account.email}</p></td>
-                        <td className="px-4 py-3 text-[var(--portal-text)]">{account.role}</td>
+                      <tr key={account.id} className="portal-table-row">
+                        <td className="px-4 py-3"><p className="font-black text-[var(--portal-text)]">{account.name}</p><p className="text-xs font-semibold text-[var(--portal-muted)]">{account.email}</p></td>
+                        <td className="px-4 py-3 font-bold text-[var(--portal-text)]">{account.role}</td>
                         <td className="px-4 py-3"><StatusBadge status={account.status} /></td>
                         <td className="px-4 py-3"><Link href={account.home} className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:text-blue-900 dark:text-blue-200">{account.home}<ExternalLink className="size-3" aria-hidden /></Link></td>
                         <td className="px-4 py-3"><PortalAccountControls accountId={account.id} role={account.roleName} status={account.status} isSelf={account.isSelf} /></td>
@@ -51,10 +51,10 @@ export default async function AdminAccessPage() {
         <CardContent>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {roleExperiences.map((experience) => (
-              <article key={experience.role} className="rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] p-4">
-                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-200"><ShieldCheck className="size-4" aria-hidden /><p className="text-xs font-bold uppercase">{experience.label}</p></div>
-                <p className="mt-3 text-sm leading-6 text-[var(--portal-text)]">{experience.summary}</p>
-                <div className="mt-4 grid gap-1.5">{experience.access.map((item) => <p key={item} className="flex items-center gap-2 text-xs text-[var(--portal-muted)]"><UserRoundCog className="size-3.5 text-emerald-600 dark:text-emerald-300" aria-hidden />{item}</p>)}</div>
+              <article key={experience.role} className="portal-subtle-card rounded-lg p-4">
+                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200"><ShieldCheck className="portal-icon-tile portal-tone-blue size-8 rounded-lg p-1.5" aria-hidden /><p className="text-xs font-black uppercase">{experience.label}</p></div>
+                <p className="mt-3 text-sm font-semibold leading-6 text-[var(--portal-text)]">{experience.summary}</p>
+                <div className="mt-4 grid gap-1.5">{experience.access.map((item) => <p key={item} className="flex items-center gap-2 text-xs font-bold text-[var(--portal-muted)]"><UserRoundCog className="size-3.5 text-emerald-700 dark:text-emerald-300" aria-hidden />{item}</p>)}</div>
               </article>
             ))}
           </div>

@@ -19,17 +19,17 @@ export function OperationsRegister({ workspace, module, records, count }: { work
         <CardHeader><CardTitle>{count} records</CardTitle></CardHeader>
         <CardContent>
           {records.length ? (
-            <div className="overflow-x-auto rounded-lg border border-[var(--portal-border)]">
+            <div className="portal-table-wrap">
               <table className="w-full text-left text-sm">
-                <thead className="bg-[var(--portal-surface-strong)] text-xs uppercase text-[var(--portal-muted)]"><tr>{module.fields.map((field) => <th key={field.key} className="px-4 py-3">{field.label}</th>)}</tr></thead>
+                <thead className="portal-table-head text-xs uppercase"><tr>{module.fields.map((field) => <th key={field.key} className="px-4 py-3 font-black">{field.label}</th>)}</tr></thead>
                 <tbody>
-                  {records.map((record, index) => <tr key={String(record.id ?? index)} className="border-t border-[var(--portal-border)]">{module.fields.map((field) => <td key={field.key} className="max-w-72 truncate px-4 py-3 text-[var(--portal-text)]">{displayValue(record[field.key])}</td>)}</tr>)}
+                  {records.map((record, index) => <tr key={String(record.id ?? index)} className="portal-table-row">{module.fields.map((field) => <td key={field.key} className="max-w-72 truncate px-4 py-3 font-semibold text-[var(--portal-text)]">{displayValue(record[field.key])}</td>)}</tr>)}
                 </tbody>
               </table>
             </div>
           ) : (
-            <div className="grid min-h-44 place-items-center rounded-lg border border-dashed border-[var(--portal-border)] text-center">
-              <div><Database className="mx-auto size-6 text-[var(--portal-muted)]" aria-hidden /><p className="mt-3 text-sm text-[var(--portal-muted)]">No records have been added yet.</p></div>
+            <div className="portal-subtle-card grid min-h-44 place-items-center rounded-lg border-dashed text-center">
+              <div><Database className="portal-icon-tile portal-tone-blue mx-auto size-10 rounded-lg" aria-hidden /><p className="mt-3 text-sm font-bold text-[var(--portal-muted)]">No records have been added yet.</p></div>
             </div>
           )}
         </CardContent>
