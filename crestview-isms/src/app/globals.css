@@ -18,60 +18,55 @@
 
 html {
   min-width: 320px;
-  background: #0f172a;
+  background: #f5f7fb;
 }
 
 body {
   min-height: 100vh;
-  background: #071a63;
-  color: #f8fafc;
+  background: #f5f7fb;
+  color: #0f172a;
 }
 
 .dashboard-theme {
-  --portal-bg: #071a63;
-  --portal-shell: rgba(2, 6, 23, 0.82);
-  --portal-surface: rgba(15, 23, 42, 0.72);
-  --portal-surface-strong: rgba(2, 6, 23, 0.64);
-  --portal-border: rgba(255, 255, 255, 0.1);
-  --portal-text: #f8fafc;
-  --portal-muted: #94a3b8;
+  --portal-bg: #eef4ff;
+  --portal-shell: #07377f;
+  --portal-shell-strong: #05265f;
+  --portal-surface: rgba(255, 255, 255, 0.96);
+  --portal-surface-strong: #f8fbff;
+  --portal-border: rgba(15, 23, 42, 0.11);
+  --portal-text: #0f172a;
+  --portal-muted: #64748b;
+  --portal-accent: #0f766e;
+  --portal-warning: #f59e0b;
+  --portal-danger: #dc2626;
+  --portal-card-shadow: 0 18px 50px -30px rgba(15, 23, 42, 0.48);
+  --portal-control: rgba(15, 23, 42, 0.06);
   background: var(--portal-bg);
   color: var(--portal-text);
 }
 
-.light .dashboard-theme {
-  --portal-bg: #f5f7fb;
-  --portal-shell: rgba(255, 255, 255, 0.94);
-  --portal-surface: rgba(255, 255, 255, 0.98);
-  --portal-surface-strong: rgba(241, 245, 249, 0.96);
-  --portal-border: rgba(15, 23, 42, 0.14);
-  --portal-text: #0f172a;
-  --portal-muted: #64748b;
+.dark .dashboard-theme {
+  --portal-bg: #071a63;
+  --portal-shell: #061a4c;
+  --portal-shell-strong: #020617;
+  --portal-surface: rgba(15, 23, 42, 0.88);
+  --portal-surface-strong: rgba(2, 6, 23, 0.7);
+  --portal-border: rgba(255, 255, 255, 0.11);
+  --portal-text: #f8fafc;
+  --portal-muted: #94a3b8;
+  --portal-accent: #2dd4bf;
+  --portal-warning: #facc15;
+  --portal-danger: #f87171;
+  --portal-card-shadow: 0 20px 60px -32px rgba(2, 6, 23, 0.8);
+  --portal-control: rgba(255, 255, 255, 0.08);
 }
 
-.light .dashboard-theme [class*="text-white"],
-.light .dashboard-theme [class*="text-slate-50"],
-.light .dashboard-theme [class*="text-slate-100"] {
-  color: var(--portal-text) !important;
-}
-
-.light .dashboard-theme [class*="text-slate-300"],
-.light .dashboard-theme [class*="text-slate-400"],
-.light .dashboard-theme [class*="text-slate-500"] {
-  color: var(--portal-muted) !important;
-}
-
-.light .dashboard-theme [class*="border-white"] {
+.dashboard-theme .recharts-default-tooltip {
+  border-radius: 8px !important;
   border-color: var(--portal-border) !important;
-}
-
-.light .dashboard-theme [class*="bg-slate-900"],
-.light .dashboard-theme [class*="bg-slate-950"] {
-  background-color: var(--portal-surface) !important;
-}
-
-.light .dashboard-theme [class*="bg-white/"] {
-  background-color: rgba(15, 23, 42, 0.06) !important;
+  background: var(--portal-surface) !important;
+  color: var(--portal-text) !important;
+  box-shadow: var(--portal-card-shadow);
 }
 
 button,

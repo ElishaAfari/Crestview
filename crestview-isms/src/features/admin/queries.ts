@@ -10,6 +10,29 @@ function one<T>(value: Relation<T> | undefined) {
 }
 
 export type SelectOption = { id: string; label: string };
+export type AdminDashboardData = {
+  metrics: {
+    students: number;
+    staff: number;
+    openInvoices: number;
+    attendanceRate: number;
+    collectionRate: number;
+    openAdmissions: number;
+    openRecruitment: number;
+    paidAmount: number;
+    openAmount: number;
+    invoiceTotal: number;
+  };
+  attendanceSeries: Array<{ date: string; present: number; absent: number; rate: number }>;
+  attendanceBreakdown: Array<{ label: string; count: number; tone: "green" | "amber" | "red" | "blue" }>;
+  financeSeries: Array<{ month: string; collected: number; pending: number }>;
+  classLoad: Array<{ className: string; students: number; capacity: number }>;
+  roleCounts: Array<{ label: string; count: number }>;
+  reviewQueues: Array<{ label: string; count: number; href: string; tone: "blue" | "green" | "amber" | "red" }>;
+  events: Array<{ id: string; title: string; starts_at: string }>;
+  activity: string[];
+  activityItems: Array<{ label: string; table: string; createdAt: string | null }>;
+};
 
 export async function listAdminFormOptions() {
   await requireRoles(["super_admin", "school_admin"]);
@@ -46,45 +69,145 @@ export async function listAdminFormOptions() {
   };
 }
 
-export async function getAdminDashboardData() {
+function dateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function money(value: unknown) {
+  return Number(value ?? 0);
+}
+
+function monthLabel(date: Date) {
+  return new Intl.DateTimeFormat("en-GH", { month: "short" }).format(date);
+}
+
+function roleLabel(value: string) {
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   await requireRoles(["super_admin", "school_admin"]);
   const admin = createAdminClient();
   const today = new Date().toISOString().slice(0, 10);
-  const [students, staff, invoicesOpen, invoicesAll, paidInvoices, attendance, admissions, recruitment, events, audit] = await Promise.all([
-    admin.from("students").select("*", { count: "exact", head: true }).is("deleted_at", null),
-    admin.from("profiles").select("roles(name)", { count: "exact" }).is("deleted_at", null),
-    admin.from("invoices").select("*", { count: "exact", head: true }).in("status", ["draft", "open", "overdue"]).is("deleted_at", null),
-    admin.from("invoices").select("amount,status").is("deleted_at", null),
-    admin.from("invoices").select("amount").eq("status", "paid").is("deleted_at", null),
-    admin.from("attendance_records").select("status").eq("attendance_date", today).is("deleted_at", null),
-    admin.from("admission_applications").select("*", { count: "exact", head: true }).in("status", ["submitted", "reviewing"]).is("deleted_at", null),
-    admin.from("job_applications").select("*", { count: "exact", head: true }).in("status", ["submitted", "screening", "interview", "offer"]).is("deleted_at", null),
-    admin.from("events").select("id,title,starts_at").is("deleted_at", null).neq("status", "cancelled").order("starts_at", { ascending: true }).limit(5),
-    admin.from("audit_logs").select("action,table_name,created_at").order("created_at", { ascending: false }).limit(5)
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - 6);
+  const [students, staff, classrooms, invoicesAll, attendance, admissions, recruitment, events, audit] = await Promise.all([
+    admin.from("students").select("id,classroom_id,status").eq("status", "active").is("deleted_at", null),
+    admin.from("profiles").select("roles(name)").is("deleted_at", null),
+    admin.from("classrooms").select("id,name,grade_level,capacity").is("deleted_at", null).order("grade_level"),
+    admin.from("invoices").select("amount,status,created_at").is("deleted_at", null),
+    admin.from("attendance_records").select("status,attendance_date").gte("attendance_date", dateKey(weekStart)).is("deleted_at", null),
+    admin.from("admission_applications").select("status").is("deleted_at", null),
+    admin.from("job_applications").select("status").is("deleted_at", null),
+    admin.from("events").select("id,title,starts_at").is("deleted_at", null).neq("status", "cancelled").order("starts_at", { ascending: true }).limit(8),
+    admin.from("audit_logs").select("action,table_name,created_at").order("created_at", { ascending: false }).limit(7)
   ]);
+  const studentRows = (students.data ?? []) as Array<{ id: string; classroom_id: string | null; status: string }>;
   const staffCount = ((staff.data ?? []) as unknown as Array<{ roles: Relation<{ name: string }> }>).filter((row) => {
     const role = one(row.roles)?.name;
     return role && !["student", "parent"].includes(role);
   }).length;
-  const attendanceRows = attendance.data ?? [];
-  const present = attendanceRows.filter((row) => row.status === "present" || row.status === "late").length;
-  const attendanceRate = attendanceRows.length ? Math.round((present / attendanceRows.length) * 100) : 0;
-  const invoiceTotal = (invoicesAll.data ?? []).reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0);
-  const paidTotal = (paidInvoices.data ?? []).reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0);
+  const attendanceRows = (attendance.data ?? []) as Array<{ status: string; attendance_date: string }>;
+  const todayRows = attendanceRows.filter((row) => row.attendance_date === today);
+  const present = todayRows.filter((row) => row.status === "present" || row.status === "late").length;
+  const attendanceRate = todayRows.length ? Math.round((present / todayRows.length) * 100) : 0;
+  const invoiceRows = (invoicesAll.data ?? []) as Array<{ amount: number | null; status: string; created_at: string | null }>;
+  const invoiceTotal = invoiceRows.reduce((sum, invoice) => sum + money(invoice.amount), 0);
+  const paidTotal = invoiceRows.filter((invoice) => invoice.status === "paid").reduce((sum, invoice) => sum + money(invoice.amount), 0);
+  const openAmount = invoiceRows.filter((invoice) => ["draft", "open", "overdue"].includes(invoice.status)).reduce((sum, invoice) => sum + money(invoice.amount), 0);
   const collectionRate = invoiceTotal ? Math.round((paidTotal / invoiceTotal) * 100) : 0;
+  const admissionRows = (admissions.data ?? []) as Array<{ status: string }>;
+  const recruitmentRows = (recruitment.data ?? []) as Array<{ status: string }>;
+  const openAdmissionStatuses = new Set(["submitted", "reviewing"]);
+  const openRecruitmentStatuses = new Set(["submitted", "screening", "interview", "offer"]);
+  const roleCountsMap = new Map<string, number>();
+  for (const row of (staff.data ?? []) as unknown as Array<{ roles: Relation<{ name: string }> }>) {
+    const roleName = one(row.roles)?.name;
+    if (!roleName || ["student", "parent"].includes(roleName)) continue;
+    roleCountsMap.set(roleName, (roleCountsMap.get(roleName) ?? 0) + 1);
+  }
+
+  const attendanceSeries = Array.from({ length: 7 }, (_, index) => {
+    const current = new Date(weekStart);
+    current.setDate(weekStart.getDate() + index);
+    const key = dateKey(current);
+    const rows = attendanceRows.filter((row) => row.attendance_date === key);
+    const dayPresent = rows.filter((row) => row.status === "present" || row.status === "late").length;
+    const dayAbsent = rows.filter((row) => row.status === "absent").length;
+    return {
+      date: new Intl.DateTimeFormat("en-GH", { weekday: "short" }).format(current),
+      present: dayPresent,
+      absent: dayAbsent,
+      rate: rows.length ? Math.round((dayPresent / rows.length) * 100) : 0
+    };
+  });
+
+  const statusCounts = new Map<string, number>();
+  for (const row of todayRows) statusCounts.set(row.status, (statusCounts.get(row.status) ?? 0) + 1);
+
+  const monthSeeds = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - (5 - index), 1);
+    return { key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`, month: monthLabel(date), collected: 0, pending: 0 };
+  });
+  const financeByMonth = new Map(monthSeeds.map((item) => [item.key, item]));
+  for (const invoice of invoiceRows) {
+    if (!invoice.created_at) continue;
+    const created = new Date(invoice.created_at);
+    const key = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, "0")}`;
+    const bucket = financeByMonth.get(key);
+    if (!bucket) continue;
+    if (invoice.status === "paid") bucket.collected += money(invoice.amount);
+    else bucket.pending += money(invoice.amount);
+  }
+
+  const classCounts = new Map<string, number>();
+  for (const student of studentRows) {
+    if (student.classroom_id) classCounts.set(student.classroom_id, (classCounts.get(student.classroom_id) ?? 0) + 1);
+  }
 
   return {
     metrics: {
-      students: students.count ?? 0,
+      students: studentRows.length,
       staff: staffCount,
-      openInvoices: invoicesOpen.count ?? 0,
+      openInvoices: invoiceRows.filter((invoice) => ["draft", "open", "overdue"].includes(invoice.status)).length,
       attendanceRate,
       collectionRate,
-      openAdmissions: admissions.count ?? 0,
-      openRecruitment: recruitment.count ?? 0
+      openAdmissions: admissionRows.filter((row) => openAdmissionStatuses.has(row.status)).length,
+      openRecruitment: recruitmentRows.filter((row) => openRecruitmentStatuses.has(row.status)).length,
+      paidAmount: paidTotal,
+      openAmount,
+      invoiceTotal
     },
+    attendanceSeries,
+    attendanceBreakdown: [
+      { label: "Present", count: statusCounts.get("present") ?? 0, tone: "green" },
+      { label: "Late", count: statusCounts.get("late") ?? 0, tone: "amber" },
+      { label: "Absent", count: statusCounts.get("absent") ?? 0, tone: "red" },
+      { label: "Excused", count: statusCounts.get("excused") ?? 0, tone: "blue" }
+    ],
+    financeSeries: Array.from(financeByMonth.values()).map(({ month, collected, pending }) => ({ month, collected, pending })),
+    classLoad: ((classrooms.data ?? []) as Array<{ id: string; name: string; grade_level: string; capacity: number | null }>)
+      .map((classroom) => ({
+        className: classroom.name,
+        students: classCounts.get(classroom.id) ?? 0,
+        capacity: classroom.capacity ?? 35
+      }))
+      .sort((a, b) => b.students - a.students)
+      .slice(0, 8),
+    roleCounts: Array.from(roleCountsMap.entries()).map(([label, count]) => ({ label: roleLabel(label), count })).sort((a, b) => b.count - a.count),
+    reviewQueues: [
+      { label: "Admissions", count: admissionRows.filter((row) => openAdmissionStatuses.has(row.status)).length, href: "/admin/admissions", tone: "blue" },
+      { label: "Recruitment", count: recruitmentRows.filter((row) => openRecruitmentStatuses.has(row.status)).length, href: "/admin/recruitment", tone: "amber" },
+      { label: "Open invoices", count: invoiceRows.filter((invoice) => ["draft", "open", "overdue"].includes(invoice.status)).length, href: "/admin/fees", tone: "green" }
+    ],
     events: (events.data ?? []) as Array<{ id: string; title: string; starts_at: string }>,
-    activity: (audit.data ?? []).map((item) => `${item.action} ${item.table_name}`).slice(0, 5)
+    activity: (audit.data ?? []).map((item) => `${item.action} ${item.table_name}`).slice(0, 5),
+    activityItems: ((audit.data ?? []) as Array<{ action: string; table_name: string; created_at: string | null }>).map((item) => ({
+      label: item.action,
+      table: item.table_name,
+      createdAt: item.created_at
+    }))
   };
 }
 

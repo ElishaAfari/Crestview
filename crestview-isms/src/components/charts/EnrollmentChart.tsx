@@ -14,11 +14,17 @@ export function EnrollmentChart() {
     <div className="h-72">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data}>
-          <CartesianGrid stroke="rgba(148,163,184,0.16)" vertical={false} />
+          <defs>
+            <linearGradient id="enrollmentFill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="5%" stopColor="#1d4ed8" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#1d4ed8" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke="rgba(100,116,139,0.18)" vertical={false} strokeDasharray="4 6" />
           <XAxis dataKey="year" stroke="#94a3b8" />
           <YAxis stroke="#94a3b8" />
-          <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }} />
-          <Area type="monotone" dataKey="students" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.18} />
+          <Tooltip />
+          <Area type="monotone" dataKey="students" stroke="#1d4ed8" strokeWidth={3} fill="url(#enrollmentFill)" />
         </AreaChart>
       </ResponsiveContainer>
     </div>

@@ -22,8 +22,8 @@ export function CalendarWidget({ items }: { items?: Array<{ id: string; title: s
       </CardHeader>
       <CardContent className="space-y-3">
         {displayEvents.map((event) => (
-          <div key={event.title} className="flex items-center justify-between gap-4 rounded-lg bg-white/[0.03] p-3">
-            <span className="text-sm text-slate-200">{event.title}</span>
+          <div key={event.title} className="flex items-center justify-between gap-4 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] p-3">
+            <span className="text-sm font-bold text-[var(--portal-text)]">{event.title}</span>
             <Badge tone="blue">{event.date}</Badge>
           </div>
         ))}

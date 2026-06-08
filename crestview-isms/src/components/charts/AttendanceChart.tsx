@@ -1,6 +1,6 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const data = [
   { day: "Mon", present: 96 },
@@ -14,13 +14,19 @@ export function AttendanceChart() {
   return (
     <div className="h-72">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data}>
-          <CartesianGrid stroke="rgba(148,163,184,0.16)" vertical={false} />
+        <AreaChart data={data}>
+          <defs>
+            <linearGradient id="attendanceFill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="5%" stopColor="#0f766e" stopOpacity={0.32} />
+              <stop offset="95%" stopColor="#0f766e" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke="rgba(100,116,139,0.18)" vertical={false} strokeDasharray="4 6" />
           <XAxis dataKey="day" stroke="#94a3b8" />
           <YAxis stroke="#94a3b8" />
-          <Tooltip cursor={{ fill: "rgba(59,130,246,0.08)" }} contentStyle={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }} />
-          <Bar dataKey="present" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-        </BarChart>
+          <Tooltip cursor={{ stroke: "rgba(15,118,110,0.35)" }} />
+          <Area type="monotone" dataKey="present" stroke="#0f766e" strokeWidth={3} fill="url(#attendanceFill)" />
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

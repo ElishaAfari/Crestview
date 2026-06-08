@@ -90,7 +90,7 @@ export function ClassRosterManager({ rosters = [] }: { rosters?: TeacherClassRos
 
       <div className="overflow-x-auto rounded-lg border border-[var(--portal-border)]">
         <table className="w-full min-w-[680px] text-left text-sm">
-          <thead className="bg-white/[0.04] text-xs uppercase text-slate-400">
+          <thead className="bg-[var(--portal-surface-strong)] text-xs uppercase text-[var(--portal-muted)]">
             <tr>
               <th className="w-44 px-4 py-3">Student ID</th>
               <th className="px-4 py-3">First name</th>

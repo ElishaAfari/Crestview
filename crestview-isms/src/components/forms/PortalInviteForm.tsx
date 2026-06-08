@@ -25,7 +25,7 @@ export function PortalInviteForm() {
       <div><Label>Email</Label><Input required name="email" type="email" /></div>
       <div>
         <Label>Portal role</Label>
-        <select name="role" defaultValue="teacher" className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 text-sm text-slate-50 outline-none focus:border-primary focus:ring-2 focus:ring-primary/30">
+        <select name="role" defaultValue="teacher" className="mt-1 h-10 w-full rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-3 text-sm text-[var(--portal-text)] outline-none focus:border-primary focus:ring-2 focus:ring-primary/30">
           <option value="school_admin">School administrator</option>
           <option value="teacher">Teacher</option>
           <option value="student">Student beta account</option>
@@ -40,7 +40,7 @@ export function PortalInviteForm() {
         <Button type="submit" disabled={pending}>
           <Send className="size-4" aria-hidden />{pending ? "Creating account..." : "Create user and send access"}
         </Button>
-        {state.message ? <p className={`text-sm ${state.ok ? "text-emerald-300" : "text-red-300"}`}>{state.message}</p> : null}
+        {state.message ? <p className={`text-sm ${state.ok ? "text-emerald-600 dark:text-emerald-300" : "text-red-600 dark:text-red-300"}`}>{state.message}</p> : null}
       </div>
     </form>
   );

@@ -21,7 +21,7 @@ export function QuickActions() {
         {actions.map((action) => {
           const Icon = action.icon;
           return (
-            <Link key={action.label} href={action.href} className={cn(buttonVariants({ variant: "secondary" }), "justify-start")}>
+            <Link key={action.label} href={action.href} className={cn(buttonVariants({ variant: "secondary" }), "h-12 justify-start bg-[var(--portal-surface-strong)]")}>
               <Icon className="size-4" aria-hidden />
               {action.label}
             </Link>

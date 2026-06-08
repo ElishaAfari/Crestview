@@ -5,6 +5,7 @@ export type NavItem = {
   href: string;
   icon: LucideIcon;
   roles: string[];
+  section?: string;
 };
 
 export type StatCard = {

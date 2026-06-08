@@ -18,8 +18,8 @@ export function ActivityFeed({ items }: { items?: string[] }) {
       <CardContent>
         <ol className="space-y-4">
           {displayActivities.map((activity) => (
-            <li key={activity} className="flex gap-3 text-sm text-slate-300">
-              <span className="mt-1 size-2 rounded-full bg-blue-400" />
+            <li key={activity} className="flex gap-3 text-sm font-semibold text-[var(--portal-text)]">
+              <span className="mt-1 size-2 rounded-full bg-blue-600" />
               {activity}
             </li>
           ))}

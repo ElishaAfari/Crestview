@@ -19,7 +19,7 @@ export default async function AdminRecruitmentPage() {
           {applications.length ? (
             <div className="overflow-x-auto rounded-lg border border-[var(--portal-border)]">
               <table className="w-full text-left text-sm">
-                <thead className="bg-white/[0.04] text-xs uppercase text-slate-400">
+                <thead className="bg-[var(--portal-surface-strong)] text-xs uppercase text-[var(--portal-muted)]">
                   <tr>
                     <th className="px-4 py-3">Candidate</th>
                     <th className="px-4 py-3">Role</th>

@@ -22,11 +22,11 @@ export function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 p-4">
-      <div className="w-full max-w-md rounded-xl border border-white/10 bg-slate-900 p-6 shadow-blue-soft">
+      <div className="w-full max-w-md rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface)] p-6 shadow-[var(--portal-card-shadow)]">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-heading text-lg font-semibold text-white">{title}</h2>
-            <p className="mt-2 text-sm text-slate-400">{message}</p>
+            <h2 className="font-heading text-lg font-semibold text-[var(--portal-text)]">{title}</h2>
+            <p className="mt-2 text-sm text-[var(--portal-muted)]">{message}</p>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close dialog">
             <X className="size-4" aria-hidden />

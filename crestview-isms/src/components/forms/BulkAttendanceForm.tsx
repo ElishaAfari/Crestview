@@ -47,7 +47,7 @@ export function BulkAttendanceForm({ courses = [] }: { courses?: TeacherAttendan
           <p className="text-sm font-semibold text-[var(--portal-text)]">{selectedClass.classroomLabel}</p>
           <div className="mt-3 overflow-x-auto rounded-lg border border-[var(--portal-border)]">
             <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="bg-white/[0.04] text-xs uppercase text-slate-400">
+              <thead className="bg-[var(--portal-surface-strong)] text-xs uppercase text-[var(--portal-muted)]">
                 <tr>
                   <th className="px-4 py-3">Student</th>
                   <th className="px-4 py-3">Student number</th>
