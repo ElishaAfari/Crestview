@@ -8,6 +8,15 @@ type ProfileJoin = { first_name: string; last_name: string };
 type SelectOption = { id: string; label: string };
 export type TeacherAttendanceStudent = { id: string; studentNumber: string; name: string };
 export type TeacherAttendanceCourse = { id: string; label: string; classroomId: string; classroomLabel: string; students: TeacherAttendanceStudent[] };
+export type TeacherClassRoster = {
+  classroomId: string;
+  classroomName: string;
+  gradeLevel: string;
+  academicYearId: string | null;
+  academicYear: string;
+  subjects: string[];
+  students: Array<{ id: string; studentNumber: string; firstName: string; lastName: string; name: string }>;
+};
 
 function one<T>(value: Relation<T> | undefined) {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
@@ -58,7 +67,12 @@ export async function listStaff() {
 
 export async function listAttendanceRecords() {
   const { supabase } = await requireUser();
-  const { data } = await supabase.from("attendance_records").select("id,attendance_date,status,students(profiles!students_profile_id_fkey(first_name,last_name))").order("attendance_date", { ascending: false }).limit(50);
+  const { data } = await supabase
+    .from("attendance_records")
+    .select("id,attendance_date,status,students(profiles!students_profile_id_fkey(first_name,last_name))")
+    .is("deleted_at", null)
+    .order("attendance_date", { ascending: false })
+    .limit(50);
   const records = (data ?? []) as unknown as Array<{
     id: string;
     attendance_date: string;
@@ -165,14 +179,23 @@ export async function getParentDashboardData() {
 export async function getTeacherDashboardData() {
   const { user } = await requireRoles(["teacher"]);
   const admin = createAdminClient();
-  const { data: courses } = await admin.from("courses").select("id,classroom_id").eq("teacher_id", user.id).is("deleted_at", null);
-  const courseRows = (courses ?? []) as Array<{ id: string; classroom_id: string }>;
+  const [leadCourses, assignedCourses] = await Promise.all([
+    admin.from("courses").select("id,classroom_id").eq("teacher_id", user.id).is("deleted_at", null),
+    admin.from("teacher_assignments").select("courses(id,classroom_id)").eq("teacher_id", user.id).is("deleted_at", null)
+  ]);
+  const courseMap = new Map<string, { id: string; classroom_id: string }>();
+  for (const course of (leadCourses.data ?? []) as Array<{ id: string; classroom_id: string }>) courseMap.set(course.id, course);
+  for (const row of (assignedCourses.data ?? []) as unknown as Array<{ courses: Relation<{ id: string; classroom_id: string }> }>) {
+    const course = one(row.courses);
+    if (course) courseMap.set(course.id, course);
+  }
+  const courseRows = Array.from(courseMap.values());
   const courseIds = courseRows.map((course) => course.id);
   const classroomIds = Array.from(new Set(courseRows.map((course) => course.classroom_id).filter(Boolean)));
   const [assignments, grades, attendance] = await Promise.all([
     courseIds.length ? admin.from("assignments").select("*", { count: "exact", head: true }).in("course_id", courseIds).is("deleted_at", null) : Promise.resolve({ count: 0 }),
     courseIds.length ? admin.from("grades").select("grade_items!inner(course_id)", { count: "exact", head: true }).in("grade_items.course_id", courseIds).is("deleted_at", null) : Promise.resolve({ count: 0 }),
-    courseIds.length ? admin.from("attendance_records").select("status").in("course_id", courseIds).eq("attendance_date", new Date().toISOString().slice(0, 10)).is("deleted_at", null) : Promise.resolve({ data: [] })
+    classroomIds.length ? admin.from("attendance_records").select("status").in("classroom_id", classroomIds).eq("attendance_date", new Date().toISOString().slice(0, 10)).is("deleted_at", null) : Promise.resolve({ data: [] })
   ]);
   const attendanceRows = (attendance.data ?? []) as Array<{ status: string }>;
   const present = attendanceRows.filter((row) => row.status === "present" || row.status === "late").length;
@@ -332,7 +355,15 @@ export async function listTeacherAttendanceRoster(): Promise<TeacherAttendanceCo
     if (course) courseMap.set(course.id, course);
   }
 
-  const courses = Array.from(courseMap.values());
+  const courses = Array.from(courseMap.values()).sort((a, b) => {
+    const classroomA = one(a.classrooms);
+    const classroomB = one(b.classrooms);
+    const classCompare = `${classroomA?.grade_level ?? ""} ${classroomA?.name ?? ""}`.localeCompare(`${classroomB?.grade_level ?? ""} ${classroomB?.name ?? ""}`, undefined, { numeric: true });
+    if (classCompare) return classCompare;
+    const subjectCompare = (one(a.subjects)?.name ?? "").localeCompare(one(b.subjects)?.name ?? "");
+    if (subjectCompare) return subjectCompare;
+    return a.term.localeCompare(b.term, undefined, { numeric: true });
+  });
   const classroomIds = Array.from(new Set(courses.map((course) => course.classroom_id).filter(Boolean)));
   const { data: students } = classroomIds.length
     ? await admin
@@ -356,16 +387,143 @@ export async function listTeacherAttendanceRoster(): Promise<TeacherAttendanceCo
     studentsByClassroom.set(student.classroom_id, roster);
   }
 
-  return courses.map((course) => {
+  const classMap = new Map<string, { classroomLabel: string; subjects: Set<string>; students: TeacherAttendanceStudent[] }>();
+  for (const course of courses) {
     const classroom = one(course.classrooms);
-    return {
-      id: course.id,
-      label: `${one(course.subjects)?.name ?? "Course"} - ${classroom?.name ?? "Class"} (${course.term})`,
-      classroomId: course.classroom_id,
+    const existing = classMap.get(course.classroom_id);
+    const entry = existing ?? {
       classroomLabel: `${classroom?.grade_level ?? "Class"} - ${classroom?.name ?? "Class"}`,
+      subjects: new Set<string>(),
       students: studentsByClassroom.get(course.classroom_id) ?? []
     };
-  });
+    const subject = one(course.subjects)?.name;
+    if (subject) entry.subjects.add(subject);
+    classMap.set(course.classroom_id, entry);
+  }
+
+  return Array.from(classMap.entries()).map(([classroomId, item]) => ({
+    id: classroomId,
+    label: item.classroomLabel,
+    classroomId,
+    classroomLabel: `${item.classroomLabel}${item.subjects.size ? ` - ${item.subjects.size} subject${item.subjects.size === 1 ? "" : "s"}` : ""}`,
+    students: item.students
+  }));
+}
+
+export async function listTeacherClassRosters(): Promise<TeacherClassRoster[]> {
+  const { user, role } = await requireRoles(["super_admin", "school_admin", "teacher"]);
+  const admin = createAdminClient();
+  type CourseRow = {
+    id: string;
+    classroom_id: string;
+    academic_year_id: string | null;
+    teacher_id: string | null;
+    subjects: Relation<{ name: string }>;
+    classrooms: Relation<{ id: string; name: string; grade_level: string; academic_year_id: string | null; academic_years: Relation<{ name: string }> }>;
+  };
+
+  const [leadCourses, assignedCourses] = role === "teacher"
+    ? await Promise.all([
+        admin
+          .from("courses")
+          .select("id,classroom_id,academic_year_id,teacher_id,subjects(name),classrooms(id,name,grade_level,academic_year_id,academic_years(name))")
+          .eq("teacher_id", user.id)
+          .is("deleted_at", null),
+        admin
+          .from("teacher_assignments")
+          .select("courses(id,classroom_id,academic_year_id,teacher_id,subjects(name),classrooms(id,name,grade_level,academic_year_id,academic_years(name)))")
+          .eq("teacher_id", user.id)
+          .is("deleted_at", null)
+      ])
+    : await Promise.all([
+        admin
+          .from("courses")
+          .select("id,classroom_id,academic_year_id,teacher_id,subjects(name),classrooms(id,name,grade_level,academic_year_id,academic_years(name))")
+          .is("deleted_at", null)
+          .limit(500),
+        Promise.resolve({ data: [] })
+      ]);
+
+  const courseMap = new Map<string, CourseRow>();
+  for (const course of (leadCourses.data ?? []) as unknown as CourseRow[]) courseMap.set(course.id, course);
+  for (const row of (assignedCourses.data ?? []) as unknown as Array<{ courses: Relation<CourseRow> }>) {
+    const course = one(row.courses);
+    if (course) courseMap.set(course.id, course);
+  }
+
+  const assignedCoursesList = Array.from(courseMap.values());
+  const classKeys = new Map<string, { classroomId: string; academicYearId: string | null; classroomName: string; gradeLevel: string; academicYear: string }>();
+  for (const course of assignedCoursesList) {
+    const classroom = one(course.classrooms);
+    if (!classroom) continue;
+    const key = `${classroom.id}:${course.academic_year_id ?? classroom.academic_year_id ?? ""}`;
+    classKeys.set(key, {
+      classroomId: classroom.id,
+      academicYearId: course.academic_year_id ?? classroom.academic_year_id ?? null,
+      classroomName: classroom.name,
+      gradeLevel: classroom.grade_level,
+      academicYear: one(classroom.academic_years)?.name ?? "Academic year"
+    });
+  }
+
+  const classrooms = Array.from(classKeys.values());
+  if (!classrooms.length) return [];
+  const classroomIds = Array.from(new Set(classrooms.map((item) => item.classroomId)));
+  const academicYearIds = Array.from(new Set(classrooms.map((item) => item.academicYearId).filter((id): id is string => Boolean(id))));
+
+  let subjectQuery = admin
+    .from("courses")
+    .select("classroom_id,academic_year_id,subjects(name)")
+    .in("classroom_id", classroomIds)
+    .is("deleted_at", null);
+  if (academicYearIds.length) subjectQuery = subjectQuery.in("academic_year_id", academicYearIds);
+
+  const [subjectRows, studentRows] = await Promise.all([
+    subjectQuery,
+    admin
+      .from("students")
+      .select("id,student_number,classroom_id,profiles!students_profile_id_fkey(first_name,last_name)")
+      .in("classroom_id", classroomIds)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .order("student_number")
+  ]);
+
+  const subjectsByClass = new Map<string, Set<string>>();
+  for (const row of (subjectRows.data ?? []) as unknown as Array<{ classroom_id: string; academic_year_id: string | null; subjects: Relation<{ name: string }> }>) {
+    const key = `${row.classroom_id}:${row.academic_year_id ?? ""}`;
+    const set = subjectsByClass.get(key) ?? new Set<string>();
+    const subject = one(row.subjects)?.name;
+    if (subject) set.add(subject);
+    subjectsByClass.set(key, set);
+  }
+
+  const studentsByClassroom = new Map<string, TeacherClassRoster["students"]>();
+  for (const student of (studentRows.data ?? []) as unknown as Array<{ id: string; student_number: string; classroom_id: string; profiles: Relation<ProfileJoin> }>) {
+    const profile = one(student.profiles);
+    const rows = studentsByClassroom.get(student.classroom_id) ?? [];
+    const firstName = profile?.first_name ?? "";
+    const lastName = profile?.last_name ?? "";
+    rows.push({
+      id: student.id,
+      studentNumber: student.student_number,
+      firstName,
+      lastName,
+      name: profile ? `${firstName} ${lastName}` : student.student_number
+    });
+    studentsByClassroom.set(student.classroom_id, rows);
+  }
+
+  return classrooms
+    .sort((a, b) => a.gradeLevel.localeCompare(b.gradeLevel, undefined, { numeric: true }))
+    .map((classroom) => {
+      const key = `${classroom.classroomId}:${classroom.academicYearId ?? ""}`;
+      return {
+        ...classroom,
+        subjects: Array.from(subjectsByClass.get(key) ?? new Set<string>()).sort(),
+        students: studentsByClassroom.get(classroom.classroomId) ?? []
+      };
+    });
 }
 
 export async function listMyNotifications() {

@@ -19,21 +19,21 @@ const statuses = [
 ];
 
 export function BulkAttendanceForm({ courses = [] }: { courses?: TeacherAttendanceCourse[] }) {
-  const [selectedCourseId, setSelectedCourseId] = useState(courses[0]?.id ?? "");
-  const selectedCourse = useMemo(() => courses.find((course) => course.id === selectedCourseId) ?? courses[0], [courses, selectedCourseId]);
+  const [selectedClassId, setSelectedClassId] = useState(courses[0]?.classroomId ?? "");
+  const selectedClass = useMemo(() => courses.find((course) => course.classroomId === selectedClassId) ?? courses[0], [courses, selectedClassId]);
   const [state, action, pending] = useActionState(async (_: State, formData: FormData) => bulkRecordAttendanceAction(formData), initialState);
 
   if (!courses.length) {
-    return <p className="text-sm text-[var(--portal-muted)]">No assigned courses are available for attendance yet.</p>;
+    return <p className="text-sm text-[var(--portal-muted)]">No assigned classes are available for attendance yet.</p>;
   }
 
   return (
     <form action={action} className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <Label>Assigned course</Label>
-          <Select value={selectedCourse?.id ?? ""} onChange={(event) => setSelectedCourseId(event.target.value)}>
-            {courses.map((course) => <option key={course.id} value={course.id}>{course.label}</option>)}
+          <Label>Assigned class</Label>
+          <Select value={selectedClass?.classroomId ?? ""} onChange={(event) => setSelectedClassId(event.target.value)}>
+            {courses.map((course) => <option key={course.classroomId} value={course.classroomId}>{course.label}</option>)}
           </Select>
         </div>
         <div>
@@ -41,12 +41,12 @@ export function BulkAttendanceForm({ courses = [] }: { courses?: TeacherAttendan
           <Input name="attendanceDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
         </div>
       </div>
-      <input type="hidden" name="courseId" value={selectedCourse?.id ?? ""} />
-      {selectedCourse ? (
+      <input type="hidden" name="classroomId" value={selectedClass?.classroomId ?? ""} />
+      {selectedClass ? (
         <div>
-          <p className="text-sm font-semibold text-[var(--portal-text)]">{selectedCourse.classroomLabel}</p>
+          <p className="text-sm font-semibold text-[var(--portal-text)]">{selectedClass.classroomLabel}</p>
           <div className="mt-3 overflow-x-auto rounded-lg border border-[var(--portal-border)]">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-white/[0.04] text-xs uppercase text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Student</th>
@@ -55,7 +55,7 @@ export function BulkAttendanceForm({ courses = [] }: { courses?: TeacherAttendan
                 </tr>
               </thead>
               <tbody>
-                {selectedCourse.students.length ? selectedCourse.students.map((student) => (
+                {selectedClass.students.length ? selectedClass.students.map((student) => (
                   <tr key={student.id} className="border-t border-[var(--portal-border)]">
                     <td className="px-4 py-3 font-medium text-[var(--portal-text)]">{student.name}</td>
                     <td className="px-4 py-3 text-[var(--portal-muted)]">{student.studentNumber}</td>
@@ -83,7 +83,7 @@ export function BulkAttendanceForm({ courses = [] }: { courses?: TeacherAttendan
         </div>
       ) : null}
       <div className="flex flex-col items-start gap-3">
-        <Button type="submit" disabled={pending || !selectedCourse?.students.length}>
+        <Button type="submit" disabled={pending || !selectedClass?.students.length}>
           <ClipboardCheck className="size-4" aria-hidden />
           {pending ? "Saving register..." : "Save attendance register"}
         </Button>

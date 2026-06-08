@@ -15,7 +15,7 @@ const attendanceSchema = z.object({
 });
 
 const bulkAttendanceSchema = z.object({
-  courseId: z.string().uuid(),
+  classroomId: z.string().uuid(),
   attendanceDate: z.string().date()
 });
 
@@ -53,7 +53,7 @@ export async function recordAttendanceAction(formData: FormData) {
 
 export async function bulkRecordAttendanceAction(formData: FormData) {
   const result = bulkAttendanceSchema.safeParse({
-    courseId: String(formData.get("courseId") ?? ""),
+    classroomId: String(formData.get("classroomId") ?? ""),
     attendanceDate: String(formData.get("attendanceDate") ?? "")
   });
 
@@ -70,23 +70,23 @@ export async function bulkRecordAttendanceAction(formData: FormData) {
 
   const { user, role } = await requireRoles(["super_admin", "school_admin", "teacher"]);
   const admin = createAdminClient();
-  const { data: course } = await admin
+  const { data: courses } = await admin
     .from("courses")
-    .select("id,classroom_id,teacher_id")
-    .eq("id", result.data.courseId)
-    .is("deleted_at", null)
-    .maybeSingle();
-  const courseRecord = course as { id: string; classroom_id: string; teacher_id: string | null } | null;
-  if (!courseRecord) return { ok: false, message: "The selected course could not be found." };
+    .select("id,teacher_id")
+    .eq("classroom_id", result.data.classroomId)
+    .is("deleted_at", null);
+  const classroomCourses = (courses ?? []) as Array<{ id: string; teacher_id: string | null }>;
+  if (!classroomCourses.length) return { ok: false, message: "The selected class could not be found." };
 
-  if (role === "teacher" && courseRecord.teacher_id !== user.id) {
+  if (role === "teacher" && !classroomCourses.some((course) => course.teacher_id === user.id)) {
+    const courseIds = classroomCourses.map((course) => course.id);
     const { count } = await admin
       .from("teacher_assignments")
       .select("*", { count: "exact", head: true })
       .eq("teacher_id", user.id)
-      .eq("course_id", courseRecord.id)
+      .in("course_id", courseIds)
       .is("deleted_at", null);
-    if (!count) return { ok: false, message: "You can only record attendance for your assigned courses." };
+    if (!count) return { ok: false, message: "You can only record attendance for your assigned classes." };
   }
 
   const studentIds = submittedStatuses.map((item) => item.studentId);
@@ -94,20 +94,29 @@ export async function bulkRecordAttendanceAction(formData: FormData) {
     .from("students")
     .select("id,classroom_id")
     .in("id", studentIds)
-    .eq("classroom_id", courseRecord.classroom_id)
+    .eq("classroom_id", result.data.classroomId)
     .eq("status", "active")
     .is("deleted_at", null);
   const validIds = new Set(((students ?? []) as Array<{ id: string }>).map((student) => student.id));
-  if (validIds.size !== submittedStatuses.length) return { ok: false, message: "Some students do not belong to the selected course classroom." };
+  if (validIds.size !== submittedStatuses.length) return { ok: false, message: "Some students do not belong to the selected class." };
 
-  const { error } = await admin.from("attendance_records").upsert(submittedStatuses.map((item) => ({
+  const { error: clearError } = await admin
+    .from("attendance_records")
+    .update({ deleted_at: new Date().toISOString() })
+    .in("student_id", studentIds)
+    .eq("classroom_id", result.data.classroomId)
+    .eq("attendance_date", result.data.attendanceDate)
+    .is("course_id", null);
+  if (clearError) return { ok: false, message: "The existing register could not be refreshed." };
+
+  const { error } = await admin.from("attendance_records").insert(submittedStatuses.map((item) => ({
     student_id: item.studentId,
-    classroom_id: courseRecord.classroom_id,
-    course_id: courseRecord.id,
+    classroom_id: result.data.classroomId,
+    course_id: null,
     attendance_date: result.data.attendanceDate,
     status: item.status,
     recorded_by: user.id
-  })), { onConflict: "student_id,attendance_date,course_id" });
+  })));
 
   if (error) return { ok: false, message: "The attendance register could not be saved." };
   revalidatePath("/admin");
