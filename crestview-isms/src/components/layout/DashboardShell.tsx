@@ -10,9 +10,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   useAuth();
 
   return (
-    <div className="dashboard-theme flex min-h-screen bg-[var(--portal-bg)] text-[var(--portal-text)]">
+    <div className="dashboard-theme flex min-h-dvh w-full overflow-x-hidden bg-[var(--portal-bg)] text-[var(--portal-text)]">
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col pb-20 lg:pb-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         <TopNav />
         {children}
       </div>

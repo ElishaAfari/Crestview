@@ -16,16 +16,16 @@ export function TopNav() {
   const displayName = profile ? `${profile.first_name} ${profile.last_name}` : "School workspace";
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--portal-border)] bg-[var(--portal-shell)] px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="lg:hidden" onClick={toggleSidebar} aria-label="Open navigation">
+    <header className="sticky top-0 z-30 border-b border-[var(--portal-border)] bg-[var(--portal-shell)] px-2 py-2.5 backdrop-blur sm:px-6 sm:py-3 lg:px-8">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <Button variant="ghost" size="icon" className="shrink-0 lg:hidden" onClick={toggleSidebar} aria-label="Open navigation">
           <Menu className="size-5" aria-hidden />
         </Button>
-        <div>
-          <p className="text-sm font-semibold text-[var(--portal-text)]">{displayName}</p>
-          <p className="text-xs text-[var(--portal-muted)]">{role ? ROLES[role].label : "Loading workspace..."}</p>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-[var(--portal-text)]">{displayName}</p>
+          <p className="truncate text-xs text-[var(--portal-muted)]">{role ? ROLES[role].label : "Loading workspace..."}</p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-2">
           <NotificationBell />
           <ThemeToggle />
           <form action={signOutAction}>
