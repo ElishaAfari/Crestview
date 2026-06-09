@@ -22,8 +22,8 @@ export function AttendanceChart() {
             </linearGradient>
           </defs>
           <CartesianGrid stroke="rgba(100,116,139,0.18)" vertical={false} strokeDasharray="4 6" />
-          <XAxis dataKey="day" stroke="#94a3b8" />
-          <YAxis stroke="#94a3b8" />
+          <XAxis dataKey="day" stroke="#102a56" tick={{ fontWeight: 900 }} />
+          <YAxis stroke="#102a56" tick={{ fontWeight: 900 }} />
           <Tooltip cursor={{ stroke: "rgba(15,118,110,0.35)" }} />
           <Area type="monotone" dataKey="present" stroke="#0f766e" strokeWidth={3} fill="url(#attendanceFill)" />
         </AreaChart>

@@ -9,6 +9,14 @@ const tones = {
   slate: "border-[#174ea6] bg-[#e8f2ff] text-[#061a4c] shadow-[0_10px_22px_-16px_rgba(23,78,166,0.7)] dark:border-[var(--portal-border)] dark:bg-[var(--portal-surface-strong)] dark:text-[var(--portal-muted)] dark:shadow-none"
 };
 
+const toneClassNames = {
+  blue: "portal-badge-blue",
+  green: "portal-badge-green",
+  amber: "portal-badge-amber",
+  red: "portal-badge-red",
+  slate: "portal-badge-slate"
+};
+
 export function Badge({
   className,
   tone = "slate",
@@ -16,7 +24,7 @@ export function Badge({
 }: React.HTMLAttributes<HTMLSpanElement> & { tone?: keyof typeof tones }) {
   return (
     <span
-      className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold", tones[tone], className)}
+      className={cn("portal-badge inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold", toneClassNames[tone], tones[tone], className)}
       {...props}
     />
   );

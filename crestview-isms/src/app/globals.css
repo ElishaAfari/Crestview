@@ -35,7 +35,7 @@ body {
   --portal-surface-strong: #eef6ff;
   --portal-border: #8fb4e3;
   --portal-text: #081a3f;
-  --portal-muted: #1f2f46;
+  --portal-muted: #102a56;
   --portal-accent: #0f766e;
   --portal-warning: #f59e0b;
   --portal-danger: #dc2626;
@@ -44,6 +44,44 @@ body {
   --portal-control-strong: #c5dcfb;
   background: var(--portal-bg);
   color: var(--portal-text);
+}
+
+.dashboard-density-frame {
+  min-width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-density-frame {
+    --dashboard-density-scale: 0.9;
+    transform: scale(var(--dashboard-density-scale));
+    transform-origin: top left;
+    width: calc(100% / var(--dashboard-density-scale));
+    min-height: calc(100dvh / var(--dashboard-density-scale));
+  }
+
+  .dashboard-density-frame main > div {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+  }
+}
+
+@media (min-width: 1280px) {
+  .dashboard-density-frame {
+    --dashboard-density-scale: 0.84;
+  }
+}
+
+@media (min-width: 1536px) {
+  .dashboard-density-frame {
+    --dashboard-density-scale: 0.78;
+  }
+}
+
+@media (min-width: 1800px) {
+  .dashboard-density-frame {
+    --dashboard-density-scale: 0.72;
+  }
 }
 
 .dark .dashboard-theme {
@@ -69,6 +107,150 @@ body {
   background: var(--portal-surface) !important;
   color: var(--portal-text) !important;
   box-shadow: var(--portal-card-shadow);
+}
+
+.dashboard-theme main a {
+  color: #07377f !important;
+  font-weight: 900 !important;
+}
+
+.dashboard-theme main a:hover {
+  color: #031b4f !important;
+}
+
+.dashboard-theme [class*="text-[var(--portal-muted)]"] {
+  color: #102a56 !important;
+  font-weight: 800;
+}
+
+.dashboard-theme ::placeholder {
+  color: #29416c !important;
+  opacity: 1;
+}
+
+.dashboard-theme main a svg {
+  stroke-width: 2.75;
+}
+
+.dashboard-theme main a[class*="bg-[#174ea6]"],
+.dashboard-theme main a[class*="bg-primary"],
+.dashboard-theme main .portal-brand-card a {
+  color: #ffffff !important;
+}
+
+.dashboard-theme .recharts-cartesian-axis-tick-value,
+.dashboard-theme .recharts-legend-item-text {
+  fill: #061a4c !important;
+  color: #061a4c !important;
+  font-weight: 900 !important;
+}
+
+.dashboard-theme .recharts-cartesian-axis-line,
+.dashboard-theme .recharts-cartesian-axis-tick-line {
+  stroke: #7f96b8 !important;
+  stroke-width: 1.5;
+}
+
+.dashboard-theme .recharts-cartesian-grid line {
+  stroke: rgba(23, 78, 166, 0.24) !important;
+}
+
+.dashboard-theme button:disabled {
+  opacity: 0.92 !important;
+  filter: saturate(1.08);
+}
+
+.dashboard-theme .portal-register-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 2px solid #174ea6;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffffff 0%, #e5f1ff 100%);
+  color: #061a4c !important;
+  box-shadow: 0 14px 26px -18px rgba(7, 55, 127, 0.8);
+  font-weight: 950 !important;
+}
+
+.dashboard-theme .portal-register-link:hover {
+  border-color: #07377f;
+  background: linear-gradient(135deg, #eef6ff 0%, #d7e9ff 100%);
+  color: #031b4f !important;
+}
+
+.dashboard-theme .portal-badge {
+  border-width: 2px !important;
+  color: #ffffff !important;
+  font-weight: 900 !important;
+}
+
+.dashboard-theme .portal-badge-blue {
+  border-color: #123f91 !important;
+  background: #174ea6 !important;
+}
+
+.dashboard-theme .portal-badge-green {
+  border-color: #065f46 !important;
+  background: #047857 !important;
+}
+
+.dashboard-theme .portal-badge-amber {
+  border-color: #92400e !important;
+  background: #b45309 !important;
+}
+
+.dashboard-theme .portal-badge-red {
+  border-color: #9f1239 !important;
+  background: #be123c !important;
+}
+
+.dashboard-theme .portal-badge-slate {
+  border-color: #174ea6 !important;
+  background: #dcecff !important;
+  color: #061a4c !important;
+}
+
+.dark .dashboard-theme main a {
+  color: #bfdbfe !important;
+}
+
+.dark .dashboard-theme main a:hover {
+  color: #eff6ff !important;
+}
+
+.dark .dashboard-theme [class*="text-[var(--portal-muted)]"] {
+  color: #cbd5e1 !important;
+}
+
+.dark .dashboard-theme ::placeholder {
+  color: #94a3b8 !important;
+}
+
+.dark .dashboard-theme .portal-register-link {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #dbeafe !important;
+  box-shadow: none;
+}
+
+.dark .dashboard-theme .portal-register-link:hover {
+  background: rgba(37, 99, 235, 0.16);
+  color: #ffffff !important;
+}
+
+.dark .dashboard-theme .recharts-cartesian-axis-tick-value,
+.dark .dashboard-theme .recharts-legend-item-text {
+  fill: #cbd5e1 !important;
+  color: #cbd5e1 !important;
+}
+
+.dark .dashboard-theme .portal-badge-blue,
+.dark .dashboard-theme .portal-badge-green,
+.dark .dashboard-theme .portal-badge-amber,
+.dark .dashboard-theme .portal-badge-red,
+.dark .dashboard-theme .portal-badge-slate {
+  border-color: rgba(255, 255, 255, 0.16) !important;
 }
 
 .dashboard-theme .text-emerald-300,

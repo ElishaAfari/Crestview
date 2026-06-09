@@ -16,8 +16,8 @@ export function FinanceChart() {
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data}>
           <CartesianGrid stroke="rgba(100,116,139,0.18)" vertical={false} strokeDasharray="4 6" />
-          <XAxis dataKey="month" stroke="#94a3b8" />
-          <YAxis stroke="#94a3b8" />
+          <XAxis dataKey="month" stroke="#102a56" tick={{ fontWeight: 900 }} />
+          <YAxis stroke="#102a56" tick={{ fontWeight: 900 }} />
           <Tooltip />
           <Legend />
           <Bar dataKey="collected" fill="#0f766e" radius={[6, 6, 0, 0]} />

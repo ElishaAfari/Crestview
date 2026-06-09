@@ -126,7 +126,7 @@ export function OperationsWorkspaceDashboard({ workspace }: { workspace: Workspa
                   </span>
                 </div>
                 <p className="mt-4 min-h-10 text-sm font-semibold leading-5 text-[var(--portal-muted)]">{module.description}</p>
-                <Link href={`/${workspace.key}/${module.key}`} className="mt-4 inline-flex items-center gap-1 text-xs font-black text-[#174ea6] hover:text-[#07377f] dark:text-blue-200">
+                <Link href={`/${workspace.key}/${module.key}`} className="portal-register-link mt-4 px-3 py-1.5 text-xs">
                   Open register <ArrowUpRight className="size-3.5" aria-hidden />
                 </Link>
               </CardContent>

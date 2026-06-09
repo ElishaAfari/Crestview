@@ -40,14 +40,14 @@ export function Sidebar() {
           </span>
           <span className="min-w-0">
             <span className="block truncate font-heading text-lg font-black uppercase tracking-normal text-white">Crestview</span>
-            <span className="block truncate text-[11px] font-bold uppercase tracking-normal text-blue-100">International School</span>
+            <span className="block truncate text-[11px] font-bold uppercase tracking-normal text-white">International School</span>
           </span>
         </Link>
       </div>
       <nav className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-5">
         {groupedItems.map((group) => (
           <div key={group.section}>
-            <p className="px-3 text-[11px] font-black uppercase tracking-normal text-blue-200/80">{group.section}</p>
+            <p className="px-3 text-[11px] font-black uppercase tracking-normal text-cyan-100">{group.section}</p>
             <div className="mt-2 space-y-1">
               {group.items.map((item) => {
                 const active = isActivePath(pathname, item.href, home);
@@ -57,11 +57,11 @@ export function Sidebar() {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-bold text-blue-50/85 transition hover:bg-white/10 hover:text-white",
+                      "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-black text-white/95 transition hover:bg-white/14 hover:text-white",
                       active && "bg-white text-[#07377f] shadow-lg shadow-slate-950/15 hover:bg-white hover:text-[#07377f]"
                     )}
                   >
-                    <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg bg-white/10 text-blue-100", active && "bg-[#eef4ff] text-[#07377f]")}>
+                    <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg bg-white/16 text-white ring-1 ring-white/10", active && "bg-[#eef4ff] text-[#07377f] ring-[#bfd8fa]")}>
                       <Icon className="size-4" aria-hidden />
                     </span>
                     <span className="truncate">{item.title}</span>
@@ -73,7 +73,7 @@ export function Sidebar() {
         ))}
       </nav>
       <div className="m-4 rounded-lg border border-white/15 bg-white/10 p-4">
-        <p className="text-xs font-bold uppercase tracking-normal text-blue-100">Workspace</p>
+        <p className="text-xs font-bold uppercase tracking-normal text-cyan-100">Workspace</p>
         <p className="mt-1 text-sm font-semibold text-white">{role ? ROLES[role].label : "Loading"}</p>
       </div>
     </aside>

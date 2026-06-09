@@ -163,8 +163,8 @@ function AttendancePanel({ data, breakdown }: { data: AdminDashboardData["attend
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="rgba(100,116,139,0.18)" strokeDasharray="4 6" vertical={false} />
-                <XAxis dataKey="date" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
+                <XAxis dataKey="date" stroke="#102a56" tick={{ fontWeight: 900 }} />
+                <YAxis stroke="#102a56" tick={{ fontWeight: 900 }} />
                 <Tooltip />
                 <Legend />
                 <Area dataKey="present" fill="url(#adminPresent)" name="Present" stroke="#0f766e" strokeWidth={3} type="monotone" />
@@ -201,8 +201,8 @@ function FinancePanel({ data, collectionRate, paidAmount, openAmount }: { data: 
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data}>
                 <CartesianGrid stroke="rgba(100,116,139,0.18)" strokeDasharray="4 6" vertical={false} />
-                <XAxis dataKey="month" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
+                <XAxis dataKey="month" stroke="#102a56" tick={{ fontWeight: 900 }} />
+                <YAxis stroke="#102a56" tick={{ fontWeight: 900 }} />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                 <Legend />
                 <Bar dataKey="collected" fill="#0f766e" name="Collected" radius={[6, 6, 0, 0]} />
@@ -244,7 +244,7 @@ function MiniCalendar({ events }: { events: AdminDashboardData["events"] }) {
           <p className="text-sm font-black text-[var(--portal-text)]">
             {new Intl.DateTimeFormat("en-GH", { month: "long", year: "numeric" }).format(today)}
           </p>
-          <Link href="/events" className="text-xs font-black text-blue-700 hover:text-blue-900 dark:text-blue-200">
+          <Link href="/events" className="portal-register-link px-2.5 py-1 text-xs">
             View all
           </Link>
         </div>

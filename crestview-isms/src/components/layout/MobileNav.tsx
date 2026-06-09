@@ -83,7 +83,7 @@ export function MobileNav() {
             </span>
             <span className="min-w-0">
               <span className="block truncate font-heading text-base font-black uppercase text-white">Crestview</span>
-              <span className="block truncate text-xs font-semibold text-blue-100">{displayName}</span>
+              <span className="block truncate text-xs font-bold text-white">{displayName}</span>
             </span>
           </Link>
           <Button type="button" variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label="Close navigation">
@@ -94,7 +94,7 @@ export function MobileNav() {
           <div className="space-y-6">
             {groupedItems.map((group) => (
               <div key={group.section}>
-                <p className="px-3 text-[11px] font-black uppercase tracking-normal text-blue-200/80">{group.section}</p>
+                <p className="px-3 text-[11px] font-black uppercase tracking-normal text-cyan-100">{group.section}</p>
                 <div className="mt-2 space-y-1">
                   {group.items.map((item) => {
                     const Icon = item.icon;
@@ -105,11 +105,13 @@ export function MobileNav() {
                         href={item.href}
                         onClick={() => setOpen(false)}
                         className={cn(
-                          "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-bold text-blue-50/85 transition hover:bg-white/10 hover:text-white",
+                          "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-black text-white/95 transition hover:bg-white/14 hover:text-white",
                           active && "bg-white text-[#07377f] hover:bg-white hover:text-[#07377f]"
                         )}
                       >
-                        <Icon className="size-4 shrink-0" aria-hidden />
+                        <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg bg-white/16 text-white ring-1 ring-white/10", active && "bg-[#eef4ff] text-[#07377f] ring-[#bfd8fa]")}>
+                          <Icon className="size-4" aria-hidden />
+                        </span>
                         <span className="truncate">{item.title}</span>
                       </Link>
                     );
@@ -119,7 +121,7 @@ export function MobileNav() {
             ))}
           </div>
         </nav>
-        <div className="border-t border-white/15 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 text-xs font-semibold text-blue-100">
+        <div className="border-t border-white/15 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 text-xs font-bold text-cyan-100">
           {role ? ROLES[role].label : "Loading workspace..."}
         </div>
       </aside>

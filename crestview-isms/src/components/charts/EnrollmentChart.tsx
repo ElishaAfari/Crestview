@@ -21,8 +21,8 @@ export function EnrollmentChart() {
             </linearGradient>
           </defs>
           <CartesianGrid stroke="rgba(100,116,139,0.18)" vertical={false} strokeDasharray="4 6" />
-          <XAxis dataKey="year" stroke="#94a3b8" />
-          <YAxis stroke="#94a3b8" />
+          <XAxis dataKey="year" stroke="#102a56" tick={{ fontWeight: 900 }} />
+          <YAxis stroke="#102a56" tick={{ fontWeight: 900 }} />
           <Tooltip />
           <Area type="monotone" dataKey="students" stroke="#1d4ed8" strokeWidth={3} fill="url(#enrollmentFill)" />
         </AreaChart>

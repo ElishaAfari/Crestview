@@ -26,13 +26,13 @@ export function TopNav() {
         </Button>
         <div className="hidden min-w-0 sm:block">
           <p className="truncate text-sm font-black text-[var(--portal-text)]">{role ? ROLES[role].label : "Workspace"}</p>
-          <p className="truncate text-xs font-medium text-[var(--portal-muted)]">{today}</p>
+          <p className="truncate text-xs font-black text-[var(--portal-muted)]">{today}</p>
         </div>
         <div className="portal-field mx-auto hidden w-full max-w-xl items-center gap-2 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-3 py-2 md:flex">
           <Search className="size-4 shrink-0 text-blue-700 dark:text-blue-200" aria-hidden />
           <input
             aria-label="Search workspace"
-            className="h-7 min-w-0 flex-1 bg-transparent text-sm text-[var(--portal-text)] outline-none placeholder:text-[var(--portal-muted)]"
+            className="h-7 min-w-0 flex-1 bg-transparent text-sm font-semibold text-[var(--portal-text)] outline-none placeholder:font-semibold placeholder:text-[var(--portal-muted)]"
             placeholder="Search students, staff, events..."
             type="search"
           />
@@ -46,7 +46,7 @@ export function TopNav() {
             </span>
             <span className="min-w-0 pr-1">
               <span className="block max-w-36 truncate text-sm font-bold text-[var(--portal-text)]">{displayName}</span>
-              <span className="block truncate text-[11px] font-medium text-[var(--portal-muted)]">{role ? ROLES[role].label : "Loading"}</span>
+              <span className="block truncate text-[11px] font-black text-[var(--portal-muted)]">{role ? ROLES[role].label : "Loading"}</span>
             </span>
           </div>
           <form action={signOutAction}>
