@@ -47,12 +47,13 @@ export async function listStudents() {
 
 export async function listStaff() {
   const { supabase } = await requireUser();
-  const { data } = await supabase.from("profiles").select("id,first_name,last_name,phone,roles(name)").order("last_name");
+  const { data } = await supabase.from("profiles").select("id,first_name,last_name,phone,is_active,roles(name)").order("last_name");
   const records = (data ?? []) as unknown as Array<{
     id: string;
     first_name: string;
     last_name: string;
     phone: string | null;
+    is_active: boolean | null;
     roles: Relation<{ name: string }>;
   }>;
   const staffRoles = new Set(["teacher", "hr_staff", "finance_officer", "librarian", "it_support", "school_admin", "super_admin"]);
@@ -60,7 +61,7 @@ export async function listStaff() {
   return records.flatMap((profile) => {
     const role = one(profile.roles)?.name;
     return role && staffRoles.has(role)
-      ? [{ id: profile.id, name: `${profile.first_name} ${profile.last_name}`, role: role.replaceAll("_", " "), phone: profile.phone ?? "Not provided" }]
+      ? [{ id: profile.id, name: `${profile.first_name} ${profile.last_name}`, role: role.replaceAll("_", " "), phone: profile.phone ?? "Not provided", status: profile.is_active === false ? "disabled" : "active" }]
       : [];
   });
 }
@@ -93,22 +94,31 @@ export async function listAttendanceRecords() {
 
 export async function listGrades() {
   const { supabase } = await requireUser();
-  const { data } = await supabase.from("grades").select("id,score,comments,grade_items(title),students(profiles!students_profile_id_fkey(first_name,last_name))").order("created_at", { ascending: false }).limit(50);
+  const { data } = await supabase.from("grades").select("id,score,percentage,grade_code,remark,comments,grade_items(title,max_score,courses(subjects(name),classrooms(name))),students(student_number,profiles!students_profile_id_fkey(first_name,last_name))").order("created_at", { ascending: false }).limit(50);
   const records = (data ?? []) as unknown as Array<{
     id: string;
     score: number;
+    percentage: number | null;
+    grade_code: string | null;
+    remark: string | null;
     comments: string | null;
-    grade_items: Relation<{ title: string }>;
-    students: Relation<{ profiles: Relation<ProfileJoin> }>;
+    grade_items: Relation<{ title: string; max_score: number | null; courses: Relation<{ subjects: Relation<{ name: string }>; classrooms: Relation<{ name: string }> }> }>;
+    students: Relation<{ student_number: string; profiles: Relation<ProfileJoin> }>;
   }>;
 
   return records.map((record) => {
-    const profile = one(one(record.students)?.profiles);
+    const student = one(record.students);
+    const profile = one(student?.profiles);
+    const gradeItem = one(record.grade_items);
+    const course = one(gradeItem?.courses);
     return {
       id: record.id,
-      student: profile ? `${profile.first_name} ${profile.last_name}` : "Student",
-      assessment: one(record.grade_items)?.title ?? "Assessment",
-      score: String(record.score),
+      student: profile ? `${profile.first_name} ${profile.last_name}` : student?.student_number ?? "Student",
+      assessment: `${gradeItem?.title ?? "Assessment"}${course ? ` - ${one(course.subjects)?.name ?? "Course"} ${one(course.classrooms)?.name ?? ""}` : ""}`.trim(),
+      score: `${record.score}/${gradeItem?.max_score ?? 100}`,
+      percentage: record.percentage !== null ? `${Number(record.percentage).toFixed(1)}%` : "",
+      gradeCode: record.grade_code ?? "",
+      remark: record.remark ?? "",
       comments: record.comments ?? ""
     };
   });
@@ -142,6 +152,47 @@ export async function listParentStudents() {
       classroom: one(student.classrooms)?.name ?? "Unassigned",
       status: student.status
     }];
+  });
+}
+
+export async function listParentGrades() {
+  const { user } = await requireRoles(["parent"]);
+  const admin = createAdminClient();
+  const { data: links } = await admin.from("parent_students").select("student_id").eq("parent_profile_id", user.id).is("deleted_at", null);
+  const studentIds = ((links ?? []) as Array<{ student_id: string }>).map((link) => link.student_id);
+  if (!studentIds.length) return [];
+  const { data } = await admin
+    .from("grades")
+    .select("id,score,percentage,grade_code,remark,comments,grade_items(title,max_score,courses(subjects(name))),students(student_number,profiles!students_profile_id_fkey(first_name,last_name))")
+    .in("student_id", studentIds)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(80);
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    score: number;
+    percentage: number | null;
+    grade_code: string | null;
+    remark: string | null;
+    comments: string | null;
+    grade_items: Relation<{ title: string; max_score: number | null; courses: Relation<{ subjects: Relation<{ name: string }> }> }>;
+    students: Relation<{ student_number: string; profiles: Relation<ProfileJoin> }>;
+  }>).map((record) => {
+    const student = one(record.students);
+    const profile = one(student?.profiles);
+    const gradeItem = one(record.grade_items);
+    const course = one(gradeItem?.courses);
+    return {
+      id: record.id,
+      student: profile ? `${profile.first_name} ${profile.last_name}` : student?.student_number ?? "Student",
+      assessment: `${gradeItem?.title ?? "Assessment"}${course ? ` - ${one(course.subjects)?.name ?? "Course"}` : ""}`.trim(),
+      score: `${record.score}/${gradeItem?.max_score ?? 100}`,
+      percentage: record.percentage !== null ? `${Number(record.percentage).toFixed(1)}%` : "",
+      gradeCode: record.grade_code ?? "",
+      remark: record.remark ?? "",
+      comments: record.comments ?? ""
+    };
   });
 }
 
@@ -185,7 +236,7 @@ export async function listCurrentStudentGrades() {
 
   const { data } = await admin
     .from("grades")
-    .select("id,score,comments,grade_items(title),students(profiles!students_profile_id_fkey(first_name,last_name))")
+    .select("id,score,percentage,grade_code,remark,comments,grade_items(title,max_score,courses(subjects(name))),students(profiles!students_profile_id_fkey(first_name,last_name))")
     .eq("student_id", student.id)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
@@ -194,16 +245,24 @@ export async function listCurrentStudentGrades() {
   return ((data ?? []) as unknown as Array<{
     id: string;
     score: number;
+    percentage: number | null;
+    grade_code: string | null;
+    remark: string | null;
     comments: string | null;
-    grade_items: Relation<{ title: string }>;
+    grade_items: Relation<{ title: string; max_score: number | null; courses: Relation<{ subjects: Relation<{ name: string }> }> }>;
     students: Relation<{ profiles: Relation<ProfileJoin> }>;
   }>).map((record) => {
     const profile = one(one(record.students)?.profiles);
+    const gradeItem = one(record.grade_items);
+    const course = one(gradeItem?.courses);
     return {
       id: record.id,
       student: profile ? `${profile.first_name} ${profile.last_name}` : "Student",
-      assessment: one(record.grade_items)?.title ?? "Assessment",
-      score: String(record.score),
+      assessment: `${gradeItem?.title ?? "Assessment"}${course ? ` - ${one(course.subjects)?.name ?? "Course"}` : ""}`.trim(),
+      score: `${record.score}/${gradeItem?.max_score ?? 100}`,
+      percentage: record.percentage !== null ? `${Number(record.percentage).toFixed(1)}%` : "",
+      gradeCode: record.grade_code ?? "",
+      remark: record.remark ?? "",
       comments: record.comments ?? ""
     };
   });
@@ -310,10 +369,11 @@ export async function listFamilyInvoices() {
   const { data: links } = await admin.from("parent_students").select("student_id").eq("parent_profile_id", user.id).is("deleted_at", null);
   const studentIds = ((links ?? []) as Array<{ student_id: string }>).map((link) => link.student_id);
   if (!studentIds.length) return [];
-  const { data } = await admin.from("invoices").select("id,invoice_number,amount,currency,status,due_date,students(student_number,profiles!students_profile_id_fkey(first_name,last_name))").in("student_id", studentIds).is("deleted_at", null).order("due_date", { ascending: true });
+  const { data } = await admin.from("invoices").select("id,invoice_number,title,amount,currency,status,due_date,students(student_number,profiles!students_profile_id_fkey(first_name,last_name))").in("student_id", studentIds).is("deleted_at", null).order("due_date", { ascending: true });
   return ((data ?? []) as unknown as Array<{
     id: string;
     invoice_number: string;
+    title: string | null;
     amount: number;
     currency: string;
     status: string;
@@ -325,6 +385,7 @@ export async function listFamilyInvoices() {
     return {
       id: invoice.id,
       invoiceNumber: invoice.invoice_number,
+      title: invoice.title ?? "School fees",
       student: profile ? `${profile.first_name} ${profile.last_name}` : student?.student_number ?? "Student",
       amount: `${invoice.currency} ${Number(invoice.amount).toLocaleString("en-GH")}`,
       status: invoice.status,
@@ -384,14 +445,24 @@ export async function listAssignmentsForCurrentRole() {
 export async function listTeacherFormOptions(): Promise<{ courses: SelectOption[]; gradeItems: SelectOption[]; students: SelectOption[]; classrooms: SelectOption[] }> {
   const { user } = await requireRoles(["teacher"]);
   const admin = createAdminClient();
-  const { data: courses } = await admin.from("courses").select("id,term,classroom_id,subjects(name),classrooms(name,grade_level)").eq("teacher_id", user.id).is("deleted_at", null).order("term");
-  const courseRows = (courses ?? []) as unknown as Array<{
+  const [leadCourses, assignedCourses] = await Promise.all([
+    admin.from("courses").select("id,term,classroom_id,subjects(name),classrooms(name,grade_level)").eq("teacher_id", user.id).is("deleted_at", null).order("term"),
+    admin.from("teacher_assignments").select("courses(id,term,classroom_id,subjects(name),classrooms(name,grade_level))").eq("teacher_id", user.id).is("deleted_at", null)
+  ]);
+  type CourseOptionRow = {
     id: string;
     term: string;
     classroom_id: string;
     subjects: Relation<{ name: string }>;
     classrooms: Relation<{ name: string; grade_level: string }>;
-  }>;
+  };
+  const courseMap = new Map<string, CourseOptionRow>();
+  for (const course of (leadCourses.data ?? []) as unknown as CourseOptionRow[]) courseMap.set(course.id, course);
+  for (const row of (assignedCourses.data ?? []) as unknown as Array<{ courses: Relation<CourseOptionRow> }>) {
+    const course = one(row.courses);
+    if (course) courseMap.set(course.id, course);
+  }
+  const courseRows = Array.from(courseMap.values());
   const courseIds = courseRows.map((course) => course.id);
   const classroomIds = Array.from(new Set(courseRows.map((course) => course.classroom_id).filter(Boolean)));
   const [gradeItems, students] = await Promise.all([

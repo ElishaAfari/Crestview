@@ -3,10 +3,10 @@ import { PageWrapper } from "@/components/layout/PageWrapper";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { listJobApplicationsForAdmin } from "@/features/admin/queries";
+import { listAdminFormOptions, listJobApplicationsForAdmin } from "@/features/admin/queries";
 
 export default async function AdminRecruitmentPage() {
-  const applications = await listJobApplicationsForAdmin();
+  const [applications, options] = await Promise.all([listJobApplicationsForAdmin(), listAdminFormOptions()]);
   const waiting = applications.filter((application) => application.status === "submitted").length;
 
   return (
@@ -46,7 +46,7 @@ export default async function AdminRecruitmentPage() {
                       <td className="max-w-xl px-4 py-3 text-[var(--portal-muted)]">{application.coverLetter || "No profile note"}</td>
                       <td className="px-4 py-3">
                         {application.status === "submitted" ? (
-                          <RecruitmentDecisionControls applicationId={application.id} />
+                          <RecruitmentDecisionControls applicationId={application.id} classrooms={options.classrooms} />
                         ) : (
                           <span className="text-xs font-semibold text-[var(--portal-muted)]">Decision recorded</span>
                         )}

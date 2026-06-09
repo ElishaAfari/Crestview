@@ -10,6 +10,16 @@ function one<T>(value: Relation<T> | undefined) {
 }
 
 export type SelectOption = { id: string; label: string };
+export type GradingScaleRow = {
+  id: string;
+  code: string;
+  label: string;
+  minPercentage: number;
+  maxPercentage: number;
+  remark: string;
+  points: number | null;
+  isPassing: boolean;
+};
 export type AdminDashboardData = {
   metrics: {
     students: number;
@@ -214,10 +224,11 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 export async function listInvoices() {
   await requireRoles(["super_admin", "school_admin", "finance_officer"]);
   const admin = createAdminClient();
-  const { data } = await admin.from("invoices").select("id,invoice_number,amount,currency,status,due_date,students(student_number,profiles!students_profile_id_fkey(first_name,last_name))").is("deleted_at", null).order("created_at", { ascending: false }).limit(50);
+  const { data } = await admin.from("invoices").select("id,invoice_number,title,amount,currency,status,due_date,students(student_number,profiles!students_profile_id_fkey(first_name,last_name))").is("deleted_at", null).order("created_at", { ascending: false }).limit(50);
   return ((data ?? []) as unknown as Array<{
     id: string;
     invoice_number: string;
+    title: string | null;
     amount: number;
     currency: string;
     status: string;
@@ -229,6 +240,7 @@ export async function listInvoices() {
     return {
       id: invoice.id,
       invoiceNumber: invoice.invoice_number,
+      title: invoice.title ?? "School fees",
       student: profile ? `${profile.first_name} ${profile.last_name}` : student?.student_number ?? "Student",
       amount: `${invoice.currency} ${Number(invoice.amount).toLocaleString("en-GH")}`,
       status: invoice.status,
@@ -286,7 +298,7 @@ export async function listAdmissionApplicationsForAdmin() {
   const admin = createAdminClient();
   const { data } = await admin
     .from("admission_applications")
-    .select("id,applicant_first_name,applicant_last_name,applying_grade,guardian_email,guardian_phone,status,submitted_at,notes,source")
+    .select("id,applicant_first_name,applicant_last_name,applying_grade,guardian_email,guardian_phone,status,submitted_at,notes,source,generated_student_number,onboarding_notes")
     .is("deleted_at", null)
     .order("submitted_at", { ascending: false })
     .limit(100);
@@ -302,6 +314,8 @@ export async function listAdmissionApplicationsForAdmin() {
     submitted_at: string | null;
     notes: string | null;
     source: string | null;
+    generated_student_number: string | null;
+    onboarding_notes: string | null;
   }>).map((application) => ({
     id: application.id,
     applicant: `${application.applicant_first_name} ${application.applicant_last_name}`,
@@ -310,7 +324,7 @@ export async function listAdmissionApplicationsForAdmin() {
     phone: application.guardian_phone ?? "Not provided",
     status: application.status,
     submittedAt: application.submitted_at ? new Intl.DateTimeFormat("en-GH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(application.submitted_at)) : "Not recorded",
-    notes: application.notes ?? "",
+    notes: [application.notes, application.generated_student_number ? `Student ID: ${application.generated_student_number}` : null, application.onboarding_notes].filter(Boolean).join(" | "),
     source: application.source ?? "website"
   }));
 }
@@ -349,4 +363,34 @@ export async function listJobApplicationsForAdmin() {
       coverLetter: application.cover_letter ?? ""
     };
   });
+}
+
+export async function listGradingScalesForAdmin(): Promise<GradingScaleRow[]> {
+  await requireRoles(["super_admin", "school_admin"]);
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("grading_scales")
+    .select("id,code,label,min_percentage,max_percentage,remark,points,is_passing")
+    .is("deleted_at", null)
+    .order("sort_order", { ascending: true });
+
+  return ((data ?? []) as Array<{
+    id: string;
+    code: string;
+    label: string;
+    min_percentage: number;
+    max_percentage: number;
+    remark: string;
+    points: number | null;
+    is_passing: boolean;
+  }>).map((row) => ({
+    id: row.id,
+    code: row.code,
+    label: row.label,
+    minPercentage: Number(row.min_percentage),
+    maxPercentage: Number(row.max_percentage),
+    remark: row.remark,
+    points: row.points === null ? null : Number(row.points),
+    isPassing: row.is_passing
+  }));
 }

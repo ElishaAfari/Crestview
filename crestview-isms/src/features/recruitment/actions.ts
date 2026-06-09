@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { APP_URL } from "@/lib/constants";
 import { requireRoles, requireUser } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -23,6 +24,11 @@ function staffRoleForTitle(title: string | null | undefined): RoleName {
   if (value.includes("it ") || value.includes("technology") || value.includes("support")) return "it_support";
   if (value.includes("hr") || value.includes("human resource")) return "hr_staff";
   return "teacher";
+}
+
+function requestedStaffRole(value: string | null | undefined, fallbackTitle: string | null | undefined): RoleName {
+  const allowed = new Set<RoleName>(["teacher", "hr_staff", "finance_officer", "librarian", "it_support"]);
+  return allowed.has(value as RoleName) ? value as RoleName : staffRoleForTitle(fallbackTitle);
 }
 
 async function notifyAdministrators(title: string, body: string, metadata: Json) {
@@ -86,7 +92,37 @@ async function findProfileByEmail(email: string) {
   return data as { id: string; email: string } | null;
 }
 
-async function createStaffFromApplication(applicationId: string) {
+async function assignTeacherToClass(profileId: string, classroomId: string | null, actorId: string) {
+  if (!classroomId) return;
+  const admin = createAdminClient();
+  const { data: classroom } = await admin.from("classrooms").select("id,academic_year_id").eq("id", classroomId).is("deleted_at", null).maybeSingle();
+  const record = classroom as { id: string; academic_year_id: string | null } | null;
+  if (!record) return;
+
+  await admin.from("staff_class_assignments").upsert({
+    profile_id: profileId,
+    classroom_id: record.id,
+    academic_year_id: record.academic_year_id,
+    assignment_type: "class_teacher",
+    status: "active",
+    assigned_by: actorId
+  }, { onConflict: "profile_id,classroom_id,academic_year_id,assignment_type" });
+
+  const { data: courses } = await admin.from("courses").select("id,teacher_id").eq("classroom_id", record.id).is("deleted_at", null);
+  const courseRows = (courses ?? []) as Array<{ id: string; teacher_id: string | null }>;
+  if (!courseRows.length) return;
+
+  await admin.from("teacher_assignments").upsert(courseRows.map((course) => ({
+    teacher_id: profileId,
+    course_id: course.id,
+    role: "class_teacher"
+  })), { onConflict: "teacher_id,course_id" });
+
+  const leadlessCourseIds = courseRows.filter((course) => !course.teacher_id).map((course) => course.id);
+  if (leadlessCourseIds.length) await admin.from("courses").update({ teacher_id: profileId }).in("id", leadlessCourseIds);
+}
+
+async function createStaffFromApplication(applicationId: string, actorId: string, roleOverride?: string, classroomId?: string) {
   const admin = createAdminClient();
   const { data: application } = await admin
     .from("job_applications")
@@ -110,7 +146,7 @@ async function createStaffFromApplication(applicationId: string) {
   if (existingProfile) return { ok: false, message: "A portal profile already exists for this email. Use User Management to adjust access." };
 
   const posting = one(record.job_postings);
-  const roleName = staffRoleForTitle(posting?.title);
+  const roleName = requestedStaffRole(roleOverride, posting?.title);
   const { data: role } = await admin.from("roles").select("id").eq("name", roleName).maybeSingle();
   if (!role) return { ok: false, message: "The matching staff role is not configured." };
 
@@ -152,6 +188,10 @@ async function createStaffFromApplication(applicationId: string) {
     return { ok: false, message: "The staff account could not be created." };
   }
 
+  if (roleName === "teacher") {
+    await assignTeacherToClass(invite.user.id, classroomId && z.string().uuid().safeParse(classroomId).success ? classroomId : null, actorId);
+  }
+
   await admin.from("job_applications").update({
     status: "hired",
     assigned_to: invite.user.id
@@ -159,6 +199,7 @@ async function createStaffFromApplication(applicationId: string) {
   await admin.from("job_application_status_history").insert({
     job_application_id: record.id,
     to_status: "hired",
+    changed_by: actorId,
     reason: "Accepted from administrator review"
   });
   await admin.from("notifications").insert({
@@ -174,17 +215,21 @@ async function createStaffFromApplication(applicationId: string) {
 export async function decideJobApplicationAction(formData: FormData) {
   const decision = String(formData.get("decision") ?? "");
   const applicationId = String(formData.get("applicationId") ?? "");
-  await requireRoles(["super_admin", "school_admin"]);
+  const role = String(formData.get("role") ?? "");
+  const classroomId = String(formData.get("classroomId") ?? "");
+  const { user } = await requireRoles(["super_admin", "school_admin"]);
   if (decision === "accept") {
-    const result = await createStaffFromApplication(applicationId);
+    const result = await createStaffFromApplication(applicationId, user.id, role, classroomId);
     revalidatePath("/admin/recruitment");
+    revalidatePath("/admin/staff");
+    revalidatePath("/teacher/classes");
     return result;
   }
   if (decision === "deny") {
     const admin = createAdminClient();
     const { error } = await admin.from("job_applications").update({ status: "rejected" }).eq("id", applicationId);
     if (!error) {
-      await admin.from("job_application_status_history").insert({ job_application_id: applicationId, to_status: "rejected", reason: "Denied from administrator review" });
+      await admin.from("job_application_status_history").insert({ job_application_id: applicationId, to_status: "rejected", changed_by: user.id, reason: "Denied from administrator review" });
     }
     revalidatePath("/admin/recruitment");
     return error ? { ok: false, message: "The application could not be denied." } : { ok: true, message: "Application denied." };
@@ -194,7 +239,7 @@ export async function decideJobApplicationAction(formData: FormData) {
 
 export async function bulkDecideJobApplicationsAction(formData: FormData) {
   const decision = String(formData.get("decision") ?? "");
-  await requireRoles(["super_admin", "school_admin"]);
+  const { user } = await requireRoles(["super_admin", "school_admin"]);
   const admin = createAdminClient();
   const { data } = await admin.from("job_applications").select("id").eq("status", "submitted").is("deleted_at", null).limit(50);
   const ids = ((data ?? []) as Array<{ id: string }>).map((item) => item.id);
@@ -210,7 +255,7 @@ export async function bulkDecideJobApplicationsAction(formData: FormData) {
     let accepted = 0;
     let failed = 0;
     for (const id of ids) {
-      const result = await createStaffFromApplication(id);
+      const result = await createStaffFromApplication(id, user.id);
       if (result.ok) accepted += 1;
       else failed += 1;
     }

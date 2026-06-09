@@ -25,8 +25,13 @@ export async function signInAction(_: SignInState, formData: FormData): Promise<
     return { ok: false, message: "We could not sign you in. Check your details and try again." };
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", data.user.id).maybeSingle();
+  const { data: profile } = await supabase.from("profiles").select("role_id,is_active,deleted_at").eq("id", data.user.id).maybeSingle();
   let roleName: string | undefined;
+
+  if (!profile || profile.is_active === false || profile.deleted_at) {
+    await supabase.auth.signOut();
+    return { ok: false, message: "This portal account is not active. Please contact the school administrator." };
+  }
 
   if (profile?.role_id && typeof profile.role_id === "string") {
     const { data: role } = await supabase.from("roles").select("name").eq("id", profile.role_id).maybeSingle();

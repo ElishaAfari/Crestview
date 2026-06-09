@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { APP_URL } from "@/lib/constants";
 import { requireRoles } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -55,4 +56,39 @@ export async function createStaffAction(formData: FormData) {
   }
 
   return { ok: true, message: `Staff member invited with staff number ${staffNumber}.` };
+}
+
+export async function deactivateStaffAction(formData: FormData) {
+  const profileId = String(formData.get("profileId") ?? "");
+  const reason = String(formData.get("reason") ?? "No longer belongs to the institution").trim();
+  const { user, role: currentRole } = await requireRoles(["super_admin", "school_admin"]);
+  if (profileId === user.id) return { ok: false, message: "You cannot deactivate your own administrator account." };
+
+  const admin = createAdminClient();
+  const { data: profileData } = await admin.from("profiles").select("id,email,roles(name)").eq("id", profileId).maybeSingle();
+  const profile = profileData as unknown as { id: string; email: string; roles: { name: string } | { name: string }[] | null } | null;
+  const targetRole = Array.isArray(profile?.roles) ? profile?.roles[0]?.name : profile?.roles?.name;
+  if (!profile) return { ok: false, message: "The staff profile could not be found." };
+  if (currentRole !== "super_admin" && (targetRole === "super_admin" || targetRole === "school_admin")) {
+    return { ok: false, message: "Only the head administrator can deactivate administrator accounts." };
+  }
+
+  await admin.auth.admin.updateUserById(profile.id, { ban_duration: "876000h" });
+  const { error } = await admin.from("profiles").update({ is_active: false }).eq("id", profile.id);
+  if (!error) {
+    await admin.from("staff_class_assignments").update({ status: "ended", ends_on: new Date().toISOString().slice(0, 10) }).eq("profile_id", profile.id).eq("status", "active");
+    const { data: staffProfile } = await admin.from("staff_profiles").select("id,staff_number,job_title").eq("profile_id", profile.id).maybeSingle();
+    await admin.from("account_lifecycle_records").insert({
+      profile_id: profile.id,
+      staff_profile_id: (staffProfile as { id: string } | null)?.id ?? null,
+      action: "archived",
+      reason,
+      performed_by: user.id,
+      snapshot: { email: profile.email, role: targetRole, staff_profile: staffProfile }
+    });
+  }
+
+  revalidatePath("/admin/staff");
+  revalidatePath("/admin/access");
+  return error ? { ok: false, message: "The staff account could not be deactivated." } : { ok: true, message: "Staff portal access disabled and record archived." };
 }

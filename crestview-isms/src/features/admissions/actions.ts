@@ -1,7 +1,7 @@
 "use server";
 
+import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { APP_URL } from "@/lib/constants";
 import { requireRoles } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { admissionSchema } from "@/lib/validations/admission.schema";
@@ -9,6 +9,15 @@ import type { Json } from "@/types/database.types";
 
 function studentNumberFor(applicationId: string) {
   return `CIS-${new Date().getFullYear()}-${applicationId.slice(0, 6).toUpperCase()}`;
+}
+
+function generatedPassword(lastName: string) {
+  const base = lastName.replace(/[^a-z0-9]/gi, "").slice(0, 12) || "Crestview";
+  return `${base}${randomInt(1000, 9999)}!`;
+}
+
+function generatedStudentPassword(studentNumber: string) {
+  return `${studentNumber.replace(/[^a-z0-9]/gi, "").slice(-8)}Cis!`;
 }
 
 async function notifyAdministrators(title: string, body: string, metadata: Json) {
@@ -80,26 +89,30 @@ async function ensureParentAccount(application: {
   guardian_email: string;
   guardian_phone: string | null;
   applicant_last_name: string;
-}) {
+}, actorId: string) {
   const admin = createAdminClient();
   const email = application.guardian_email.toLowerCase();
   const existing = await findProfileByEmail(email);
-  if (existing) return { ok: true as const, profileId: existing.id };
+  if (existing) return { ok: true as const, profileId: existing.id, password: null as string | null, created: false };
 
   const { data: role } = await admin.from("roles").select("id").eq("name", "parent").maybeSingle();
   if (!role) return { ok: false as const, message: "The parent role is not configured." };
-  const { data: invite, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${APP_URL}/reset-password`,
-    data: { first_name: "Guardian", last_name: application.applicant_last_name, role: "parent", admission_application_id: application.id }
+  const password = generatedPassword(application.applicant_last_name);
+  const { data: account, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { first_name: "Guardian", last_name: application.applicant_last_name, role: "parent", admission_application_id: application.id }
   });
-  if (error || !invite.user) return { ok: false as const, message: "The guardian portal invitation could not be sent." };
+  if (error || !account.user) return { ok: false as const, message: "The guardian portal account could not be created. The email may already have an account." };
   const { error: profileError } = await admin.from("profiles").insert({
-    id: invite.user.id,
+    id: account.user.id,
     role_id: role.id,
     first_name: "Guardian",
     last_name: application.applicant_last_name,
     email,
     phone: application.guardian_phone,
+    onboarding_completed_at: new Date().toISOString(),
     metadata: { account_source: "admission_acceptance", admission_application_id: application.id }
   });
   const { error: invitationError } = profileError ? { error: profileError } : await admin.from("portal_invitations").insert({
@@ -107,17 +120,31 @@ async function ensureParentAccount(application: {
     role_id: role.id,
     first_name: "Guardian",
     last_name: application.applicant_last_name,
-    auth_user_id: invite.user.id,
-    metadata: { account_source: "admission_acceptance", admission_application_id: application.id }
+    invited_by: actorId,
+    auth_user_id: account.user.id,
+    status: "active",
+    accepted_at: new Date().toISOString(),
+    metadata: {
+      account_source: "admission_acceptance",
+      admission_application_id: application.id,
+      temporary_password_issued_at: new Date().toISOString()
+    }
   });
   if (profileError || invitationError) {
-    await admin.auth.admin.deleteUser(invite.user.id);
+    await admin.auth.admin.deleteUser(account.user.id);
     return { ok: false as const, message: "The guardian portal account could not be created." };
   }
-  return { ok: true as const, profileId: invite.user.id };
+  await admin.from("account_lifecycle_records").insert({
+    profile_id: account.user.id,
+    action: "password_issued",
+    reason: "Parent account created after accepted admission",
+    performed_by: actorId,
+    snapshot: { admission_application_id: application.id, password_pattern: "lastname+4digits" }
+  });
+  return { ok: true as const, profileId: account.user.id, password, created: true };
 }
 
-async function acceptAdmission(applicationId: string) {
+async function acceptAdmission(applicationId: string, actorId: string) {
   const admin = createAdminClient();
   const { data } = await admin.from("admission_applications").select("*").eq("id", applicationId).maybeSingle();
   const application = data as {
@@ -129,6 +156,8 @@ async function acceptAdmission(applicationId: string) {
     guardian_phone: string | null;
     status: string;
     previous_school: string | null;
+    accepted_student_id: string | null;
+    parent_profile_id: string | null;
   } | null;
   if (!application) return { ok: false, message: "The application no longer exists." };
   if (application.status === "accepted") return { ok: true, message: "This application has already been accepted." };
@@ -145,9 +174,10 @@ async function acceptAdmission(applicationId: string) {
 
   const studentNumber = studentNumberFor(application.id);
   const studentEmail = `${studentNumber.toLowerCase()}@students.crestview.local`;
+  const initialStudentPassword = generatedStudentPassword(studentNumber);
   const { data: account, error: accountError } = await admin.auth.admin.createUser({
     email: studentEmail,
-    password: crypto.randomUUID(),
+    password: initialStudentPassword,
     email_confirm: true,
     user_metadata: {
       first_name: application.applicant_first_name,
@@ -164,10 +194,13 @@ async function acceptAdmission(applicationId: string) {
     first_name: application.applicant_first_name,
     last_name: application.applicant_last_name,
     email: studentEmail,
+    is_active: false,
     metadata: {
       account_source: "admission_acceptance",
       admission_application_id: application.id,
-      guardian_email: application.guardian_email
+      guardian_email: application.guardian_email,
+      student_access_pending: true,
+      temporary_password_pattern: "student-id+Cis!"
     }
   });
   const { data: studentData, error: studentError } = profileError ? { data: null, error: profileError } : await admin.from("students").insert({
@@ -186,7 +219,7 @@ async function acceptAdmission(applicationId: string) {
     return { ok: false, message: "The student record could not be created." };
   }
 
-  const parent = await ensureParentAccount(application);
+  const parent = await ensureParentAccount(application, actorId);
   if (!parent.ok) {
     await admin.auth.admin.deleteUser(account.user.id);
     return { ok: false, message: parent.message };
@@ -199,18 +232,31 @@ async function acceptAdmission(applicationId: string) {
   await admin.from("admission_applications").update({
     status: "accepted",
     decision_at: new Date().toISOString(),
-    assigned_to: account.user.id
+    assigned_to: account.user.id,
+    accepted_student_id: student.id,
+    parent_profile_id: parent.profileId,
+    generated_student_number: studentNumber,
+    onboarding_notes: "Parent account is active. Student portal is pending teacher roster activation."
   }).eq("id", application.id);
   await admin.from("admission_status_history").insert({
     application_id: application.id,
     to_status: "accepted",
+    changed_by: actorId,
     reason: "Accepted from administrator review"
+  });
+  await admin.from("account_lifecycle_records").insert({
+    profile_id: account.user.id,
+    student_id: student.id,
+    action: "created",
+    reason: "Student record created from accepted admission; portal access pending class teacher activation",
+    performed_by: actorId,
+    snapshot: { admission_application_id: application.id, student_number: studentNumber, classroom_id: classroom?.id ?? null }
   });
   await admin.from("notifications").insert([
     {
       recipient_id: parent.profileId,
       title: "Admission accepted",
-      body: `${application.applicant_first_name}'s Crestview admission has been accepted. Use the secure access email to enter the parent workspace.`,
+      body: `${application.applicant_first_name}'s Crestview admission has been accepted. Please use the temporary password issued by the administrator to enter the parent workspace.`,
       type: "workflow",
       metadata: { admission_application_id: application.id, student_id: student.id }
     },
@@ -222,17 +268,24 @@ async function acceptAdmission(applicationId: string) {
       metadata: { admission_application_id: application.id, student_id: student.id }
     }
   ]);
-  return { ok: true, message: `${application.applicant_first_name} ${application.applicant_last_name} accepted as ${studentNumber}.` };
+  const credentialLine = parent.password
+    ? ` Parent login: ${application.guardian_email.toLowerCase()} / ${parent.password}.`
+    : ` Parent account already exists for ${application.guardian_email.toLowerCase()}.`;
+  return {
+    ok: true,
+    message: `${application.applicant_first_name} ${application.applicant_last_name} accepted as ${studentNumber}.${credentialLine} Student portal is prepared and inactive until the class teacher activates it.`
+  };
 }
 
 export async function decideAdmissionApplicationAction(formData: FormData) {
   const decision = String(formData.get("decision") ?? "");
   const applicationId = String(formData.get("applicationId") ?? "");
-  await requireRoles(["super_admin", "school_admin"]);
+  const { user } = await requireRoles(["super_admin", "school_admin"]);
   if (decision === "accept") {
-    const result = await acceptAdmission(applicationId);
+    const result = await acceptAdmission(applicationId, user.id);
     revalidatePath("/admin/admissions");
     revalidatePath("/admin/students");
+    revalidatePath("/parent");
     return result;
   }
   if (decision === "deny") {
@@ -242,7 +295,7 @@ export async function decideAdmissionApplicationAction(formData: FormData) {
       decision_at: new Date().toISOString()
     }).eq("id", applicationId);
     if (!error) {
-      await admin.from("admission_status_history").insert({ application_id: applicationId, to_status: "rejected", reason: "Denied from administrator review" });
+      await admin.from("admission_status_history").insert({ application_id: applicationId, to_status: "rejected", changed_by: user.id, reason: "Denied from administrator review" });
     }
     revalidatePath("/admin/admissions");
     return error ? { ok: false, message: "The application could not be denied." } : { ok: true, message: "Application denied." };
@@ -252,7 +305,7 @@ export async function decideAdmissionApplicationAction(formData: FormData) {
 
 export async function bulkDecideAdmissionApplicationsAction(formData: FormData) {
   const decision = String(formData.get("decision") ?? "");
-  await requireRoles(["super_admin", "school_admin"]);
+  const { user } = await requireRoles(["super_admin", "school_admin"]);
   const admin = createAdminClient();
   const { data } = await admin.from("admission_applications").select("id").eq("status", "submitted").is("deleted_at", null).limit(50);
   const ids = ((data ?? []) as Array<{ id: string }>).map((item) => item.id);
@@ -268,7 +321,7 @@ export async function bulkDecideAdmissionApplicationsAction(formData: FormData) 
     let accepted = 0;
     let failed = 0;
     for (const id of ids) {
-      const result = await acceptAdmission(id);
+      const result = await acceptAdmission(id, user.id);
       if (result.ok) accepted += 1;
       else failed += 1;
     }
