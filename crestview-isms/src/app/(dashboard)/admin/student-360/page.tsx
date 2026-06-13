@@ -2,6 +2,7 @@ import { PageWrapper } from "@/components/layout/PageWrapper";
 import { Student360Table } from "@/components/tables/Student360Table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listStudent360Overview, listWorkflowTasksForCurrentRole } from "@/features/automation/queries";
+import { AlertTriangle, BarChart3, GraduationCap, ShieldAlert } from "lucide-react";
 
 export default async function AdminStudent360Page() {
   const [students, tasks] = await Promise.all([listStudent360Overview(), listWorkflowTasksForCurrentRole(40)]);
@@ -14,19 +15,21 @@ export default async function AdminStudent360Page() {
     <PageWrapper title="Student 360" description="A single, connected view of each learner's attendance, grades, reports, finance exposure, notes, and follow-up tasks.">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          ["Students", students.length, "portal-accent-blue", "portal-tone-blue"],
-          ["Needs support", atRisk, "portal-accent-red", "portal-tone-red"],
-          ["Attendance", `${averageAttendance}%`, "portal-accent-green", "portal-tone-green"],
-          ["Academic alerts", academicAlerts, "portal-accent-amber", "portal-tone-amber"]
-        ].map(([label, value, accent, tone]) => (
-          <Card key={String(label)} className={`portal-metric-card ${accent} overflow-hidden`}>
+          { label: "Students", value: students.length, accent: "portal-accent-blue", tone: "portal-tone-blue", icon: GraduationCap },
+          { label: "Needs support", value: atRisk, accent: "portal-accent-red", tone: "portal-tone-red", icon: ShieldAlert },
+          { label: "Attendance", value: `${averageAttendance}%`, accent: "portal-accent-green", tone: "portal-tone-green", icon: BarChart3 },
+          { label: "Academic alerts", value: academicAlerts, accent: "portal-accent-amber", tone: "portal-tone-amber", icon: AlertTriangle }
+        ].map(({ label, value, accent, tone, icon: Icon }) => (
+          <Card key={label} className={`portal-metric-card ${accent} overflow-hidden`}>
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-black text-[var(--portal-muted)]">{label}</p>
                   <p className="mt-2 font-heading text-3xl font-black text-[var(--portal-text)]">{value}</p>
                 </div>
-                <span className={`portal-icon-tile ${tone} size-12 rounded-lg`} />
+                <span className={`portal-icon-tile ${tone} size-12 rounded-lg`}>
+                  <Icon className="size-5 stroke-[2.5]" aria-hidden />
+                </span>
               </div>
             </CardContent>
           </Card>

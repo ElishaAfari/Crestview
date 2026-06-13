@@ -49,8 +49,8 @@ export function DataTable<TData extends object>({
         />
       </div>
       {table.getRowModel().rows.length ? (
-        <div className="portal-table-wrap overflow-hidden">
-          <Table>
+        <div className="portal-table-wrap">
+          <Table className="min-w-[760px]">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>

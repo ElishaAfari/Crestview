@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Student360Detail } from "@/features/automation/queries";
 
 function MetricCard({ label, value, tone, icon: Icon }: { label: string; value: string | number; tone: string; icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }> }) {
+  const iconTone = tone.replace("portal-accent", "portal-tone");
+
   return (
     <Card className={`portal-metric-card ${tone} overflow-hidden`}>
       <CardContent className="p-5">
@@ -18,7 +20,7 @@ function MetricCard({ label, value, tone, icon: Icon }: { label: string; value: 
             <p className="text-sm font-black text-[var(--portal-muted)]">{label}</p>
             <p className="mt-2 font-heading text-3xl font-black text-[var(--portal-text)]">{value}</p>
           </div>
-          <span className="portal-icon-tile portal-tone-blue size-12 rounded-lg">
+          <span className={`portal-icon-tile ${iconTone} size-12 rounded-lg`}>
             <Icon className="size-5" aria-hidden />
           </span>
         </div>
@@ -35,7 +37,7 @@ function SimpleGridTable({
   rows: Array<Array<string | number | ReactNode>>;
 }) {
   return rows.length ? (
-    <div className="portal-table-wrap overflow-hidden">
+    <div className="portal-table-wrap portal-table-compact">
       <table className="w-full text-left text-sm">
         <thead className="portal-table-head text-xs uppercase">
           <tr>{headers.map((header) => <th key={header} className="px-4 py-3 font-black">{header}</th>)}</tr>

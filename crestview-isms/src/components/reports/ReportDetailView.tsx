@@ -85,7 +85,7 @@ export function ReportDetailView({ report, backHref }: { report: ReportDetail; b
           </div>
         </CardHeader>
         <CardContent>
-          <div className="portal-table-wrap overflow-hidden">
+          <div className="portal-table-wrap portal-table-compact">
             <table className="w-full text-left text-sm">
               <thead className="portal-table-head text-xs uppercase">
                 <tr>

@@ -24,7 +24,7 @@ export function Badge({
 }: React.HTMLAttributes<HTMLSpanElement> & { tone?: keyof typeof tones }) {
   return (
     <span
-      className={cn("portal-badge inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold", toneClassNames[tone], tones[tone], className)}
+      className={cn("portal-badge inline-flex items-center justify-center rounded-full border px-3 py-1 text-xs font-black leading-none", toneClassNames[tone], tones[tone], className)}
       {...props}
     />
   );

@@ -425,8 +425,8 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboardDat
                   {dashboard.metrics.openAdmissions + dashboard.metrics.openRecruitment + dashboard.metrics.openTasks} review item{dashboard.metrics.openAdmissions + dashboard.metrics.openRecruitment + dashboard.metrics.openTasks === 1 ? "" : "s"} waiting across admissions, recruitment, and automation.
                 </p>
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <Link href="/admin/admissions" className="rounded-lg bg-white px-4 py-3 text-sm font-black text-[#07377f]">Admissions</Link>
-                  <Link href="/admin/automation" className="rounded-lg bg-white/15 px-4 py-3 text-sm font-black text-white ring-1 ring-white/25">Automation</Link>
+                  <Link href="/admin/admissions" className="portal-brand-primary-link rounded-lg px-4 py-3 text-sm font-black">Admissions</Link>
+                  <Link href="/admin/automation" className="portal-brand-secondary-link rounded-lg px-4 py-3 text-sm font-black">Automation</Link>
                 </div>
               </CardContent>
             </Card>

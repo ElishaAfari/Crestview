@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { WorkflowTaskTable } from "@/components/tables/WorkflowTaskTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getWorkflowSummary, listAutomationRules, listTaskFormOptions, listWorkflowTasksForCurrentRole } from "@/features/automation/queries";
+import { AlertOctagon, CheckCircle2, Clock3, ListChecks } from "lucide-react";
 
 export default async function AdminAutomationPage() {
   const [tasks, rules, summary, options] = await Promise.all([
@@ -17,19 +18,21 @@ export default async function AdminAutomationPage() {
     <PageWrapper title="Automation Center" description="Track school-wide workflow tasks, automation rules, follow-ups, and operating-system jobs from one control room.">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          ["Open tasks", summary.open, "portal-accent-blue", "portal-tone-blue"],
-          ["Urgent", summary.urgent, "portal-accent-red", "portal-tone-red"],
-          ["Blocked", summary.blocked, "portal-accent-amber", "portal-tone-amber"],
-          ["Completed", summary.completed, "portal-accent-green", "portal-tone-green"]
-        ].map(([label, value, accent, tone]) => (
-          <Card key={String(label)} className={`portal-metric-card ${accent} overflow-hidden`}>
+          { label: "Open tasks", value: summary.open, accent: "portal-accent-blue", tone: "portal-tone-blue", icon: ListChecks },
+          { label: "Urgent", value: summary.urgent, accent: "portal-accent-red", tone: "portal-tone-red", icon: AlertOctagon },
+          { label: "Blocked", value: summary.blocked, accent: "portal-accent-amber", tone: "portal-tone-amber", icon: Clock3 },
+          { label: "Completed", value: summary.completed, accent: "portal-accent-green", tone: "portal-tone-green", icon: CheckCircle2 }
+        ].map(({ label, value, accent, tone, icon: Icon }) => (
+          <Card key={label} className={`portal-metric-card ${accent} overflow-hidden`}>
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-black text-[var(--portal-muted)]">{label}</p>
                   <p className="mt-2 font-heading text-3xl font-black text-[var(--portal-text)]">{value}</p>
                 </div>
-                <span className={`portal-icon-tile ${tone} size-12 rounded-lg`} />
+                <span className={`portal-icon-tile ${tone} size-12 rounded-lg`}>
+                  <Icon className="size-5 stroke-[2.5]" aria-hidden />
+                </span>
               </div>
             </CardContent>
           </Card>

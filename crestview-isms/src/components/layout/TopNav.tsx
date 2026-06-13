@@ -74,7 +74,7 @@ export function TopNav() {
         <Button variant="ghost" size="icon" className="shrink-0 lg:hidden" onClick={toggleSidebar} aria-label="Open navigation">
           <Menu className="size-5" aria-hidden />
         </Button>
-        <div className="hidden min-w-0 sm:block">
+        <div className="hidden min-w-0 xl:block">
           <p className="truncate text-sm font-black text-[var(--portal-text)]">{role ? ROLES[role].label : "Workspace"}</p>
           <p className="truncate text-xs font-black text-[var(--portal-muted)]">{today}</p>
         </div>
@@ -92,7 +92,7 @@ export function TopNav() {
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <NotificationBell />
           <ThemeToggle />
-          <div className="portal-subtle-card hidden items-center gap-3 rounded-lg px-2 py-1.5 sm:flex">
+          <div className="portal-subtle-card hidden items-center gap-3 rounded-lg px-2 py-1.5 lg:flex">
             <span className="relative size-9 overflow-hidden rounded-lg bg-white">
               <Image src={avatarSrc} alt="" fill sizes="36px" className="object-contain p-1" />
             </span>
