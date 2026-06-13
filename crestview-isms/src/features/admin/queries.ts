@@ -65,15 +65,17 @@ export async function listAdminFormOptions() {
     admin.from("classrooms").select("id,name,grade_level").is("deleted_at", null).order("grade_level"),
     admin.from("students").select("id,student_number,profiles!students_profile_id_fkey(first_name,last_name)").is("deleted_at", null).order("student_number"),
     admin.from("courses").select("id,term,subjects(name),classrooms(name)").is("deleted_at", null).order("term"),
-    admin.from("grade_items").select("id,title,max_score,courses(id,classroom_id,term,subjects(name),classrooms(id,name,grade_level))").is("deleted_at", null).order("created_at", { ascending: false })
+    admin.from("grade_items").select("id,title,category,max_score,courses(id,classroom_id,term,subjects(name),classrooms(id,name,grade_level))").is("deleted_at", null).order("created_at", { ascending: false })
   ]);
   const gradeItemRows = (gradeItems.data ?? []) as unknown as Array<{
     id: string;
     title: string;
+    category: string;
     max_score: number | null;
     courses: Relation<{ id?: string; classroom_id?: string; term?: string; subjects: Relation<{ name: string }>; classrooms: Relation<{ id?: string; name: string; grade_level?: string }> }>;
   }>;
-  const gradeItemClassroomIds = Array.from(new Set(gradeItemRows.map((item) => one(item.courses)?.classroom_id).filter((id): id is string => Boolean(id))));
+  const importRows = gradeItemRows.filter((item) => item.category === "term_report" || Number(item.max_score ?? 100) === 100);
+  const gradeItemClassroomIds = Array.from(new Set(importRows.map((item) => one(item.courses)?.classroom_id).filter((id): id is string => Boolean(id))));
   const { data: gradeImportStudents } = gradeItemClassroomIds.length
     ? await admin
         .from("students")
@@ -116,7 +118,7 @@ export async function listAdminFormOptions() {
       const course = one(item.courses);
       return { id: item.id, label: `${item.title} - ${one(course?.subjects)?.name ?? "Course"} ${one(course?.classrooms)?.name ?? ""}`.trim() };
     }),
-    gradeImportContexts: gradeItemRows.map((item) => {
+    gradeImportContexts: importRows.map((item) => {
       const course = one(item.courses);
       const classroom = one(course?.classrooms);
       const subject = one(course?.subjects);
@@ -325,7 +327,7 @@ export async function listReportsForAdmin() {
   const admin = createAdminClient();
   const { data } = await admin
     .from("reports")
-    .select("id,term,summary,created_at,students(student_number,profiles!students_profile_id_fkey(first_name,last_name)),academic_years(name)")
+    .select("id,term,summary,status,report_url,created_at,students(student_number,profiles!students_profile_id_fkey(first_name,last_name)),academic_years(name)")
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -334,6 +336,8 @@ export async function listReportsForAdmin() {
     id: string;
     term: string;
     summary: string | null;
+    status: string | null;
+    report_url: string | null;
     created_at: string | null;
     students: Relation<{ student_number: string; profiles: Relation<{ first_name: string; last_name: string }> }>;
     academic_years: Relation<{ name: string }>;
@@ -346,6 +350,8 @@ export async function listReportsForAdmin() {
       academicYear: one(report.academic_years)?.name ?? "Academic year",
       term: report.term,
       summary: report.summary ?? "Ready for review",
+      status: report.status ?? "draft",
+      downloadUrl: report.report_url ?? `/api/reports/${report.id}/pdf`,
       createdAt: report.created_at ? new Intl.DateTimeFormat("en-GH", { dateStyle: "medium" }).format(new Date(report.created_at)) : "Just now"
     };
   });

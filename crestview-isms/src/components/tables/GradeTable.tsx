@@ -7,6 +7,8 @@ export type GradeRow = {
   id: string;
   student: string;
   assessment: string;
+  classAssessment?: string;
+  examScore?: string;
   score: string;
   percentage?: string;
   gradeCode?: string;
@@ -16,8 +18,10 @@ export type GradeRow = {
 
 const columns: ColumnDef<GradeRow>[] = [
   { accessorKey: "student", header: "Student" },
-  { accessorKey: "assessment", header: "Assessment" },
-  { accessorKey: "score", header: "Score" },
+  { accessorKey: "assessment", header: "Subject / Term" },
+  { accessorKey: "classAssessment", header: "CA 30" },
+  { accessorKey: "examScore", header: "Exam 70" },
+  { accessorKey: "score", header: "Total 100" },
   { accessorKey: "percentage", header: "Percent" },
   { accessorKey: "gradeCode", header: "Grade" },
   { accessorKey: "remark", header: "Remark" },

@@ -55,7 +55,7 @@ export function ReportForm({ academicYears = [], students = [] }: { academicYear
         <Button type="submit" disabled={form.formState.isSubmitting}>
           <FilePlus2 className="size-4" aria-hidden />{form.formState.isSubmitting ? "Generating..." : "Generate report"}
         </Button>
-        {message ? <p className={`text-sm ${submitted ? "text-emerald-300" : "text-red-300"}`}>{message}</p> : null}
+        {message ? <p className={`text-sm font-black ${submitted ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>{message}</p> : null}
       </div>
     </form>
   );

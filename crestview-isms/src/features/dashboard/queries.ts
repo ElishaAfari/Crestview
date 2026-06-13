@@ -174,7 +174,7 @@ export async function listAttendanceRegisters(): Promise<AttendanceRegisterRow[]
 
 export async function listGrades() {
   const { supabase } = await requireUser();
-  const { data } = await supabase.from("grades").select("id,score,percentage,grade_code,remark,comments,grade_items(title,max_score,courses(subjects(name),classrooms(name))),students(student_number,profiles!students_profile_id_fkey(first_name,last_name))").order("created_at", { ascending: false }).limit(50);
+  const { data } = await supabase.from("grades").select("id,score,percentage,grade_code,remark,comments,assignment_score,quiz_score,midterm_score,class_assessment_score,exam_score,total_score,subject_name,term_label,grade_items(title,max_score,courses(subjects(name),classrooms(name))),students(student_number,profiles!students_profile_id_fkey(first_name,last_name))").order("created_at", { ascending: false }).limit(50);
   const records = (data ?? []) as unknown as Array<{
     id: string;
     score: number;
@@ -182,6 +182,14 @@ export async function listGrades() {
     grade_code: string | null;
     remark: string | null;
     comments: string | null;
+    assignment_score: number | null;
+    quiz_score: number | null;
+    midterm_score: number | null;
+    class_assessment_score: number | null;
+    exam_score: number | null;
+    total_score: number | null;
+    subject_name: string | null;
+    term_label: string | null;
     grade_items: Relation<{ title: string; max_score: number | null; courses: Relation<{ subjects: Relation<{ name: string }>; classrooms: Relation<{ name: string }> }> }>;
     students: Relation<{ student_number: string; profiles: Relation<ProfileJoin> }>;
   }>;
@@ -191,12 +199,15 @@ export async function listGrades() {
     const profile = one(student?.profiles);
     const gradeItem = one(record.grade_items);
     const course = one(gradeItem?.courses);
+    const total = Number(record.total_score ?? record.percentage ?? record.score);
     return {
       id: record.id,
       student: profile ? `${profile.first_name} ${profile.last_name}` : student?.student_number ?? "Student",
-      assessment: `${gradeItem?.title ?? "Assessment"}${course ? ` - ${one(course.subjects)?.name ?? "Course"} ${one(course.classrooms)?.name ?? ""}` : ""}`.trim(),
-      score: `${record.score}/${gradeItem?.max_score ?? 100}`,
-      percentage: record.percentage !== null ? `${Number(record.percentage).toFixed(1)}%` : "",
+      assessment: `${record.subject_name ?? one(course?.subjects)?.name ?? "Course"}${course ? ` - ${one(course.classrooms)?.name ?? ""}` : ""}${record.term_label ? ` (${record.term_label})` : ""}`.trim(),
+      classAssessment: record.class_assessment_score !== null ? `${Number(record.class_assessment_score).toFixed(1)}/30` : "",
+      examScore: record.exam_score !== null ? `${Number(record.exam_score).toFixed(1)}/70` : "",
+      score: `${total.toFixed(1)}/100`,
+      percentage: record.percentage !== null ? `${Number(record.percentage).toFixed(1)}%` : `${total.toFixed(1)}%`,
       gradeCode: record.grade_code ?? "",
       remark: record.remark ?? "",
       comments: record.comments ?? ""
@@ -243,7 +254,7 @@ export async function listParentGrades() {
   if (!studentIds.length) return [];
   const { data } = await admin
     .from("grades")
-    .select("id,score,percentage,grade_code,remark,comments,grade_items(title,max_score,courses(subjects(name))),students(student_number,profiles!students_profile_id_fkey(first_name,last_name))")
+    .select("id,score,percentage,grade_code,remark,comments,assignment_score,quiz_score,midterm_score,class_assessment_score,exam_score,total_score,subject_name,term_label,grade_items(title,max_score,courses(subjects(name))),students(student_number,profiles!students_profile_id_fkey(first_name,last_name))")
     .in("student_id", studentIds)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
@@ -256,6 +267,14 @@ export async function listParentGrades() {
     grade_code: string | null;
     remark: string | null;
     comments: string | null;
+    assignment_score: number | null;
+    quiz_score: number | null;
+    midterm_score: number | null;
+    class_assessment_score: number | null;
+    exam_score: number | null;
+    total_score: number | null;
+    subject_name: string | null;
+    term_label: string | null;
     grade_items: Relation<{ title: string; max_score: number | null; courses: Relation<{ subjects: Relation<{ name: string }> }> }>;
     students: Relation<{ student_number: string; profiles: Relation<ProfileJoin> }>;
   }>).map((record) => {
@@ -263,15 +282,57 @@ export async function listParentGrades() {
     const profile = one(student?.profiles);
     const gradeItem = one(record.grade_items);
     const course = one(gradeItem?.courses);
+    const total = Number(record.total_score ?? record.percentage ?? record.score);
     return {
       id: record.id,
       student: profile ? `${profile.first_name} ${profile.last_name}` : student?.student_number ?? "Student",
-      assessment: `${gradeItem?.title ?? "Assessment"}${course ? ` - ${one(course.subjects)?.name ?? "Course"}` : ""}`.trim(),
-      score: `${record.score}/${gradeItem?.max_score ?? 100}`,
-      percentage: record.percentage !== null ? `${Number(record.percentage).toFixed(1)}%` : "",
+      assessment: `${record.subject_name ?? one(course?.subjects)?.name ?? "Course"}${record.term_label ? ` (${record.term_label})` : ""}`.trim(),
+      classAssessment: record.class_assessment_score !== null ? `${Number(record.class_assessment_score).toFixed(1)}/30` : "",
+      examScore: record.exam_score !== null ? `${Number(record.exam_score).toFixed(1)}/70` : "",
+      score: `${total.toFixed(1)}/100`,
+      percentage: record.percentage !== null ? `${Number(record.percentage).toFixed(1)}%` : `${total.toFixed(1)}%`,
       gradeCode: record.grade_code ?? "",
       remark: record.remark ?? "",
       comments: record.comments ?? ""
+    };
+  });
+}
+
+export async function listParentReports() {
+  const { user } = await requireRoles(["parent"]);
+  const admin = createAdminClient();
+  const { data: links } = await admin.from("parent_students").select("student_id").eq("parent_profile_id", user.id).is("deleted_at", null);
+  const studentIds = ((links ?? []) as Array<{ student_id: string }>).map((link) => link.student_id);
+  if (!studentIds.length) return [];
+  const { data } = await admin
+    .from("reports")
+    .select("id,term,summary,status,report_url,created_at,students(student_number,profiles!students_profile_id_fkey(first_name,last_name)),academic_years(name)")
+    .in("student_id", studentIds)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    term: string;
+    summary: string | null;
+    status: string | null;
+    report_url: string | null;
+    created_at: string | null;
+    students: Relation<{ student_number: string; profiles: Relation<ProfileJoin> }>;
+    academic_years: Relation<{ name: string }>;
+  }>).map((report) => {
+    const student = one(report.students);
+    const profile = one(student?.profiles);
+    return {
+      id: report.id,
+      student: profile ? `${profile.first_name} ${profile.last_name}` : student?.student_number ?? "Student",
+      academicYear: one(report.academic_years)?.name ?? "Academic year",
+      term: report.term,
+      summary: report.summary ?? "Ready for review",
+      status: report.status ?? "draft",
+      downloadUrl: report.report_url ?? `/api/reports/${report.id}/pdf`,
+      createdAt: report.created_at ? new Intl.DateTimeFormat("en-GH", { dateStyle: "medium" }).format(new Date(report.created_at)) : "Just now"
     };
   });
 }
@@ -316,7 +377,7 @@ export async function listCurrentStudentGrades() {
 
   const { data } = await admin
     .from("grades")
-    .select("id,score,percentage,grade_code,remark,comments,grade_items(title,max_score,courses(subjects(name))),students(profiles!students_profile_id_fkey(first_name,last_name))")
+    .select("id,score,percentage,grade_code,remark,comments,assignment_score,quiz_score,midterm_score,class_assessment_score,exam_score,total_score,subject_name,term_label,grade_items(title,max_score,courses(subjects(name))),students(profiles!students_profile_id_fkey(first_name,last_name))")
     .eq("student_id", student.id)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
@@ -329,21 +390,72 @@ export async function listCurrentStudentGrades() {
     grade_code: string | null;
     remark: string | null;
     comments: string | null;
+    assignment_score: number | null;
+    quiz_score: number | null;
+    midterm_score: number | null;
+    class_assessment_score: number | null;
+    exam_score: number | null;
+    total_score: number | null;
+    subject_name: string | null;
+    term_label: string | null;
     grade_items: Relation<{ title: string; max_score: number | null; courses: Relation<{ subjects: Relation<{ name: string }> }> }>;
     students: Relation<{ profiles: Relation<ProfileJoin> }>;
   }>).map((record) => {
     const profile = one(one(record.students)?.profiles);
     const gradeItem = one(record.grade_items);
     const course = one(gradeItem?.courses);
+    const total = Number(record.total_score ?? record.percentage ?? record.score);
     return {
       id: record.id,
       student: profile ? `${profile.first_name} ${profile.last_name}` : "Student",
-      assessment: `${gradeItem?.title ?? "Assessment"}${course ? ` - ${one(course.subjects)?.name ?? "Course"}` : ""}`.trim(),
-      score: `${record.score}/${gradeItem?.max_score ?? 100}`,
-      percentage: record.percentage !== null ? `${Number(record.percentage).toFixed(1)}%` : "",
+      assessment: `${record.subject_name ?? one(course?.subjects)?.name ?? "Course"}${record.term_label ? ` (${record.term_label})` : ""}`.trim(),
+      classAssessment: record.class_assessment_score !== null ? `${Number(record.class_assessment_score).toFixed(1)}/30` : "",
+      examScore: record.exam_score !== null ? `${Number(record.exam_score).toFixed(1)}/70` : "",
+      score: `${total.toFixed(1)}/100`,
+      percentage: record.percentage !== null ? `${Number(record.percentage).toFixed(1)}%` : `${total.toFixed(1)}%`,
       gradeCode: record.grade_code ?? "",
       remark: record.remark ?? "",
       comments: record.comments ?? ""
+    };
+  });
+}
+
+export async function listCurrentStudentReports() {
+  const { user } = await requireRoles(["student"]);
+  const admin = createAdminClient();
+  const { data: studentRecord } = await admin.from("students").select("id").eq("profile_id", user.id).is("deleted_at", null).maybeSingle();
+  const student = studentRecord as { id: string } | null;
+  if (!student) return [];
+
+  const { data } = await admin
+    .from("reports")
+    .select("id,term,summary,status,report_url,created_at,students(student_number,profiles!students_profile_id_fkey(first_name,last_name)),academic_years(name)")
+    .eq("student_id", student.id)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    term: string;
+    summary: string | null;
+    status: string | null;
+    report_url: string | null;
+    created_at: string | null;
+    students: Relation<{ student_number: string; profiles: Relation<ProfileJoin> }>;
+    academic_years: Relation<{ name: string }>;
+  }>).map((report) => {
+    const studentRow = one(report.students);
+    const profile = one(studentRow?.profiles);
+    return {
+      id: report.id,
+      student: profile ? `${profile.first_name} ${profile.last_name}` : studentRow?.student_number ?? "Student",
+      academicYear: one(report.academic_years)?.name ?? "Academic year",
+      term: report.term,
+      summary: report.summary ?? "Ready for review",
+      status: report.status ?? "draft",
+      downloadUrl: report.report_url ?? `/api/reports/${report.id}/pdf`,
+      createdAt: report.created_at ? new Intl.DateTimeFormat("en-GH", { dateStyle: "medium" }).format(new Date(report.created_at)) : "Just now"
     };
   });
 }
@@ -359,16 +471,16 @@ export async function getStudentDashboardData() {
     ? admin.from("courses").select("id").eq("classroom_id", student.classroom_id).is("deleted_at", null)
     : Promise.resolve({ data: [] });
   const [grades, attendance, courses, invoices, reports] = await Promise.all([
-    admin.from("grades").select("score,grade_items(max_score)").eq("student_id", student.id).is("deleted_at", null),
+    admin.from("grades").select("score,percentage,total_score,grade_items(max_score)").eq("student_id", student.id).is("deleted_at", null),
     admin.from("attendance_records").select("status").eq("student_id", student.id).is("deleted_at", null),
     courseQuery,
     admin.from("invoices").select("*", { count: "exact", head: true }).eq("student_id", student.id).in("status", ["draft", "open", "overdue"]).is("deleted_at", null),
     admin.from("reports").select("*", { count: "exact", head: true }).eq("student_id", student.id).is("deleted_at", null)
   ]);
 
-  const gradeRows = (grades.data ?? []) as unknown as Array<{ score: number; grade_items: Relation<{ max_score: number }> }>;
+  const gradeRows = (grades.data ?? []) as unknown as Array<{ score: number; percentage: number | null; total_score: number | null; grade_items: Relation<{ max_score: number }> }>;
   const average = gradeRows.length
-    ? Math.round(gradeRows.reduce((sum, row) => sum + (Number(row.score) / Number(one(row.grade_items)?.max_score ?? 100)) * 100, 0) / gradeRows.length)
+    ? Math.round(gradeRows.reduce((sum, row) => sum + Number(row.total_score ?? row.percentage ?? ((Number(row.score) / Number(one(row.grade_items)?.max_score ?? 100)) * 100)), 0) / gradeRows.length)
     : 0;
   const attendanceRows = (attendance.data ?? []) as Array<{ status: string }>;
   const present = attendanceRows.filter((row) => row.status === "present" || row.status === "late").length;
@@ -546,7 +658,7 @@ export async function listTeacherFormOptions(): Promise<{ courses: SelectOption[
   const courseIds = courseRows.map((course) => course.id);
   const classroomIds = Array.from(new Set(courseRows.map((course) => course.classroom_id).filter(Boolean)));
   const [gradeItems, students] = await Promise.all([
-    courseIds.length ? admin.from("grade_items").select("id,title,max_score,course_id,courses(id,classroom_id,term,subjects(name),classrooms(id,name,grade_level))").in("course_id", courseIds).is("deleted_at", null).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
+    courseIds.length ? admin.from("grade_items").select("id,title,category,max_score,course_id,courses(id,classroom_id,term,subjects(name),classrooms(id,name,grade_level))").in("course_id", courseIds).is("deleted_at", null).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
     classroomIds.length ? admin.from("students").select("id,student_number,profiles!students_profile_id_fkey(first_name,last_name)").in("classroom_id", classroomIds).is("deleted_at", null).order("student_number") : Promise.resolve({ data: [] })
   ]);
   const { data: importStudents } = classroomIds.length
@@ -572,10 +684,12 @@ export async function listTeacherFormOptions(): Promise<{ courses: SelectOption[
   const gradeItemRows = (gradeItems.data ?? []) as unknown as Array<{
     id: string;
     title: string;
+    category: string;
     max_score: number | null;
     course_id: string;
     courses: Relation<{ id: string; classroom_id: string; term: string; subjects: Relation<{ name: string }>; classrooms: Relation<{ id: string; name: string; grade_level: string }> }>;
   }>;
+  const importRows = gradeItemRows.filter((item) => item.category === "term_report" || Number(item.max_score ?? 100) === 100);
 
   return {
     courses: courseRows.map((course) => ({
@@ -594,7 +708,7 @@ export async function listTeacherFormOptions(): Promise<{ courses: SelectOption[
       const profile = one(student.profiles);
       return { id: student.id, label: `${profile ? `${profile.first_name} ${profile.last_name}` : "Student"} (${student.student_number})` };
     }),
-    gradeImportContexts: gradeItemRows.map((item) => {
+    gradeImportContexts: importRows.map((item) => {
       const course = one(item.courses);
       const classroom = one(course?.classrooms);
       const subject = one(course?.subjects);
