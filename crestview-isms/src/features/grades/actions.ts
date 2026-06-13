@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import ExcelJS from "exceljs";
 import { z } from "zod";
 import { requireRoles } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -296,6 +297,40 @@ function parseCsv(text: string) {
   return rows;
 }
 
+function cellValueToText(value: ExcelJS.CellValue) {
+  if (value === null || value === undefined) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value).trim();
+  if (typeof value === "object") {
+    if ("result" in value) return cellValueToText(value.result as ExcelJS.CellValue);
+    if ("text" in value && typeof value.text === "string") return value.text.trim();
+    if ("richText" in value && Array.isArray(value.richText)) {
+      return value.richText.map((item) => "text" in item ? item.text : "").join("").trim();
+    }
+  }
+  return "";
+}
+
+async function parseGradeFile(file: File) {
+  const fileName = file.name.toLowerCase();
+  const mimeType = file.type.toLowerCase();
+  const isWorkbook = fileName.endsWith(".xlsx") || mimeType.includes("spreadsheetml");
+  if (!isWorkbook) return parseCsv(await file.text());
+
+  const workbook = new ExcelJS.Workbook();
+  const loadWorkbook = workbook.xlsx.load as unknown as (buffer: ArrayBuffer) => Promise<ExcelJS.Workbook>;
+  await loadWorkbook(await file.arrayBuffer());
+  const worksheet = workbook.getWorksheet("Grading Report") ?? workbook.worksheets[0];
+  if (!worksheet) return [];
+  const rows: string[][] = [];
+  const maxColumn = Math.max(worksheet.actualColumnCount, 15);
+  worksheet.eachRow({ includeEmpty: false }, (row) => {
+    const values = Array.from({ length: maxColumn }, (_, index) => cellValueToText(row.getCell(index + 1).value));
+    if (values.some(Boolean)) rows.push(values);
+  });
+  return rows;
+}
+
 function normalizeHeader(value: string) {
   return value
     .trim()
@@ -339,9 +374,9 @@ export async function importGradesCsvAction(formData: FormData) {
   if (!allowed) return { ok: false, message: "You can only import grades for assessments assigned to your class or subject." };
 
   const admin = createAdminClient();
-  const text = await (file as File).text();
-  const rows = parseCsv(text);
-  if (rows.length < 2) return { ok: false, message: "The CSV file needs a header row and at least one student row." };
+  const upload = file as File;
+  const rows = await parseGradeFile(upload);
+  if (rows.length < 2) return { ok: false, message: "The file needs a header row and at least one student row." };
 
   const headerIndex = findHeaderIndex(rows);
   if (headerIndex < 0) return { ok: false, message: "The CSV must include a student_number header row." };
@@ -349,14 +384,14 @@ export async function importGradesCsvAction(formData: FormData) {
   const headers = rows[headerIndex].map(normalizeHeader);
   const studentNumberIndex = headers.findIndex((header) => ["student_number", "student_id", "id"].includes(header));
   const subjectIndex = indexOfHeader(headers, ["subject", "subject_course", "course"]);
-  const assignmentIndex = indexOfHeader(headers, ["assignment_10", "assignment", "assignment_score"]);
-  const quizIndex = indexOfHeader(headers, ["quiz_10", "class_quiz_10", "class_quizzes_10", "quiz", "quiz_score"]);
-  const midtermIndex = indexOfHeader(headers, ["midterm_10", "mid_term_10", "midterm", "midterm_score", "mid_term_exam"]);
-  const examIndex = indexOfHeader(headers, ["end_term_exam_70", "end_of_term_exam_70", "exam_70", "exam", "examination"]);
+  const assignmentIndex = indexOfHeader(headers, ["assignment_10", "assignment", "assignment_score", "assignment_work", "ci_work", "class_work"]);
+  const quizIndex = indexOfHeader(headers, ["quiz_10", "class_quiz_10", "class_quizzes_10", "quiz", "quizzes", "quiz_score"]);
+  const midtermIndex = indexOfHeader(headers, ["midterm_10", "mid_term_10", "midterm", "mid_term", "midterm_score", "mid_term_exam", "mid_sem", "mid_semester"]);
+  const examIndex = indexOfHeader(headers, ["end_term_exam_70", "end_of_term_exam_70", "es_mark", "exam_70", "exam", "examination", "end_term_exam", "end_of_term_exam"]);
   const totalIndex = indexOfHeader(headers, ["total_100", "total", "total_score"]);
   const commentsIndex = headers.findIndex((header) => ["comments", "comment", "remarks", "remark", "teacher_comment"].includes(header));
   if (studentNumberIndex < 0 || assignmentIndex < 0 || quizIndex < 0 || midtermIndex < 0 || examIndex < 0) {
-    return { ok: false, message: "The CSV must include student_number, assignment_10, quiz_10, midterm_10, and end_term_exam_70 columns." };
+    return { ok: false, message: "The file must include Student ID, Assignment, Quiz, Mid Term, and ES Mark columns." };
   }
 
   const context = await getGradeItemContext(gradeItemId);
@@ -451,7 +486,7 @@ export async function importGradesCsvAction(formData: FormData) {
     subject_id: context.subjectId,
     term: context.term,
     uploaded_by: user.id,
-    file_name: (file as File).name,
+    file_name: upload.name,
     status: errors.length && !gradeRows.length ? "failed" : "processed",
     rows_total: rows.length - headerIndex - 1,
     rows_success: gradeRows.length,
