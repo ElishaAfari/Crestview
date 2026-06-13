@@ -15,6 +15,7 @@
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "test": "vitest",
+    "test:beta": "node scripts/beta/full-platform-beta.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
