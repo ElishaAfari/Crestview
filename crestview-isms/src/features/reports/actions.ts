@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRoles } from "@/features/auth/guards";
+import { createWorkflowTask } from "@/features/automation/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.types";
 
@@ -214,6 +215,28 @@ export async function generateReportAction(formData: FormData) {
       type: "report",
       metadata: { report_id: reportId, student_id: student.id } satisfies Json
     })));
+  }
+  if (reportId) {
+    await createWorkflowTask({
+      title: `Review report follow-up for ${studentName}`,
+      workflowKey: "academic_follow_up",
+      description: analysis.nextSteps,
+      priority: analysis.average < 50 || attendance.rate < 85 ? "high" : "normal",
+      dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      assignedTo: user.id,
+      createdBy: user.id,
+      studentId: student.id,
+      classroomId: student.classroom_id,
+      relatedTable: "reports",
+      relatedRecordId: reportId,
+      metadata: {
+        average: analysis.average,
+        attendance_rate: attendance.rate,
+        term: result.data.term.trim(),
+        recommendations: analysis.recommendations
+      } satisfies Json
+    });
+    await admin.from("automation_rules").update({ last_triggered_at: new Date().toISOString() }).eq("event_key", "report.published");
   }
   revalidatePath("/admin/reports");
   revalidatePath("/student");

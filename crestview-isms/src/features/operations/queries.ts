@@ -15,7 +15,9 @@ export async function loadOperationsWorkspace(key: string) {
   await requireRoles(permittedRoles(workspace.roles));
   const admin = createAdminClient();
   const modules = await Promise.all(workspace.modules.map(async (workspaceModule) => {
-    const { count } = await admin.from(workspaceModule.table).select("*", { count: "exact", head: true }).is("deleted_at", null);
+    let query = admin.from(workspaceModule.table).select("*", { count: "exact", head: true }).is("deleted_at", null);
+    if (workspaceModule.filter) query = query.eq(workspaceModule.filter.key, workspaceModule.filter.value);
+    const { count } = await query;
     return { ...workspaceModule, count: count ?? 0 };
   }));
   return { ...workspace, modules };
@@ -27,6 +29,8 @@ export async function loadOperationsModule(workspaceKey: string, moduleKey: stri
   if (!workspace || !workspaceModule) return null;
   await requireRoles(permittedRoles(workspace.roles));
   const admin = createAdminClient();
-  const { data, count } = await admin.from(workspaceModule.table).select("*", { count: "exact" }).is("deleted_at", null).order("created_at", { ascending: false }).limit(40);
+  let query = admin.from(workspaceModule.table).select("*", { count: "exact" }).is("deleted_at", null).order("created_at", { ascending: false }).limit(40);
+  if (workspaceModule.filter) query = query.eq(workspaceModule.filter.key, workspaceModule.filter.value);
+  const { data, count } = await query;
   return { workspace, module: workspaceModule, count: count ?? 0, records: (data ?? []) as Array<Record<string, unknown>> };
 }

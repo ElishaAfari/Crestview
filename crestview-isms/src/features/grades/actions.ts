@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import ExcelJS from "exceljs";
 import { z } from "zod";
 import { requireRoles } from "@/features/auth/guards";
+import { createWorkflowTask } from "@/features/automation/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { gradeSchema } from "@/lib/validations/grade.schema";
 import type { Json } from "@/types/database.types";
@@ -478,7 +479,7 @@ export async function importGradesCsvAction(formData: FormData) {
     if (error) return { ok: false, message: "The grade rows could not be saved." };
   }
 
-  await admin.from("grade_import_batches").insert({
+  const { data: batchData } = await admin.from("grade_import_batches").insert({
     course_id: context.courseId,
     grade_item_id: gradeItemId,
     classroom_id: context.classroomId,
@@ -500,7 +501,33 @@ export async function importGradesCsvAction(formData: FormData) {
       exam_max: 70,
       total_max: 100
     } satisfies Json
-  });
+  }).select("id").single();
+  const batchId = (batchData as { id: string } | null)?.id ?? null;
+  const weakGradeCount = gradeRows.filter((row) => Number(row.total_score) < 50).length;
+  if (errors.length || weakGradeCount) {
+    await createWorkflowTask({
+      title: errors.length ? `Correct grade import for ${context.subjectName}` : `Plan intervention for ${context.subjectName}`,
+      workflowKey: "academic_follow_up",
+      description: errors.length
+        ? `${errors.length} imported row(s) need correction before reports are finalized.`
+        : `${weakGradeCount} learner(s) scored below 50%. Review support, parent contact, and intervention steps.`,
+      priority: errors.length || weakGradeCount > 2 ? "high" : "normal",
+      dueAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      assignedTo: user.id,
+      createdBy: user.id,
+      classroomId: context.classroomId,
+      relatedTable: "grade_import_batches",
+      relatedRecordId: batchId,
+      metadata: {
+        grade_item_id: gradeItemId,
+        subject: context.subjectName,
+        term: context.term,
+        rows_success: gradeRows.length,
+        rows_failed: errors.length,
+        weak_grade_count: weakGradeCount
+      } satisfies Json
+    });
+  }
 
   revalidatePath("/admin/grades");
   revalidatePath("/teacher/grades");

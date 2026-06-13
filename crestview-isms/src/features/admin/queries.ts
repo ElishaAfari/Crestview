@@ -45,6 +45,8 @@ export type AdminDashboardData = {
     paidAmount: number;
     openAmount: number;
     invoiceTotal: number;
+    openTasks: number;
+    atRiskStudents: number;
   };
   attendanceSeries: Array<{ date: string; present: number; absent: number; rate: number }>;
   attendanceBreakdown: Array<{ label: string; count: number; tone: "green" | "amber" | "red" | "blue" }>;
@@ -161,7 +163,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const today = new Date().toISOString().slice(0, 10);
   const weekStart = new Date();
   weekStart.setDate(weekStart.getDate() - 6);
-  const [students, staff, classrooms, invoicesAll, attendance, admissions, recruitment, events, audit] = await Promise.all([
+  const [students, staff, classrooms, invoicesAll, attendance, admissions, recruitment, events, audit, tasks, student360] = await Promise.all([
     admin.from("students").select("id,classroom_id,status").eq("status", "active").is("deleted_at", null),
     admin.from("profiles").select("roles(name)").is("deleted_at", null),
     admin.from("classrooms").select("id,name,grade_level,capacity").is("deleted_at", null).order("grade_level"),
@@ -170,7 +172,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     admin.from("admission_applications").select("status").is("deleted_at", null),
     admin.from("job_applications").select("status").is("deleted_at", null),
     admin.from("events").select("id,title,starts_at").is("deleted_at", null).neq("status", "cancelled").order("starts_at", { ascending: true }).limit(8),
-    admin.from("audit_logs").select("action,table_name,created_at").order("created_at", { ascending: false }).limit(7)
+    admin.from("audit_logs").select("action,table_name,created_at").order("created_at", { ascending: false }).limit(7),
+    admin.from("workflow_tasks").select("status").is("deleted_at", null),
+    admin.from("student_360_overview").select("risk_level")
   ]);
   const studentRows = (students.data ?? []) as Array<{ id: string; classroom_id: string | null; status: string }>;
   const staffCount = ((staff.data ?? []) as unknown as Array<{ roles: Relation<{ name: string }> }>).filter((row) => {
@@ -188,6 +192,8 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const collectionRate = invoiceTotal ? Math.round((paidTotal / invoiceTotal) * 100) : 0;
   const admissionRows = (admissions.data ?? []) as Array<{ status: string }>;
   const recruitmentRows = (recruitment.data ?? []) as Array<{ status: string }>;
+  const taskRows = (tasks.data ?? []) as Array<{ status: string }>;
+  const student360Rows = (student360.data ?? []) as Array<{ risk_level: string }>;
   const openAdmissionStatuses = new Set(["submitted", "reviewing"]);
   const openRecruitmentStatuses = new Set(["submitted", "screening", "interview", "offer"]);
   const roleCountsMap = new Map<string, number>();
@@ -247,7 +253,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       openRecruitment: recruitmentRows.filter((row) => openRecruitmentStatuses.has(row.status)).length,
       paidAmount: paidTotal,
       openAmount,
-      invoiceTotal
+      invoiceTotal,
+      openTasks: taskRows.filter((task) => ["open", "in_progress", "blocked"].includes(task.status)).length,
+      atRiskStudents: student360Rows.filter((student) => student.risk_level !== "green").length
     },
     attendanceSeries,
     attendanceBreakdown: [
@@ -269,7 +277,8 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     reviewQueues: [
       { label: "Admissions", count: admissionRows.filter((row) => openAdmissionStatuses.has(row.status)).length, href: "/admin/admissions", tone: "blue" },
       { label: "Recruitment", count: recruitmentRows.filter((row) => openRecruitmentStatuses.has(row.status)).length, href: "/admin/recruitment", tone: "amber" },
-      { label: "Open invoices", count: invoiceRows.filter((invoice) => ["draft", "open", "overdue"].includes(invoice.status)).length, href: "/admin/fees", tone: "green" }
+      { label: "Open invoices", count: invoiceRows.filter((invoice) => ["draft", "open", "overdue"].includes(invoice.status)).length, href: "/admin/fees", tone: "green" },
+      { label: "Workflow tasks", count: taskRows.filter((task) => ["open", "in_progress", "blocked"].includes(task.status)).length, href: "/admin/automation", tone: "red" }
     ],
     events: (events.data ?? []) as Array<{ id: string; title: string; starts_at: string }>,
     activity: (audit.data ?? []).map((item) => `${item.action} ${item.table_name}`).slice(0, 5),

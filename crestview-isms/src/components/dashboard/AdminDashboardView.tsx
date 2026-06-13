@@ -22,8 +22,8 @@ import {
   ClipboardCheck,
   CreditCard,
   FilePlus2,
+  GitBranch,
   GraduationCap,
-  LibraryBig,
   ShieldCheck,
   Sparkles,
   UserCheck,
@@ -54,8 +54,8 @@ const quickActions = [
   { label: "Review recruitment", href: "/admin/recruitment", icon: BriefcaseBusiness, tone: "amber" as const },
   { label: "Create invoice", href: "/admin/fees#create-invoice", icon: FilePlus2, tone: "green" as const },
   { label: "User access", href: "/admin/access", icon: UserRoundCog, tone: "red" as const },
-  { label: "Schedule event", href: "/admin/settings#schedule-event", icon: CalendarDays, tone: "blue" as const },
-  { label: "Library suite", href: "/library", icon: LibraryBig, tone: "green" as const }
+  { label: "Student 360", href: "/admin/student-360", icon: Sparkles, tone: "blue" as const },
+  { label: "Automation", href: "/admin/automation", icon: GitBranch, tone: "amber" as const }
 ];
 
 function formatCurrency(value: number) {
@@ -422,11 +422,11 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboardDat
                 <Sparkles className="size-7 text-yellow-300" aria-hidden />
                 <h2 className="mt-5 font-heading text-2xl font-black text-white">Operations Pulse</h2>
                 <p className="mt-3 text-sm leading-6 text-blue-50">
-                  {dashboard.metrics.openAdmissions + dashboard.metrics.openRecruitment} review item{dashboard.metrics.openAdmissions + dashboard.metrics.openRecruitment === 1 ? "" : "s"} waiting across admissions and recruitment.
+                  {dashboard.metrics.openAdmissions + dashboard.metrics.openRecruitment + dashboard.metrics.openTasks} review item{dashboard.metrics.openAdmissions + dashboard.metrics.openRecruitment + dashboard.metrics.openTasks === 1 ? "" : "s"} waiting across admissions, recruitment, and automation.
                 </p>
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   <Link href="/admin/admissions" className="rounded-lg bg-white px-4 py-3 text-sm font-black text-[#07377f]">Admissions</Link>
-                  <Link href="/admin/recruitment" className="rounded-lg bg-white/15 px-4 py-3 text-sm font-black text-white ring-1 ring-white/25">Recruitment</Link>
+                  <Link href="/admin/automation" className="rounded-lg bg-white/15 px-4 py-3 text-sm font-black text-white ring-1 ring-white/25">Automation</Link>
                 </div>
               </CardContent>
             </Card>

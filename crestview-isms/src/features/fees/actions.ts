@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRoles } from "@/features/auth/guards";
+import { createWorkflowTask } from "@/features/automation/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { feeSchema } from "@/lib/validations/fee.schema";
 
@@ -62,6 +63,19 @@ export async function createInvoiceAction(formData: FormData) {
         metadata: { invoice_id: invoice.id, student_id: result.data.studentId }
       })));
     }
+    await createWorkflowTask({
+      title: `Collect invoice ${number}`,
+      workflowKey: "finance_collection",
+      description: "Follow up this individual school fee invoice until it is settled or formally voided.",
+      priority: "normal",
+      dueAt: new Date(`${result.data.dueDate}T16:00:00`).toISOString(),
+      createdBy: user.id,
+      studentId: result.data.studentId,
+      relatedTable: "invoices",
+      relatedRecordId: invoice.id,
+      metadata: { invoice_number: number, amount: result.data.amount, currency: result.data.currency.toUpperCase() }
+    });
+    await admin.from("automation_rules").update({ last_triggered_at: new Date().toISOString() }).eq("event_key", "invoice.class_batch_created");
   }
 
   revalidatePath("/admin/fees");
@@ -168,6 +182,24 @@ export async function createClassInvoiceBatchAction(formData: FormData) {
     metadata: { billing_batch_id: batch.id, invoice_id: invoiceByStudent.get(link.student_id) ?? null, student_id: link.student_id }
   }));
   if (notifications.length) await admin.from("notifications").insert(notifications);
+  await createWorkflowTask({
+    title: `Monitor class billing batch ${batchNumber}`,
+    workflowKey: "finance_collection",
+    description: `${studentRows.length} invoices were broadcast. Track parent receipts, overdue reminders, and collection completion.`,
+    priority: "high",
+    dueAt: new Date(`${result.data.dueDate}T16:00:00`).toISOString(),
+    createdBy: user.id,
+    classroomId: result.data.classroomId,
+    relatedTable: "billing_batches",
+    relatedRecordId: batch.id,
+    metadata: {
+      batch_number: batchNumber,
+      student_count: studentRows.length,
+      amount: invoiceAmount,
+      currency: result.data.currency.toUpperCase()
+    }
+  });
+  await admin.from("automation_rules").update({ last_triggered_at: new Date().toISOString() }).eq("event_key", "invoice.class_batch_created");
 
   revalidatePath("/admin/fees");
   revalidatePath("/finance");

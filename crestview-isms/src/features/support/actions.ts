@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRoles, requireUser } from "@/features/auth/guards";
+import { createWorkflowTask, completeRelatedWorkflowTasks } from "@/features/automation/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.types";
 
@@ -62,6 +63,18 @@ export async function createSupportTicketAction(formData: FormData) {
         metadata: { ticket_id: (ticketData as { id: string }).id, priority: result.data.priority }
       })));
     }
+    await createWorkflowTask({
+      title: `Resolve IT ticket ${number}`,
+      workflowKey: "it_support",
+      description: `${result.data.category}: ${result.data.description}`,
+      priority: result.data.priority,
+      dueAt: new Date(Date.now() + (result.data.priority === "urgent" ? 1 : result.data.priority === "high" ? 2 : 5) * 24 * 60 * 60 * 1000).toISOString(),
+      createdBy: user.id,
+      relatedTable: "support_tickets",
+      relatedRecordId: (ticketData as { id: string }).id,
+      metadata: { ticket_number: number, category: result.data.category, source: "support_ticket" } satisfies Json
+    });
+    await admin.from("automation_rules").update({ last_triggered_at: new Date().toISOString() }).eq("event_key", "support.ticket_opened");
   }
 
   revalidatePath("/it");
@@ -86,6 +99,13 @@ export async function updateSupportTicketStatusAction(formData: FormData) {
     assigned_to: user.id,
     resolved_at: ["resolved", "closed"].includes(result.data.status) ? new Date().toISOString() : null
   }).eq("id", result.data.ticketId);
+  if (!error && ["resolved", "closed"].includes(result.data.status)) {
+    await completeRelatedWorkflowTasks({
+      workflowKey: "it_support",
+      relatedTable: "support_tickets",
+      relatedRecordId: result.data.ticketId
+    });
+  }
 
   revalidatePath("/it");
   revalidatePath("/it/tickets");

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRoles } from "@/features/auth/guards";
+import { createWorkflowTask } from "@/features/automation/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.types";
 
@@ -217,7 +218,7 @@ export async function saveClassRosterAction(formData: FormData) {
     await admin.from("students").update({ status: "withdrawn", classroom_id: null }).in("id", removableIds);
   }
 
-  await admin.from("class_roster_snapshots").insert({
+  const { data: snapshotData } = await admin.from("class_roster_snapshots").insert({
     classroom_id: classroomId,
     academic_year_id: classroom?.academic_year_id ?? null,
     captured_by: user.id,
@@ -229,6 +230,25 @@ export async function saveClassRosterAction(formData: FormData) {
       last_name: student.lastName.trim()
     })) satisfies Json,
     notes: classroom ? `${classroom.grade_level} - ${classroom.name} roster saved from portal.` : "Roster saved from portal."
+  }).select("id").single();
+  await createWorkflowTask({
+    title: `Verify ${classroom?.name ?? "class"} roster and access`,
+    workflowKey: "academic_follow_up",
+    description: "Confirm student accounts, parent links, attendance register readiness, and subject grading templates for this class.",
+    priority: created > 0 ? "high" : "normal",
+    dueAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+    assignedTo: user.id,
+    createdBy: user.id,
+    classroomId,
+    relatedTable: "class_roster_snapshots",
+    relatedRecordId: (snapshotData as { id: string } | null)?.id ?? null,
+    metadata: {
+      student_count: deduped.length,
+      created,
+      updated,
+      removed: removableIds.length,
+      source: "class_roster_save"
+    } satisfies Json
   });
 
   revalidatePath("/teacher/classes");

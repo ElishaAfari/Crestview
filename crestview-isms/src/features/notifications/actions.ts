@@ -12,7 +12,7 @@ export async function broadcastNotificationAction(formData: FormData) {
   if (title.length < 3) return { ok: false, message: "Enter a notification title." };
   if (body.length < 5) return { ok: false, message: "Write a longer notification body." };
 
-  await requireRoles(["super_admin", "school_admin"]);
+  const { user } = await requireRoles(["super_admin", "school_admin"]);
   const admin = createAdminClient();
   let query = admin.from("profiles").select("id,roles(name)").eq("is_active", true).is("deleted_at", null);
   if (audience !== "all") query = query.eq("roles.name", audience);
@@ -29,16 +29,40 @@ export async function broadcastNotificationAction(formData: FormData) {
 
   if (!recipients.length) return { ok: false, message: "No active recipients matched that audience." };
 
+  const { data: campaignData } = await admin.from("communication_campaigns").insert({
+    name: title,
+    subject: title,
+    body,
+    channel: "in_app",
+    audience_type: audience === "all" ? "all" : "roles",
+    audience_roles: audience === "all" ? [] : [audience],
+    status: "sent",
+    sent_at: new Date().toISOString(),
+    created_by: user.id,
+    metadata: { source: "broadcast_notification" }
+  }).select("id").single();
+  const campaignId = (campaignData as { id: string } | null)?.id ?? null;
+
   const { error } = await admin.from("notifications").insert(recipients.map((recipientId) => ({
     recipient_id: recipientId,
     title,
     body,
     type: "broadcast",
-    metadata: { audience }
+    metadata: { audience, campaign_id: campaignId }
   })));
 
   if (error) return { ok: false, message: "The broadcast could not be queued." };
+  if (campaignId) {
+    await admin.from("communication_recipients").insert(recipients.map((recipientId) => ({
+      campaign_id: campaignId,
+      profile_id: recipientId,
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      metadata: { channel: "in_app" }
+    })));
+  }
   revalidatePath("/admin/settings");
+  revalidatePath("/admin/automation");
   return { ok: true, message: `Broadcast queued for ${recipients.length} recipient${recipients.length === 1 ? "" : "s"}.` };
 }
 

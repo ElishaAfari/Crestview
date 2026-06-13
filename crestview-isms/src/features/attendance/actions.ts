@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRoles } from "@/features/auth/guards";
+import { createWorkflowTask } from "@/features/automation/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.types";
 
@@ -162,6 +163,26 @@ export async function bulkRecordAttendanceAction(formData: FormData) {
   })));
 
   if (error) return { ok: false, message: "The attendance register could not be saved." };
+  if (Number(counts.absent ?? 0) > 0 || Number(counts.late ?? 0) > 2) {
+    await createWorkflowTask({
+      title: `Review attendance exceptions for ${result.data.attendanceDate}`,
+      workflowKey: "attendance_follow_up",
+      description: `${counts.absent ?? 0} absent and ${counts.late ?? 0} late record(s) were submitted. Contact guardians where needed and record any interventions.`,
+      priority: Number(counts.absent ?? 0) > 2 ? "high" : "normal",
+      dueAt: new Date(`${result.data.attendanceDate}T17:00:00`).toISOString(),
+      assignedTo: user.id,
+      createdBy: user.id,
+      classroomId: result.data.classroomId,
+      relatedTable: "attendance_registers",
+      relatedRecordId: registerId,
+      metadata: {
+        attendance_date: result.data.attendanceDate,
+        counts,
+        source: "bulk_attendance_submission"
+      } satisfies Json
+    });
+  }
+  await admin.from("automation_rules").update({ last_triggered_at: new Date().toISOString() }).eq("event_key", "attendance.register_submitted");
   revalidatePath("/admin");
   revalidatePath("/admin/attendance");
   revalidatePath("/teacher");

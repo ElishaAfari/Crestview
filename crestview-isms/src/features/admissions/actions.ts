@@ -3,6 +3,7 @@
 import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { requireRoles } from "@/features/auth/guards";
+import { createWorkflowTask } from "@/features/automation/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { admissionSchema } from "@/lib/validations/admission.schema";
 import type { Json } from "@/types/database.types";
@@ -171,6 +172,7 @@ async function acceptAdmission(applicationId: string, actorId: string) {
     .is("deleted_at", null)
     .limit(1)
     .maybeSingle();
+  const classroomRecord = classroom as { id: string } | null;
 
   const studentNumber = studentNumberFor(application.id);
   const studentEmail = `${studentNumber.toLowerCase()}@students.crestview.local`;
@@ -206,7 +208,7 @@ async function acceptAdmission(applicationId: string, actorId: string) {
   const { data: studentData, error: studentError } = profileError ? { data: null, error: profileError } : await admin.from("students").insert({
     profile_id: account.user.id,
     student_number: studentNumber,
-    classroom_id: classroom?.id ?? null,
+    classroom_id: classroomRecord?.id ?? null,
     enrollment_date: new Date().toISOString().slice(0, 10),
     status: "active",
     admission_application_id: application.id,
@@ -238,6 +240,26 @@ async function acceptAdmission(applicationId: string, actorId: string) {
     generated_student_number: studentNumber,
     onboarding_notes: "Parent account is active. Student portal is pending teacher roster activation."
   }).eq("id", application.id);
+  await createWorkflowTask({
+    title: `Complete onboarding for ${application.applicant_first_name} ${application.applicant_last_name}`,
+    workflowKey: "admissions_onboarding",
+    description: "Verify parent access, confirm class placement, check required documents, and prepare the first invoice.",
+    priority: "high",
+    dueAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+    createdBy: actorId,
+    studentId: student.id,
+    parentProfileId: parent.profileId,
+    classroomId: classroomRecord?.id ?? null,
+    relatedTable: "admission_applications",
+    relatedRecordId: application.id,
+    metadata: {
+      admission_application_id: application.id,
+      student_number: studentNumber,
+      parent_account_created: parent.created,
+      source: "admission_acceptance"
+    }
+  });
+  await admin.from("automation_rules").update({ last_triggered_at: new Date().toISOString() }).eq("event_key", "admission.accepted");
   await admin.from("admission_status_history").insert({
     application_id: application.id,
     to_status: "accepted",
@@ -250,7 +272,7 @@ async function acceptAdmission(applicationId: string, actorId: string) {
     action: "created",
     reason: "Student record created from accepted admission; portal access pending class teacher activation",
     performed_by: actorId,
-    snapshot: { admission_application_id: application.id, student_number: studentNumber, classroom_id: classroom?.id ?? null }
+    snapshot: { admission_application_id: application.id, student_number: studentNumber, classroom_id: classroomRecord?.id ?? null }
   });
   await admin.from("notifications").insert([
     {
