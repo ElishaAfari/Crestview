@@ -136,6 +136,109 @@ async function countRows(table, filter) {
   return count ?? 0;
 }
 
+async function selectColumn(table, column, filter) {
+  let request = supabase.from(table).select(column);
+  if (filter) request = filter(request);
+  const { data, error } = await request;
+  if (error) throw new Error(`${table} cleanup select failed: ${error.message}`);
+  return (data ?? []).map((row) => row[column]).filter(Boolean);
+}
+
+async function deleteWhere(table, filter) {
+  let request = supabase.from(table).delete();
+  request = filter(request);
+  const { error } = await request;
+  if (error) throw new Error(`${table} cleanup delete failed: ${error.message}`);
+}
+
+async function deleteByIn(table, column, values) {
+  const uniqueValues = [...new Set(values.filter(Boolean))];
+  for (let index = 0; index < uniqueValues.length; index += 100) {
+    const chunk = uniqueValues.slice(index, index + 100);
+    if (!chunk.length) continue;
+    await deleteWhere(table, (query) => query.in(column, chunk));
+  }
+}
+
+async function cleanupRun(cleanupRunId) {
+  process.stdout.write(`[beta:${cleanupRunId}] cleanup started\n`);
+  const academicYearIds = await selectColumn("academic_years", "id", (query) => query.eq("name", `Crestview Beta ${cleanupRunId}`));
+  const profileIds = await selectColumn("profiles", "id", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  const studentIds = await selectColumn("students", "id", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  const staffProfileIds = await selectColumn("staff_profiles", "id", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  const courseIds = academicYearIds.length ? await selectColumn("courses", "id", (query) => query.in("academic_year_id", academicYearIds)) : [];
+  const classroomIds = academicYearIds.length ? await selectColumn("classrooms", "id", (query) => query.in("academic_year_id", academicYearIds)) : [];
+  const invoiceIds = await selectColumn("invoices", "id", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  const gradeItemIds = await selectColumn("grade_items", "id", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  const registerIds = await selectColumn("attendance_registers", "id", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  const jobApplicationIds = await selectColumn("job_applications", "id", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  const ticketIds = await selectColumn("support_tickets", "id", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  const campaignIds = await selectColumn("communication_campaigns", "id", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  const bookIds = await selectColumn("library_books", "id", (query) => query.ilike("isbn", `BETA-${cleanupRunId}-%`));
+  const copyIds = bookIds.length ? await selectColumn("library_copies", "id", (query) => query.in("book_id", bookIds)) : [];
+  const payrollPeriodIds = await selectColumn("payroll_periods", "id", (query) => query.ilike("name", `%${cleanupRunId}%`));
+  const conversationIds = await selectColumn("conversations", "id", (query) => query.ilike("title", `%${cleanupRunId}%`));
+  const messageIds = conversationIds.length ? await selectColumn("messages", "id", (query) => query.in("conversation_id", conversationIds)) : [];
+
+  await deleteByIn("support_ticket_comments", "ticket_id", ticketIds);
+  await deleteWhere("support_tickets", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteWhere("devices", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteByIn("library_loans", "copy_id", copyIds);
+  await deleteByIn("library_copies", "book_id", bookIds);
+  await deleteByIn("library_books", "id", bookIds);
+  await deleteByIn("payroll_items", "payroll_period_id", payrollPeriodIds);
+  await deleteByIn("payroll_periods", "id", payrollPeriodIds);
+  await deleteByIn("staff_attendance_records", "staff_profile_id", staffProfileIds);
+  await deleteByIn("leave_requests", "staff_profile_id", staffProfileIds);
+  await deleteByIn("message_attachments", "message_id", messageIds);
+  await deleteByIn("messages", "conversation_id", conversationIds);
+  await deleteByIn("conversation_members", "conversation_id", conversationIds);
+  await deleteByIn("conversations", "id", conversationIds);
+  await deleteByIn("communication_recipients", "campaign_id", campaignIds);
+  await deleteWhere("communication_recipients", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteWhere("communication_campaigns", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteWhere("workflow_tasks", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteWhere("student_360_notes", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteWhere("notifications", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteWhere("account_lifecycle_records", (query) => query.contains("snapshot", { beta_run_id: cleanupRunId }));
+  await deleteByIn("ai_analytics", "student_id", studentIds);
+  await deleteWhere("reports", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteWhere("grade_import_batches", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteByIn("grades", "grade_item_id", gradeItemIds);
+  await deleteWhere("grade_items", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteByIn("attendance_records", "register_id", registerIds);
+  await deleteWhere("attendance_registers", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteByIn("invoice_items", "invoice_id", invoiceIds);
+  await deleteByIn("payments", "invoice_id", invoiceIds);
+  await deleteWhere("invoices", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteWhere("billing_batches", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteByIn("job_application_status_history", "job_application_id", jobApplicationIds);
+  await deleteWhere("job_applications", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteWhere("job_postings", (query) => query.ilike("title", `%Beta ${cleanupRunId}%`));
+  await deleteWhere("admission_applications", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteByIn("student_documents", "student_id", studentIds);
+  await deleteByIn("student_behavior_records", "student_id", studentIds);
+  await deleteByIn("student_medical_records", "student_id", studentIds);
+  await deleteByIn("student_enrollments", "student_id", studentIds);
+  await deleteByIn("parent_students", "student_id", studentIds);
+  await deleteByIn("students", "id", studentIds);
+  await deleteWhere("class_roster_snapshots", (query) => query.in("academic_year_id", academicYearIds));
+  await deleteWhere("staff_class_assignments", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteByIn("teacher_assignments", "course_id", courseIds);
+  await deleteByIn("courses", "id", courseIds);
+  await deleteByIn("classrooms", "id", classroomIds);
+  await deleteWhere("terms", (query) => query.in("academic_year_id", academicYearIds));
+  await deleteByIn("staff_profiles", "id", staffProfileIds);
+
+  for (const profileId of profileIds) {
+    const { error } = await supabase.auth.admin.deleteUser(profileId);
+    if (error && !/User not found/i.test(error.message)) throw new Error(`auth cleanup failed for ${profileId}: ${error.message}`);
+  }
+
+  await deleteByIn("academic_years", "id", academicYearIds);
+  process.stdout.write(`[beta:${cleanupRunId}] cleanup removed ${profileIds.length} profiles and ${studentIds.length} students\n`);
+}
+
 function initials(value) {
   return value
     .replace(/[^a-zA-Z0-9]+/g, " ")
@@ -190,6 +293,14 @@ const rolePlan = {
   parent: 55,
   student: 110,
 };
+
+const cleanupRunArg =
+  process.argv.find((argument) => argument.startsWith("--cleanup-run="))?.split("=")[1] || process.env.BETA_CLEANUP_RUN_ID;
+
+if (cleanupRunArg) {
+  await cleanupRun(cleanupRunArg);
+  process.exit(0);
+}
 
 const classPlan = [
   { name: "Nursery 1", level: "Nursery 1", capacity: 35, subjects: ["Literacy", "Numeracy", "Creative Arts"] },
