@@ -56,16 +56,51 @@ export async function POST(request: NextRequest) {
     subjects: ["Mathematics", "English", "Science"],
     performanceSummary: "recent coursework is available in the school portal"
   });
+  const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const { data: sessionData } = await supabase
+    .from("ai_tutor_sessions")
+    .insert({
+      profile_id: user.id,
+      title: message.slice(0, 80),
+      model,
+      metadata: { source: "student_ai_tutor" }
+    })
+    .select("id")
+    .single();
+  const session = sessionData as { id: string } | null;
+  if (session?.id) {
+    await supabase.from("ai_tutor_messages").insert({
+      session_id: session.id,
+      role: "user",
+      content: message,
+      metadata: { source: "student_ai_tutor" }
+    });
+  }
 
   if (!process.env.OPENAI_API_KEY) {
-    return new Response("OpenAI is not configured. Add OPENAI_API_KEY to enable streaming tutor responses.", {
+    const fallback = "OpenAI is not configured. Add OPENAI_API_KEY to enable streaming tutor responses.";
+    if (session?.id) {
+      await supabase.from("ai_tutor_messages").insert({
+        session_id: session.id,
+        role: "assistant",
+        content: fallback,
+        metadata: { source: "configuration_fallback" }
+      });
+    }
+    await supabase.from("ai_usage_logs").insert({
+      profile_id: user.id,
+      route: "ai:tutor",
+      model,
+      metadata: { source: "configuration_fallback", session_id: session?.id ?? null }
+    });
+    return new Response(fallback, {
       headers: { "Content-Type": "text/plain; charset=utf-8" }
     });
   }
 
   const openai = createOpenAIClient();
   const stream = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+    model,
     stream: true,
     messages: [
       { role: "system", content: systemPrompt },
@@ -76,12 +111,28 @@ export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
   const readable = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let assistantText = "";
       for await (const chunk of stream) {
         const token = chunk.choices[0]?.delta.content;
         if (token) {
+          assistantText += token;
           controller.enqueue(encoder.encode(token));
         }
       }
+      if (session?.id && assistantText) {
+        await supabase.from("ai_tutor_messages").insert({
+          session_id: session.id,
+          role: "assistant",
+          content: assistantText,
+          metadata: { source: "openai_stream" }
+        });
+      }
+      await supabase.from("ai_usage_logs").insert({
+        profile_id: user.id,
+        route: "ai:tutor",
+        model,
+        metadata: { source: "openai_stream", session_id: session?.id ?? null, response_chars: assistantText.length }
+      });
       controller.close();
     }
   });

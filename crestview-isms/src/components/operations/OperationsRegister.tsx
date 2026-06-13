@@ -4,6 +4,7 @@ import type { OperationsModule, OperationsWorkspace } from "@/config/operations"
 import { PageWrapper } from "@/components/layout/PageWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SupportTicketRegister } from "@/components/operations/SupportTicketRegister";
+import { PayrollProcessForm } from "@/components/operations/PayrollProcessForm";
 import { InvoiceTable, type InvoiceRow } from "@/components/tables/InvoiceTable";
 import { WorkflowTaskTable } from "@/components/tables/WorkflowTaskTable";
 import type { WorkflowTaskRow } from "@/features/automation/queries";
@@ -50,6 +51,7 @@ export function OperationsRegister({ workspace, module, records, count }: { work
       <Card>
         <CardHeader><CardTitle>{count} records</CardTitle></CardHeader>
         <CardContent>
+          {module.table === "payroll_periods" ? <PayrollProcessForm /> : null}
           {module.table === "support_tickets" ? (
             <SupportTicketRegister records={records} />
           ) : module.table === "invoices" ? (

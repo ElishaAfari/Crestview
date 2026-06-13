@@ -3,14 +3,78 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { APP_URL } from "@/lib/constants";
-import { requireRoles, requireUser } from "@/features/auth/guards";
+import { requireRoles } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createWorkflowTask } from "@/features/automation/actions";
 import { jobApplicationSchema } from "@/lib/validations/recruitment.schema";
 import type { Json, RoleName } from "@/types/database.types";
 
-export async function createJobPostingAction() {
-  await requireUser();
-  return { ok: true, message: "Job posting creation passed authentication guard." };
+const jobPostingSchema = z.object({
+  title: z.string().trim().min(3, "Enter a job title.").max(140),
+  employmentType: z.enum(["full_time", "part_time", "contract", "intern"]),
+  description: z.string().trim().min(20, "Describe the role and expected fit.").max(4000),
+  departmentId: z.string().uuid().optional().or(z.literal("")),
+  closesOn: z.string().optional().or(z.literal("")),
+  isActive: z.boolean()
+});
+
+export async function createJobPostingAction(formData: FormData) {
+  const result = jobPostingSchema.safeParse({
+    title: String(formData.get("title") ?? ""),
+    employmentType: String(formData.get("employmentType") ?? "full_time"),
+    description: String(formData.get("description") ?? ""),
+    departmentId: String(formData.get("departmentId") ?? ""),
+    closesOn: String(formData.get("closesOn") ?? ""),
+    isActive: String(formData.get("isActive") ?? "true") === "true"
+  });
+  if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the job posting." };
+
+  const { user } = await requireRoles(["super_admin", "school_admin", "hr_staff"]);
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("job_postings")
+    .insert({
+      title: result.data.title,
+      department_id: result.data.departmentId || null,
+      employment_type: result.data.employmentType,
+      description: result.data.description,
+      closes_on: result.data.closesOn || null,
+      is_active: result.data.isActive
+    })
+    .select("id")
+    .single();
+  const posting = data as { id: string } | null;
+  if (error || !posting) return { ok: false, message: "The job posting could not be created." };
+
+  await Promise.all([
+    admin.from("audit_logs").insert({
+      actor_id: user.id,
+      action: "CREATE job_posting",
+      table_name: "job_postings",
+      record_id: posting.id,
+      after: {
+        title: result.data.title,
+        employment_type: result.data.employmentType,
+        is_active: result.data.isActive
+      } satisfies Json
+    }),
+    createWorkflowTask({
+      title: `Review applicants for ${result.data.title}`,
+      workflowKey: "hr_follow_up",
+      description: "Monitor website recruitment submissions and shortlist candidates for this open posting.",
+      priority: "normal",
+      createdBy: user.id,
+      relatedTable: "job_postings",
+      relatedRecordId: posting.id,
+      metadata: { source: "job_posting_create", public_posting: result.data.isActive } satisfies Json
+    })
+  ]);
+
+  revalidatePath("/recruitment");
+  revalidatePath("/admin/recruitment");
+  revalidatePath("/hr");
+  revalidatePath("/hr/recruitment");
+  return { ok: true, message: "Job posting created and published to the recruitment page." };
 }
 
 function one<T>(value: T | T[] | null | undefined) {

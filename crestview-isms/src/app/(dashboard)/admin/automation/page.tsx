@@ -1,3 +1,4 @@
+import { AutomationRunControls } from "@/components/automation/AutomationRunControls";
 import { WorkflowTaskForm } from "@/components/forms/WorkflowTaskForm";
 import { PageWrapper } from "@/components/layout/PageWrapper";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -38,6 +39,11 @@ export default async function AdminAutomationPage() {
           </Card>
         ))}
       </section>
+
+      <Card>
+        <CardHeader><CardTitle>Run Backend Automations</CardTitle></CardHeader>
+        <CardContent><AutomationRunControls /></CardContent>
+      </Card>
 
       <section className="grid gap-4 xl:grid-cols-[0.72fr_1.28fr]">
         <Card>

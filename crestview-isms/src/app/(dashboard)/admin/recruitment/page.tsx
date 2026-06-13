@@ -1,4 +1,5 @@
 import { BulkRecruitmentDecisionControls, RecruitmentDecisionControls } from "@/components/forms/RecruitmentDecisionControls";
+import { JobPostingForm } from "@/components/forms/JobPostingForm";
 import { PageWrapper } from "@/components/layout/PageWrapper";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -11,6 +12,14 @@ export default async function AdminRecruitmentPage() {
 
   return (
     <PageWrapper title="Recruitment Review" description="Teacher and staff applications from the website can be accepted into role-specific workspaces or denied after review.">
+      <Card>
+        <CardHeader>
+          <CardTitle>Open a Website Vacancy</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <JobPostingForm />
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>{waiting} waiting candidate{waiting === 1 ? "" : "s"}</CardTitle>
