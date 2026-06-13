@@ -25,7 +25,8 @@ export async function signInAction(_: SignInState, formData: FormData): Promise<
     return { ok: false, message: "We could not sign you in. Check your details and try again." };
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role_id,is_active,deleted_at").eq("id", data.user.id).maybeSingle();
+  const admin = createAdminClient();
+  const { data: profile } = await admin.from("profiles").select("role_id,is_active,deleted_at").eq("id", data.user.id).maybeSingle();
   let roleName: string | undefined;
 
   if (!profile || profile.is_active === false || profile.deleted_at) {
@@ -34,11 +35,10 @@ export async function signInAction(_: SignInState, formData: FormData): Promise<
   }
 
   if (profile?.role_id && typeof profile.role_id === "string") {
-    const { data: role } = await supabase.from("roles").select("name").eq("id", profile.role_id).maybeSingle();
+    const { data: role } = await admin.from("roles").select("name").eq("id", profile.role_id).maybeSingle();
     if (typeof role?.name === "string") roleName = role.name;
   }
 
-  const admin = createAdminClient();
   await admin.from("profiles").update({
     last_seen_at: new Date().toISOString(),
     onboarding_completed_at: new Date().toISOString()
