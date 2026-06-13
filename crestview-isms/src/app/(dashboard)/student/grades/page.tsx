@@ -11,7 +11,7 @@ export default async function StudentGradesPage() {
     <PageWrapper title="My Grades" description="Published scores and academic progress.">
       <Card><CardHeader><CardTitle>Progress</CardTitle></CardHeader><CardContent><PerformanceChart /></CardContent></Card>
       <Card><CardHeader><CardTitle>Published Grades</CardTitle></CardHeader><CardContent><GradeTable data={grades} /></CardContent></Card>
-      <Card><CardHeader><CardTitle>Term Reports</CardTitle></CardHeader><CardContent><ReportTable data={reports} /></CardContent></Card>
+      <Card><CardHeader><CardTitle>Term Reports</CardTitle></CardHeader><CardContent><ReportTable data={reports} viewBasePath="/student/reports" /></CardContent></Card>
     </PageWrapper>
   );
 }

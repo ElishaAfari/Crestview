@@ -31,7 +31,7 @@ export default async function TeacherStudent360Page() {
       </section>
       <Card>
         <CardHeader><CardTitle>Assigned Learner Intelligence</CardTitle></CardHeader>
-        <CardContent><Student360Table data={students} /></CardContent>
+        <CardContent><Student360Table data={students} profileBasePath="/teacher/student-360" /></CardContent>
       </Card>
     </PageWrapper>
   );

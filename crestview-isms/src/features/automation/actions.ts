@@ -39,8 +39,43 @@ const manualTaskSchema = z.object({
   classroomId: z.string().uuid().optional().or(z.literal(""))
 });
 
+const student360NoteSchema = z.object({
+  studentId: z.string().uuid(),
+  noteType: z.enum(["general", "academic", "attendance", "finance", "wellbeing", "discipline", "parent_contact"]),
+  title: z.string().trim().min(3).max(160),
+  body: z.string().trim().min(10).max(2500),
+  visibility: z.enum(["staff", "guardian", "restricted"]),
+  createTask: z.string().optional(),
+  notifyGuardians: z.string().optional(),
+  priority: z.enum(["low", "normal", "high", "urgent"]),
+  dueAt: z.string().optional()
+});
+
 function taskNumber(prefix = "TASK") {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
+}
+
+async function userCanManageStudent(admin: ReturnType<typeof createAdminClient>, userId: string, role: string | null, studentId: string) {
+  if (["super_admin", "school_admin", "hr_staff"].includes(role ?? "")) return true;
+  if (role !== "teacher") return false;
+  const { data: studentData } = await admin.from("students").select("classroom_id").eq("id", studentId).is("deleted_at", null).maybeSingle();
+  const student = studentData as { classroom_id: string | null } | null;
+  if (!student?.classroom_id) return false;
+  const [leadCourses, assignedCourses] = await Promise.all([
+    admin
+      .from("courses")
+      .select("*", { count: "exact", head: true })
+      .eq("teacher_id", userId)
+      .eq("classroom_id", student.classroom_id)
+      .is("deleted_at", null),
+    admin
+      .from("teacher_assignments")
+      .select("courses!inner(classroom_id)", { count: "exact", head: true })
+      .eq("teacher_id", userId)
+      .eq("courses.classroom_id", student.classroom_id)
+      .is("deleted_at", null)
+  ]);
+  return Boolean((leadCourses.count ?? 0) + (assignedCourses.count ?? 0));
 }
 
 export async function createWorkflowTask(input: WorkflowTaskInput) {
@@ -150,4 +185,110 @@ export async function updateWorkflowTaskStatusAction(_: { ok: boolean; message: 
   revalidatePath("/library");
   revalidatePath("/it");
   return error ? { ok: false, message: "The task could not be updated." } : { ok: true, message: "Task updated." };
+}
+
+export async function createStudent360NoteAction(_: { ok: boolean; message: string }, formData: FormData) {
+  const result = student360NoteSchema.safeParse({
+    studentId: String(formData.get("studentId") ?? ""),
+    noteType: String(formData.get("noteType") ?? "general"),
+    title: String(formData.get("title") ?? ""),
+    body: String(formData.get("body") ?? ""),
+    visibility: String(formData.get("visibility") ?? "staff"),
+    createTask: String(formData.get("createTask") ?? ""),
+    notifyGuardians: String(formData.get("notifyGuardians") ?? ""),
+    priority: String(formData.get("priority") ?? "normal"),
+    dueAt: String(formData.get("dueAt") ?? "")
+  });
+  if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the intervention note." };
+
+  const { user, role } = await requireRoles(["super_admin", "school_admin", "teacher", "hr_staff"]);
+  const admin = createAdminClient();
+  if (!(await userCanManageStudent(admin, user.id, role, result.data.studentId))) {
+    return { ok: false, message: "You can only add notes for learners in your permitted workspace." };
+  }
+
+  const { data: studentData } = await admin
+    .from("students")
+    .select("id,student_number,classroom_id,profiles!students_profile_id_fkey(first_name,last_name)")
+    .eq("id", result.data.studentId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  const student = studentData as unknown as {
+    id: string;
+    student_number: string;
+    classroom_id: string | null;
+    profiles: { first_name: string; last_name: string } | Array<{ first_name: string; last_name: string }> | null;
+  } | null;
+  if (!student) return { ok: false, message: "The learner could not be found." };
+  const profile = Array.isArray(student.profiles) ? student.profiles[0] ?? null : student.profiles;
+  const studentName = profile ? `${profile.first_name} ${profile.last_name}` : student.student_number;
+
+  const { data: noteData, error } = await admin
+    .from("student_360_notes")
+    .insert({
+      student_id: result.data.studentId,
+      note_type: result.data.noteType,
+      title: result.data.title,
+      body: result.data.body,
+      visibility: result.data.visibility,
+      created_by: user.id,
+      metadata: {
+        source: "student_360_detail",
+        task_requested: Boolean(result.data.createTask),
+        guardian_notice_requested: Boolean(result.data.notifyGuardians)
+      } satisfies Json
+    })
+    .select("id")
+    .single();
+  const noteId = (noteData as { id: string } | null)?.id;
+  if (error || !noteId) return { ok: false, message: "The note could not be saved." };
+
+  if (result.data.createTask) {
+    const workflowKey = result.data.noteType === "attendance"
+      ? "attendance_follow_up"
+      : result.data.noteType === "finance"
+        ? "finance_collection"
+        : "academic_follow_up";
+    await createWorkflowTask({
+      title: `${result.data.title} - ${studentName}`,
+      workflowKey,
+      description: result.data.body,
+      priority: result.data.priority,
+      dueAt: result.data.dueAt ? new Date(result.data.dueAt).toISOString() : null,
+      assignedTo: user.id,
+      createdBy: user.id,
+      studentId: result.data.studentId,
+      classroomId: student.classroom_id,
+      relatedTable: "student_360_notes",
+      relatedRecordId: noteId,
+      metadata: { note_type: result.data.noteType, visibility: result.data.visibility } satisfies Json
+    });
+  }
+
+  if (result.data.notifyGuardians && result.data.visibility === "guardian") {
+    const { data: parentLinks } = await admin
+      .from("parent_students")
+      .select("parent_profile_id")
+      .eq("student_id", result.data.studentId)
+      .is("deleted_at", null);
+    const recipients = Array.from(new Set(((parentLinks ?? []) as Array<{ parent_profile_id: string }>).map((link) => link.parent_profile_id)));
+    if (recipients.length) {
+      await admin.from("notifications").insert(recipients.map((recipientId) => ({
+        recipient_id: recipientId,
+        title: result.data.title,
+        body: result.data.body,
+        type: "student_support",
+        metadata: { student_id: result.data.studentId, student_360_note_id: noteId, note_type: result.data.noteType } satisfies Json
+      })));
+    }
+  }
+
+  revalidatePath("/admin/student-360");
+  revalidatePath(`/admin/student-360/${result.data.studentId}`);
+  revalidatePath("/teacher/student-360");
+  revalidatePath(`/teacher/student-360/${result.data.studentId}`);
+  revalidatePath("/admin/automation");
+  revalidatePath("/parent");
+  revalidatePath("/student");
+  return { ok: true, message: result.data.createTask ? "Note saved and follow-up task created." : "Note saved." };
 }

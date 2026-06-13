@@ -11,7 +11,7 @@ export default async function ParentChildrenPage() {
     <PageWrapper title="Children" description="Linked student profiles and academic status.">
       <Card><CardHeader><CardTitle>Linked Students</CardTitle></CardHeader><CardContent><StudentTable data={students} /></CardContent></Card>
       <Card><CardHeader><CardTitle>Published Grades</CardTitle></CardHeader><CardContent><GradeTable data={grades} /></CardContent></Card>
-      <Card><CardHeader><CardTitle>Term Reports</CardTitle></CardHeader><CardContent><ReportTable data={reports} /></CardContent></Card>
+      <Card><CardHeader><CardTitle>Term Reports</CardTitle></CardHeader><CardContent><ReportTable data={reports} viewBasePath="/parent/reports" /></CardContent></Card>
     </PageWrapper>
   );
 }

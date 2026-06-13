@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRoles } from "@/features/auth/guards";
-import { createWorkflowTask } from "@/features/automation/actions";
+import { completeRelatedWorkflowTasks, createWorkflowTask } from "@/features/automation/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { feeSchema } from "@/lib/validations/fee.schema";
+import type { Json } from "@/types/database.types";
 
 const classInvoiceSchema = z.object({
   classroomId: z.string().uuid(),
@@ -21,8 +22,62 @@ const classInvoiceSchema = z.object({
   })).max(20).optional()
 });
 
+const invoiceLifecycleSchema = z.object({
+  invoiceId: z.string().uuid(),
+  intent: z.enum(["mark_paid", "mark_overdue", "void"])
+});
+
 function invoiceNumber(prefix = "INV") {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+}
+
+function paymentReference() {
+  return `MANUAL-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+}
+
+async function notifyInvoiceGuardians({
+  studentId,
+  invoiceId,
+  title,
+  body,
+  type = "finance"
+}: {
+  studentId: string;
+  invoiceId: string;
+  title: string;
+  body: string;
+  type?: string;
+}) {
+  const admin = createAdminClient();
+  const { data: parents } = await admin.from("parent_students").select("parent_profile_id").eq("student_id", studentId).is("deleted_at", null);
+  const recipients = Array.from(new Set(((parents ?? []) as Array<{ parent_profile_id: string }>).map((row) => row.parent_profile_id)));
+  if (!recipients.length) return;
+  await admin.from("notifications").insert(recipients.map((recipientId) => ({
+    recipient_id: recipientId,
+    title,
+    body,
+    type,
+    metadata: { invoice_id: invoiceId, student_id: studentId } satisfies Json
+  })));
+}
+
+async function closeBatchIfSettled(batchId: string | null) {
+  if (!batchId) return;
+  const admin = createAdminClient();
+  const { count } = await admin
+    .from("invoices")
+    .select("*", { count: "exact", head: true })
+    .eq("billing_batch_id", batchId)
+    .in("status", ["draft", "open", "overdue"])
+    .is("deleted_at", null);
+  if ((count ?? 0) === 0) {
+    await admin.from("billing_batches").update({ status: "paid" }).eq("id", batchId);
+    await completeRelatedWorkflowTasks({
+      workflowKey: "finance_collection",
+      relatedTable: "billing_batches",
+      relatedRecordId: batchId
+    });
+  }
 }
 
 export async function createInvoiceAction(formData: FormData) {
@@ -206,4 +261,140 @@ export async function createClassInvoiceBatchAction(formData: FormData) {
   revalidatePath("/parent/fees");
   revalidatePath("/parent");
   return { ok: true, message: `${studentRows.length} itemized class invoice${studentRows.length === 1 ? "" : "s"} created and sent under ${batchNumber}.` };
+}
+
+export async function updateInvoiceLifecycleAction(_: { ok: boolean; message: string }, formData: FormData) {
+  const result = invoiceLifecycleSchema.safeParse({
+    invoiceId: String(formData.get("invoiceId") ?? ""),
+    intent: String(formData.get("intent") ?? "")
+  });
+  if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Choose a valid invoice action." };
+
+  const { user } = await requireRoles(["super_admin", "school_admin", "finance_officer"]);
+  const admin = createAdminClient();
+  const { data: invoiceData } = await admin
+    .from("invoices")
+    .select("id,student_id,invoice_number,title,amount,currency,status,due_date,billing_batch_id,classroom_id")
+    .eq("id", result.data.invoiceId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  const invoice = invoiceData as {
+    id: string;
+    student_id: string;
+    invoice_number: string;
+    title: string | null;
+    amount: number;
+    currency: string;
+    status: string;
+    due_date: string;
+    billing_batch_id: string | null;
+    classroom_id: string | null;
+  } | null;
+  if (!invoice) return { ok: false, message: "The invoice could not be found." };
+  if (invoice.status === "void") return { ok: false, message: "Voided invoices cannot be changed from this register." };
+
+  if (result.data.intent === "mark_paid") {
+    if (invoice.status === "paid") return { ok: true, message: "This invoice is already marked paid." };
+    const now = new Date().toISOString();
+    const { error: paymentError } = await admin.from("payments").insert({
+      invoice_id: invoice.id,
+      provider: "manual_portal",
+      provider_reference: paymentReference(),
+      amount: invoice.amount,
+      status: "verified",
+      paid_at: now,
+      metadata: {
+        source: "invoice_register",
+        recorded_by: user.id,
+        previous_invoice_status: invoice.status
+      } satisfies Json
+    });
+    if (paymentError) return { ok: false, message: "Payment receipt could not be recorded." };
+    const { error: invoiceError } = await admin.from("invoices").update({ status: "paid" }).eq("id", invoice.id);
+    if (invoiceError) return { ok: false, message: "Payment was recorded, but the invoice status could not be updated." };
+    await completeRelatedWorkflowTasks({
+      workflowKey: "finance_collection",
+      relatedTable: "invoices",
+      relatedRecordId: invoice.id
+    });
+    await closeBatchIfSettled(invoice.billing_batch_id);
+    await notifyInvoiceGuardians({
+      studentId: invoice.student_id,
+      invoiceId: invoice.id,
+      title: "Fee payment recorded",
+      body: `${invoice.invoice_number} has been marked paid for ${invoice.currency} ${Number(invoice.amount).toLocaleString("en-GH")}.`
+    });
+  }
+
+  if (result.data.intent === "mark_overdue") {
+    if (invoice.status !== "overdue") {
+      const { error } = await admin.from("invoices").update({ status: "overdue" }).eq("id", invoice.id);
+      if (error) return { ok: false, message: "The invoice could not be marked overdue." };
+    }
+    const { count } = await admin
+      .from("workflow_tasks")
+      .select("*", { count: "exact", head: true })
+      .eq("workflow_key", "finance_collection")
+      .eq("related_table", "invoices")
+      .eq("related_record_id", invoice.id)
+      .in("status", ["open", "in_progress", "blocked"]);
+    if ((count ?? 0) === 0) {
+      await createWorkflowTask({
+        title: `Overdue fee follow-up ${invoice.invoice_number}`,
+        workflowKey: "finance_collection",
+        description: "Contact guardian, confirm collection plan, and update the invoice once resolved.",
+        priority: "high",
+        dueAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+        createdBy: user.id,
+        studentId: invoice.student_id,
+        classroomId: invoice.classroom_id,
+        relatedTable: "invoices",
+        relatedRecordId: invoice.id,
+        metadata: { invoice_number: invoice.invoice_number, amount: invoice.amount, currency: invoice.currency } satisfies Json
+      });
+    }
+    await notifyInvoiceGuardians({
+      studentId: invoice.student_id,
+      invoiceId: invoice.id,
+      title: "Fee invoice overdue",
+      body: `${invoice.invoice_number} is overdue. Please contact finance to confirm payment arrangements.`
+    });
+  }
+
+  if (result.data.intent === "void") {
+    if (invoice.status === "paid") return { ok: false, message: "Paid invoices should be refunded or adjusted, not voided here." };
+    const { error } = await admin.from("invoices").update({ status: "void" }).eq("id", invoice.id);
+    if (error) return { ok: false, message: "The invoice could not be voided." };
+    await completeRelatedWorkflowTasks({
+      workflowKey: "finance_collection",
+      relatedTable: "invoices",
+      relatedRecordId: invoice.id
+    });
+    await closeBatchIfSettled(invoice.billing_batch_id);
+    await notifyInvoiceGuardians({
+      studentId: invoice.student_id,
+      invoiceId: invoice.id,
+      title: "Fee invoice voided",
+      body: `${invoice.invoice_number} has been voided by the finance office.`
+    });
+  }
+
+  await admin.from("automation_rules").update({ last_triggered_at: new Date().toISOString() }).eq("event_key", "invoice.class_batch_created");
+  revalidatePath("/admin/fees");
+  revalidatePath("/finance");
+  revalidatePath("/finance/invoices");
+  revalidatePath("/finance/collections");
+  revalidatePath("/parent");
+  revalidatePath("/parent/fees");
+  revalidatePath("/admin/student-360");
+  revalidatePath(`/admin/student-360/${invoice.student_id}`);
+  revalidatePath("/admin/automation");
+  return {
+    ok: true,
+    message: result.data.intent === "mark_paid"
+      ? "Invoice marked paid and parent notified."
+      : result.data.intent === "mark_overdue"
+        ? "Invoice marked overdue and follow-up created."
+        : "Invoice voided and follow-up closed."
+  };
 }
