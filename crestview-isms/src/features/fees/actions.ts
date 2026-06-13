@@ -12,7 +12,12 @@ const classInvoiceSchema = z.object({
   description: z.string().trim().max(1000).optional(),
   amount: z.coerce.number().min(0),
   currency: z.string().trim().length(3),
-  dueDate: z.string().date()
+  dueDate: z.string().date(),
+  feeItems: z.array(z.object({
+    description: z.string().trim().min(2).max(160),
+    quantity: z.coerce.number().min(0.01).max(999),
+    unitAmount: z.coerce.number().min(0).max(999999)
+  })).max(20).optional()
 });
 
 function invoiceNumber(prefix = "INV") {
@@ -69,13 +74,20 @@ export async function createInvoiceAction(formData: FormData) {
 }
 
 export async function createClassInvoiceBatchAction(formData: FormData) {
+  let feeItems: unknown = [];
+  try {
+    feeItems = JSON.parse(String(formData.get("feeItemsJson") ?? "[]"));
+  } catch {
+    feeItems = [];
+  }
   const result = classInvoiceSchema.safeParse({
     classroomId: String(formData.get("classroomId") ?? ""),
     title: String(formData.get("title") ?? ""),
     description: String(formData.get("description") ?? ""),
     amount: String(formData.get("amount") ?? ""),
     currency: String(formData.get("currency") ?? ""),
-    dueDate: String(formData.get("dueDate") ?? "")
+    dueDate: String(formData.get("dueDate") ?? ""),
+    feeItems
   });
   if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the class billing details." };
 
@@ -92,19 +104,23 @@ export async function createClassInvoiceBatchAction(formData: FormData) {
   const studentRows = (students ?? []) as Array<{ id: string; student_number: string }>;
   if (!studentRows.length) return { ok: false, message: "No active students were found in that class." };
 
+  const itemizedTotal = (result.data.feeItems ?? []).reduce((sum, item) => sum + item.quantity * item.unitAmount, 0);
+  const invoiceAmount = itemizedTotal > 0 ? Number(itemizedTotal.toFixed(2)) : result.data.amount;
+  if (invoiceAmount <= 0) return { ok: false, message: "Enter an amount or at least one fee item." };
+
   const batchNumber = invoiceNumber("BILL");
   const { data: batchData, error: batchError } = await admin.from("billing_batches").insert({
     batch_number: batchNumber,
     classroom_id: result.data.classroomId,
     title: result.data.title,
     description: result.data.description || null,
-    amount: result.data.amount,
+    amount: invoiceAmount,
     currency: result.data.currency.toUpperCase(),
     due_date: result.data.dueDate,
     status: "open",
     created_by: user.id,
     sent_at: new Date().toISOString(),
-    metadata: { student_count: studentRows.length }
+    metadata: { student_count: studentRows.length, itemized: Boolean(result.data.feeItems?.length), fee_items: result.data.feeItems ?? [] }
   }).select("id").single();
 
   const batch = batchData as { id: string } | null;
@@ -117,7 +133,7 @@ export async function createClassInvoiceBatchAction(formData: FormData) {
     description: result.data.description || null,
     classroom_id: result.data.classroomId,
     billing_batch_id: batch.id,
-    amount: result.data.amount,
+    amount: invoiceAmount,
     currency: result.data.currency.toUpperCase(),
     due_date: result.data.dueDate,
     issued_by: user.id,
@@ -130,6 +146,16 @@ export async function createClassInvoiceBatchAction(formData: FormData) {
     await admin.from("billing_batches").update({ status: "void", deleted_at: new Date().toISOString() }).eq("id", batch.id);
     return { ok: false, message: "The class invoices could not be generated." };
   }
+  if (result.data.feeItems?.length && createdInvoices?.length) {
+    const invoiceItems = (createdInvoices as Array<{ id: string }>).flatMap((invoice) => result.data.feeItems!.map((item) => ({
+      invoice_id: invoice.id,
+      description: item.description,
+      quantity: item.quantity,
+      unit_amount: item.unitAmount
+    })));
+    const { error: itemError } = await admin.from("invoice_items").insert(invoiceItems);
+    if (itemError) return { ok: false, message: "Invoices were created, but fee line items could not be attached." };
+  }
 
   const studentIds = studentRows.map((student) => student.id);
   const { data: parentLinks } = await admin.from("parent_students").select("parent_profile_id,student_id").in("student_id", studentIds).is("deleted_at", null);
@@ -137,7 +163,7 @@ export async function createClassInvoiceBatchAction(formData: FormData) {
   const notifications = ((parentLinks ?? []) as Array<{ parent_profile_id: string; student_id: string }>).map((link) => ({
     recipient_id: link.parent_profile_id,
     title: result.data.title,
-    body: `A class fee invoice for ${result.data.currency.toUpperCase()} ${Number(result.data.amount).toLocaleString("en-GH")} has been issued.`,
+    body: `A class fee invoice for ${result.data.currency.toUpperCase()} ${Number(invoiceAmount).toLocaleString("en-GH")} has been issued.`,
     type: "finance",
     metadata: { billing_batch_id: batch.id, invoice_id: invoiceByStudent.get(link.student_id) ?? null, student_id: link.student_id }
   }));
@@ -147,5 +173,5 @@ export async function createClassInvoiceBatchAction(formData: FormData) {
   revalidatePath("/finance");
   revalidatePath("/parent/fees");
   revalidatePath("/parent");
-  return { ok: true, message: `${studentRows.length} class invoices created and sent under ${batchNumber}.` };
+  return { ok: true, message: `${studentRows.length} itemized class invoice${studentRows.length === 1 ? "" : "s"} created and sent under ${batchNumber}.` };
 }

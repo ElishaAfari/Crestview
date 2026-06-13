@@ -6,35 +6,38 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { importGradesCsvAction } from "@/features/grades/actions";
-import type { SelectOption } from "@/features/admin/queries";
+import type { GradeImportContext } from "@/features/admin/queries";
 
 function csvEscape(value: string) {
   return /[",\n\r]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
 }
 
-function studentNumberFromLabel(label: string) {
-  return label.match(/\(([^)]+)\)\s*$/)?.[1] ?? "";
-}
-
-export function GradeImportForm({ gradeItems = [], students = [] }: { gradeItems?: SelectOption[]; students?: SelectOption[] }) {
-  const [gradeItemId, setGradeItemId] = useState(gradeItems[0]?.id ?? "");
+export function GradeImportForm({ contexts = [] }: { contexts?: GradeImportContext[] }) {
+  const [gradeItemId, setGradeItemId] = useState(contexts[0]?.gradeItemId ?? "");
   const [file, setFile] = useState<File | null>(null);
   const [pending, setPending] = useState(false);
   const [state, setState] = useState<{ ok: boolean; message: string }>({ ok: false, message: "" });
+  const selectedContext = useMemo(() => contexts.find((context) => context.gradeItemId === gradeItemId) ?? contexts[0], [contexts, gradeItemId]);
 
   const templateHref = useMemo(() => {
+    if (!selectedContext) return "data:text/csv;charset=utf-8,";
     const rows = [
-      ["student_number", "student_name", "score", "comments"],
-      ...students.map((student) => [
-        studentNumberFromLabel(student.label),
-        student.label.replace(/\s*\([^)]+\)\s*$/, ""),
+      ["student_number", "student_name", "classroom", "subject", "term", "assessment", "max_score", "score", "teacher_comment"],
+      ...selectedContext.students.map((student) => [
+        student.studentNumber,
+        student.name,
+        selectedContext.classroomName,
+        selectedContext.subjectName,
+        selectedContext.term,
+        selectedContext.assessmentTitle,
+        String(selectedContext.maxScore),
         "",
         ""
       ])
     ];
     const csv = rows.map((row) => row.map((cell) => csvEscape(cell)).join(",")).join("\n");
     return `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
-  }, [students]);
+  }, [selectedContext]);
 
   async function importCsv() {
     if (!file) {
@@ -58,8 +61,9 @@ export function GradeImportForm({ gradeItems = [], students = [] }: { gradeItems
           <Label>Assessment</Label>
           <Select value={gradeItemId} onChange={(event) => setGradeItemId(event.target.value)}>
             <option value="">Choose assessment</option>
-            {gradeItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            {contexts.map((item) => <option key={item.gradeItemId} value={item.gradeItemId}>{item.label}</option>)}
           </Select>
+          {selectedContext ? <p className="mt-2 text-xs font-black text-[var(--portal-muted)]">{selectedContext.students.length} active student{selectedContext.students.length === 1 ? "" : "s"} in {selectedContext.classroomName}</p> : null}
         </div>
         <div>
           <Label>Completed CSV file</Label>
@@ -80,6 +84,11 @@ export function GradeImportForm({ gradeItems = [], students = [] }: { gradeItems
         </Button>
       </div>
       {state.message ? <p className={`lg:col-span-2 text-sm font-black ${state.ok ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>{state.message}</p> : null}
+      {selectedContext ? (
+        <div className="lg:col-span-2 portal-subtle-card rounded-lg p-3 text-xs font-bold text-[var(--portal-muted)]">
+          Template standard: fill only the score and optional teacher_comment columns. Grade, percentage, and remarks are calculated by the platform from the active grading scale.
+        </div>
+      ) : null}
     </div>
   );
 }

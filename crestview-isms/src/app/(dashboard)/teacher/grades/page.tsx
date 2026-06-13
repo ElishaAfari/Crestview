@@ -1,5 +1,6 @@
 import { GradeForm } from "@/components/forms/GradeForm";
 import { GradeImportForm } from "@/components/forms/GradeImportForm";
+import { GradeItemForm } from "@/components/forms/GradeItemForm";
 import { PageWrapper } from "@/components/layout/PageWrapper";
 import { GradeTable } from "@/components/tables/GradeTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +10,9 @@ export default async function TeacherGradesPage() {
   const [grades, options] = await Promise.all([listGrades(), listTeacherFormOptions()]);
   return (
     <PageWrapper title="Gradebook" description="Enter and publish class assessment results.">
+      <Card><CardHeader><CardTitle>Create Subject Assessment</CardTitle></CardHeader><CardContent><GradeItemForm courses={options.courses} /></CardContent></Card>
       <Card><CardHeader><CardTitle>Current Grades</CardTitle></CardHeader><CardContent><GradeTable data={grades} /></CardContent></Card>
-      <Card><CardHeader><CardTitle>CSV Grade Import</CardTitle></CardHeader><CardContent><GradeImportForm gradeItems={options.gradeItems} students={options.students} /></CardContent></Card>
+      <Card><CardHeader><CardTitle>Subject Grade Import</CardTitle></CardHeader><CardContent><GradeImportForm contexts={options.gradeImportContexts} /></CardContent></Card>
       <Card><CardHeader><CardTitle>Enter Grade</CardTitle></CardHeader><CardContent><GradeForm gradeItems={options.gradeItems} students={options.students} /></CardContent></Card>
     </PageWrapper>
   );

@@ -6,6 +6,19 @@ import { createAdminClient } from "@/lib/supabase/admin";
 type Relation<T> = T | T[] | null;
 type ProfileJoin = { first_name: string; last_name: string };
 type SelectOption = { id: string; label: string };
+export type GradeImportStudent = { id: string; studentNumber: string; name: string };
+export type GradeImportContext = {
+  gradeItemId: string;
+  label: string;
+  courseId: string;
+  classroomId: string;
+  classroomName: string;
+  subjectName: string;
+  term: string;
+  assessmentTitle: string;
+  maxScore: number;
+  students: GradeImportStudent[];
+};
 export type TeacherAttendanceStudent = { id: string; studentNumber: string; name: string };
 export type TeacherAttendanceCourse = { id: string; label: string; classroomId: string; classroomLabel: string; students: TeacherAttendanceStudent[] };
 export type TeacherClassRoster = {
@@ -16,6 +29,19 @@ export type TeacherClassRoster = {
   academicYear: string;
   subjects: string[];
   students: Array<{ id: string; studentNumber: string; firstName: string; lastName: string; name: string }>;
+};
+export type AttendanceRegisterRow = {
+  id: string;
+  classroom: string;
+  date: string;
+  status: string;
+  submittedBy: string;
+  submittedAt: string;
+  present: number;
+  late: number;
+  absent: number;
+  excused: number;
+  total: number;
 };
 
 function one<T>(value: Relation<T> | undefined) {
@@ -88,6 +114,60 @@ export async function listAttendanceRecords() {
       student: profile ? `${profile.first_name} ${profile.last_name}` : "Student",
       date: record.attendance_date,
       status: record.status
+    };
+  });
+}
+
+export async function listAttendanceRegisters(): Promise<AttendanceRegisterRow[]> {
+  const { user, role } = await requireRoles(["super_admin", "school_admin", "teacher"]);
+  const admin = createAdminClient();
+  let classroomIds: string[] | null = null;
+
+  if (role === "teacher") {
+    const [leadCourses, assignedCourses] = await Promise.all([
+      admin.from("courses").select("classroom_id").eq("teacher_id", user.id).is("deleted_at", null),
+      admin.from("teacher_assignments").select("courses(classroom_id)").eq("teacher_id", user.id).is("deleted_at", null)
+    ]);
+    classroomIds = Array.from(new Set([
+      ...((leadCourses.data ?? []) as Array<{ classroom_id: string | null }>).map((course) => course.classroom_id),
+      ...((assignedCourses.data ?? []) as unknown as Array<{ courses: Relation<{ classroom_id: string | null }> }>).map((row) => one(row.courses)?.classroom_id)
+    ].filter((id): id is string => Boolean(id))));
+    if (!classroomIds.length) return [];
+  }
+
+  let query = admin
+    .from("attendance_registers")
+    .select("id,attendance_date,status,submitted_at,counts,classrooms(name,grade_level),profiles!attendance_registers_submitted_by_fkey(first_name,last_name)")
+    .is("deleted_at", null)
+    .order("attendance_date", { ascending: false })
+    .limit(80);
+  if (classroomIds) query = query.in("classroom_id", classroomIds);
+
+  const { data } = await query;
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    attendance_date: string;
+    status: string;
+    submitted_at: string | null;
+    counts: Record<string, unknown> | null;
+    classrooms: Relation<{ name: string; grade_level: string }>;
+    profiles: Relation<ProfileJoin>;
+  }>).map((register) => {
+    const classroom = one(register.classrooms);
+    const submitter = one(register.profiles);
+    const counts = register.counts ?? {};
+    return {
+      id: register.id,
+      classroom: classroom ? `${classroom.grade_level} - ${classroom.name}` : "Class",
+      date: register.attendance_date,
+      status: register.status,
+      submittedBy: submitter ? `${submitter.first_name} ${submitter.last_name}` : "Not recorded",
+      submittedAt: register.submitted_at ? new Intl.DateTimeFormat("en-GH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(register.submitted_at)) : "Not submitted",
+      present: Number(counts.present ?? 0),
+      late: Number(counts.late ?? 0),
+      absent: Number(counts.absent ?? 0),
+      excused: Number(counts.excused ?? 0),
+      total: Number(counts.total ?? 0)
     };
   });
 }
@@ -442,7 +522,7 @@ export async function listAssignmentsForCurrentRole() {
   });
 }
 
-export async function listTeacherFormOptions(): Promise<{ courses: SelectOption[]; gradeItems: SelectOption[]; students: SelectOption[]; classrooms: SelectOption[] }> {
+export async function listTeacherFormOptions(): Promise<{ courses: SelectOption[]; gradeItems: SelectOption[]; students: SelectOption[]; classrooms: SelectOption[]; gradeImportContexts: GradeImportContext[] }> {
   const { user } = await requireRoles(["teacher"]);
   const admin = createAdminClient();
   const [leadCourses, assignedCourses] = await Promise.all([
@@ -466,9 +546,36 @@ export async function listTeacherFormOptions(): Promise<{ courses: SelectOption[
   const courseIds = courseRows.map((course) => course.id);
   const classroomIds = Array.from(new Set(courseRows.map((course) => course.classroom_id).filter(Boolean)));
   const [gradeItems, students] = await Promise.all([
-    courseIds.length ? admin.from("grade_items").select("id,title,courses(subjects(name),classrooms(name))").in("course_id", courseIds).is("deleted_at", null).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
+    courseIds.length ? admin.from("grade_items").select("id,title,max_score,course_id,courses(id,classroom_id,term,subjects(name),classrooms(id,name,grade_level))").in("course_id", courseIds).is("deleted_at", null).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
     classroomIds.length ? admin.from("students").select("id,student_number,profiles!students_profile_id_fkey(first_name,last_name)").in("classroom_id", classroomIds).is("deleted_at", null).order("student_number") : Promise.resolve({ data: [] })
   ]);
+  const { data: importStudents } = classroomIds.length
+    ? await admin
+        .from("students")
+        .select("id,student_number,classroom_id,profiles!students_profile_id_fkey(first_name,last_name)")
+        .in("classroom_id", classroomIds)
+        .eq("status", "active")
+        .is("deleted_at", null)
+        .order("student_number")
+    : { data: [] };
+  const studentsByClassroom = new Map<string, GradeImportStudent[]>();
+  for (const student of (importStudents ?? []) as unknown as Array<{ id: string; student_number: string; classroom_id: string; profiles: Relation<ProfileJoin> }>) {
+    const profile = one(student.profiles);
+    const rows = studentsByClassroom.get(student.classroom_id) ?? [];
+    rows.push({
+      id: student.id,
+      studentNumber: student.student_number,
+      name: profile ? `${profile.first_name} ${profile.last_name}` : student.student_number
+    });
+    studentsByClassroom.set(student.classroom_id, rows);
+  }
+  const gradeItemRows = (gradeItems.data ?? []) as unknown as Array<{
+    id: string;
+    title: string;
+    max_score: number | null;
+    course_id: string;
+    courses: Relation<{ id: string; classroom_id: string; term: string; subjects: Relation<{ name: string }>; classrooms: Relation<{ id: string; name: string; grade_level: string }> }>;
+  }>;
 
   return {
     courses: courseRows.map((course) => ({
@@ -479,13 +586,31 @@ export async function listTeacherFormOptions(): Promise<{ courses: SelectOption[
       id: course.classroom_id,
       label: `${one(course.classrooms)?.grade_level ?? "Class"} - ${one(course.classrooms)?.name ?? "Class"}`
     })),
-    gradeItems: ((gradeItems.data ?? []) as unknown as Array<{ id: string; title: string; courses: Relation<{ subjects: Relation<{ name: string }>; classrooms: Relation<{ name: string }> }> }>).map((item) => {
+    gradeItems: gradeItemRows.map((item) => {
       const course = one(item.courses);
       return { id: item.id, label: `${item.title} - ${one(course?.subjects)?.name ?? "Course"} ${one(course?.classrooms)?.name ?? ""}`.trim() };
     }),
     students: ((students.data ?? []) as unknown as Array<{ id: string; student_number: string; profiles: Relation<ProfileJoin> }>).map((student) => {
       const profile = one(student.profiles);
       return { id: student.id, label: `${profile ? `${profile.first_name} ${profile.last_name}` : "Student"} (${student.student_number})` };
+    }),
+    gradeImportContexts: gradeItemRows.map((item) => {
+      const course = one(item.courses);
+      const classroom = one(course?.classrooms);
+      const subject = one(course?.subjects);
+      const classroomId = course?.classroom_id ?? classroom?.id ?? "";
+      return {
+        gradeItemId: item.id,
+        label: `${classroom?.name ?? "Class"} - ${subject?.name ?? "Subject"} - ${course?.term ?? "Term"} - ${item.title}`,
+        courseId: course?.id ?? item.course_id,
+        classroomId,
+        classroomName: classroom?.name ?? "Class",
+        subjectName: subject?.name ?? "Subject",
+        term: course?.term ?? "Term",
+        assessmentTitle: item.title,
+        maxScore: Number(item.max_score ?? 100),
+        students: classroomId ? studentsByClassroom.get(classroomId) ?? [] : []
+      };
     })
   };
 }

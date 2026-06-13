@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { OperationsModule, OperationsWorkspace } from "@/config/operations";
 import { PageWrapper } from "@/components/layout/PageWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SupportTicketRegister } from "@/components/operations/SupportTicketRegister";
 
 function displayValue(value: unknown) {
   if (value === null || value === undefined || value === "") return "-";
@@ -18,7 +19,9 @@ export function OperationsRegister({ workspace, module, records, count }: { work
       <Card>
         <CardHeader><CardTitle>{count} records</CardTitle></CardHeader>
         <CardContent>
-          {records.length ? (
+          {module.table === "support_tickets" ? (
+            <SupportTicketRegister records={records} />
+          ) : records.length ? (
             <div className="portal-table-wrap">
               <table className="w-full text-left text-sm">
                 <thead className="portal-table-head text-xs uppercase"><tr>{module.fields.map((field) => <th key={field.key} className="px-4 py-3 font-black">{field.label}</th>)}</tr></thead>

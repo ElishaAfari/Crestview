@@ -184,6 +184,8 @@ export async function saveClassRosterAction(formData: FormData) {
   if (!allowed) return { ok: false, message: "You can only manage rosters for classes assigned to you." };
 
   const admin = createAdminClient();
+  const { data: classroomData } = await admin.from("classrooms").select("academic_year_id,name,grade_level").eq("id", classroomId).maybeSingle();
+  const classroom = classroomData as { academic_year_id: string | null; name: string; grade_level: string } | null;
   const { data: studentRole } = await admin.from("roles").select("id").eq("name", "student").maybeSingle();
   if (!studentRole) return { ok: false, message: "The student role is not configured." };
 
@@ -214,6 +216,20 @@ export async function saveClassRosterAction(formData: FormData) {
   if (removableIds.length) {
     await admin.from("students").update({ status: "withdrawn", classroom_id: null }).in("id", removableIds);
   }
+
+  await admin.from("class_roster_snapshots").insert({
+    classroom_id: classroomId,
+    academic_year_id: classroom?.academic_year_id ?? null,
+    captured_by: user.id,
+    snapshot_type: "manual",
+    student_count: deduped.length,
+    roster: deduped.map((student) => ({
+      student_number: student.studentNumber.trim().toUpperCase(),
+      first_name: student.firstName.trim(),
+      last_name: student.lastName.trim()
+    })) satisfies Json,
+    notes: classroom ? `${classroom.grade_level} - ${classroom.name} roster saved from portal.` : "Roster saved from portal."
+  });
 
   revalidatePath("/teacher/classes");
   revalidatePath("/teacher/attendance");

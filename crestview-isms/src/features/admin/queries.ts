@@ -10,6 +10,19 @@ function one<T>(value: Relation<T> | undefined) {
 }
 
 export type SelectOption = { id: string; label: string };
+export type GradeImportStudent = { id: string; studentNumber: string; name: string };
+export type GradeImportContext = {
+  gradeItemId: string;
+  label: string;
+  courseId: string;
+  classroomId: string;
+  classroomName: string;
+  subjectName: string;
+  term: string;
+  assessmentTitle: string;
+  maxScore: number;
+  students: GradeImportStudent[];
+};
 export type GradingScaleRow = {
   id: string;
   code: string;
@@ -52,8 +65,35 @@ export async function listAdminFormOptions() {
     admin.from("classrooms").select("id,name,grade_level").is("deleted_at", null).order("grade_level"),
     admin.from("students").select("id,student_number,profiles!students_profile_id_fkey(first_name,last_name)").is("deleted_at", null).order("student_number"),
     admin.from("courses").select("id,term,subjects(name),classrooms(name)").is("deleted_at", null).order("term"),
-    admin.from("grade_items").select("id,title,courses(subjects(name),classrooms(name))").is("deleted_at", null).order("created_at", { ascending: false })
+    admin.from("grade_items").select("id,title,max_score,courses(id,classroom_id,term,subjects(name),classrooms(id,name,grade_level))").is("deleted_at", null).order("created_at", { ascending: false })
   ]);
+  const gradeItemRows = (gradeItems.data ?? []) as unknown as Array<{
+    id: string;
+    title: string;
+    max_score: number | null;
+    courses: Relation<{ id?: string; classroom_id?: string; term?: string; subjects: Relation<{ name: string }>; classrooms: Relation<{ id?: string; name: string; grade_level?: string }> }>;
+  }>;
+  const gradeItemClassroomIds = Array.from(new Set(gradeItemRows.map((item) => one(item.courses)?.classroom_id).filter((id): id is string => Boolean(id))));
+  const { data: gradeImportStudents } = gradeItemClassroomIds.length
+    ? await admin
+        .from("students")
+        .select("id,student_number,classroom_id,profiles!students_profile_id_fkey(first_name,last_name)")
+        .in("classroom_id", gradeItemClassroomIds)
+        .eq("status", "active")
+        .is("deleted_at", null)
+        .order("student_number")
+    : { data: [] };
+  const studentsByClassroom = new Map<string, GradeImportStudent[]>();
+  for (const student of (gradeImportStudents ?? []) as unknown as Array<{ id: string; student_number: string; classroom_id: string; profiles: Relation<{ first_name: string; last_name: string }> }>) {
+    const profile = one(student.profiles);
+    const rows = studentsByClassroom.get(student.classroom_id) ?? [];
+    rows.push({
+      id: student.id,
+      studentNumber: student.student_number,
+      name: profile ? `${profile.first_name} ${profile.last_name}` : student.student_number
+    });
+    studentsByClassroom.set(student.classroom_id, rows);
+  }
 
   return {
     academicYears: ((academicYears.data ?? []) as unknown as Array<{ id: string; name: string; is_current: boolean | null }>).map((item) => ({
@@ -72,9 +112,27 @@ export async function listAdminFormOptions() {
       id: item.id,
       label: `${one(item.subjects)?.name ?? "Course"} - ${one(item.classrooms)?.name ?? "Class"} (${item.term})`
     })),
-    gradeItems: ((gradeItems.data ?? []) as unknown as Array<{ id: string; title: string; courses: Relation<{ subjects: Relation<{ name: string }>; classrooms: Relation<{ name: string }> }> }>).map((item) => {
+    gradeItems: gradeItemRows.map((item) => {
       const course = one(item.courses);
       return { id: item.id, label: `${item.title} - ${one(course?.subjects)?.name ?? "Course"} ${one(course?.classrooms)?.name ?? ""}`.trim() };
+    }),
+    gradeImportContexts: gradeItemRows.map((item) => {
+      const course = one(item.courses);
+      const classroom = one(course?.classrooms);
+      const subject = one(course?.subjects);
+      const classroomId = course?.classroom_id ?? classroom?.id ?? "";
+      return {
+        gradeItemId: item.id,
+        label: `${classroom?.name ?? "Class"} - ${subject?.name ?? "Subject"} - ${course?.term ?? "Term"} - ${item.title}`,
+        courseId: course?.id ?? "",
+        classroomId,
+        classroomName: classroom?.name ?? "Class",
+        subjectName: subject?.name ?? "Subject",
+        term: course?.term ?? "Term",
+        assessmentTitle: item.title,
+        maxScore: Number(item.max_score ?? 100),
+        students: classroomId ? studentsByClassroom.get(classroomId) ?? [] : []
+      };
     })
   };
 }

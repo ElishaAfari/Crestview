@@ -15,6 +15,16 @@ const gradeScaleSchema = z.object({
   isPassing: z.coerce.boolean()
 }).refine((value) => value.maxPercentage >= value.minPercentage, "Max percentage must be greater than or equal to min percentage.");
 
+const gradeItemSchema = z.object({
+  courseId: z.string().uuid(),
+  title: z.string().trim().min(2).max(120),
+  category: z.string().trim().min(2).max(80),
+  maxScore: z.coerce.number().min(1).max(1000),
+  weight: z.coerce.number().min(0).max(1),
+  dueDate: z.string().date().optional().or(z.literal("")),
+  publishNow: z.coerce.boolean()
+});
+
 function one<T>(value: T | T[] | null | undefined) {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
 }
@@ -41,6 +51,50 @@ async function canManageGradeItem(userId: string, role: string, gradeItemId: str
   return Boolean(count);
 }
 
+async function canManageCourse(userId: string, role: string, courseId: string) {
+  if (role === "super_admin" || role === "school_admin") return true;
+  const admin = createAdminClient();
+  const { data } = await admin.from("courses").select("id,teacher_id").eq("id", courseId).is("deleted_at", null).maybeSingle();
+  const course = data as { id: string; teacher_id: string | null } | null;
+  if (!course) return false;
+  if (course.teacher_id === userId) return true;
+  const { count } = await admin
+    .from("teacher_assignments")
+    .select("*", { count: "exact", head: true })
+    .eq("teacher_id", userId)
+    .eq("course_id", courseId)
+    .is("deleted_at", null);
+  return Boolean(count);
+}
+
+async function getGradeItemContext(gradeItemId: string) {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("grade_items")
+    .select("id,max_score,course_id,courses(classroom_id,academic_year_id,term,subject_id)")
+    .eq("id", gradeItemId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  const gradeItem = data as unknown as {
+    id: string;
+    max_score: number | null;
+    course_id: string;
+    courses: { classroom_id: string; academic_year_id: string | null; term: string; subject_id: string | null } | { classroom_id: string; academic_year_id: string | null; term: string; subject_id: string | null }[] | null;
+  } | null;
+  const course = one(gradeItem?.courses);
+  return gradeItem && course
+    ? {
+        gradeItemId: gradeItem.id,
+        courseId: gradeItem.course_id,
+        maxScore: Number(gradeItem.max_score ?? 100),
+        classroomId: course.classroom_id,
+        academicYearId: course.academic_year_id,
+        subjectId: course.subject_id,
+        term: course.term
+      }
+    : null;
+}
+
 async function computeGrade(gradeItemId: string, score: number) {
   const admin = createAdminClient();
   const { data: gradeItemData } = await admin.from("grade_items").select("max_score").eq("id", gradeItemId).maybeSingle();
@@ -63,7 +117,8 @@ async function computeGrade(gradeItemId: string, score: number) {
     gradeCode: scale?.code ?? null,
     gradePoints: scale?.points ?? null,
     remark: scale?.remark ?? null,
-    scaleId: scale?.id ?? null
+    scaleId: scale?.id ?? null,
+    maxScore
   };
 }
 
@@ -82,6 +137,14 @@ export async function publishGradeAction(formData: FormData) {
   if (!allowed) return { ok: false, message: "You can only grade assessments assigned to your class or subject." };
 
   const admin = createAdminClient();
+  const context = await getGradeItemContext(result.data.gradeItemId);
+  if (!context) return { ok: false, message: "The assessment is not linked to a class subject." };
+  if (result.data.score > context.maxScore) return { ok: false, message: `Score cannot exceed the assessment max score of ${context.maxScore}.` };
+  const { data: studentData } = await admin.from("students").select("classroom_id,status").eq("id", result.data.studentId).is("deleted_at", null).maybeSingle();
+  const student = studentData as { classroom_id: string | null; status: string } | null;
+  if (!student || student.status !== "active" || student.classroom_id !== context.classroomId) {
+    return { ok: false, message: "The selected student does not belong to this assessment class." };
+  }
   const computed = await computeGrade(result.data.gradeItemId, result.data.score);
   const { error } = await admin.from("grades").upsert({
     grade_item_id: result.data.gradeItemId,
@@ -103,6 +166,40 @@ export async function publishGradeAction(formData: FormData) {
   return error
     ? { ok: false, message: "The grade could not be saved. Check the assessment, student, and your access level." }
     : { ok: true, message: "Grade saved." };
+}
+
+export async function createGradeItemAction(formData: FormData) {
+  const result = gradeItemSchema.safeParse({
+    courseId: String(formData.get("courseId") ?? ""),
+    title: String(formData.get("title") ?? ""),
+    category: String(formData.get("category") ?? ""),
+    maxScore: String(formData.get("maxScore") ?? ""),
+    weight: String(formData.get("weight") ?? ""),
+    dueDate: String(formData.get("dueDate") ?? ""),
+    publishNow: String(formData.get("publishNow") ?? "false") === "true"
+  });
+  if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the assessment setup." };
+
+  const { user, role } = await requireRoles(["super_admin", "school_admin", "teacher"]);
+  const allowed = await canManageCourse(user.id, role, result.data.courseId);
+  if (!allowed) return { ok: false, message: "You can only create assessments for assigned classes and subjects." };
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("grade_items").insert({
+    course_id: result.data.courseId,
+    title: result.data.title,
+    category: result.data.category,
+    max_score: result.data.maxScore,
+    weight: result.data.weight,
+    due_date: result.data.dueDate || null,
+    status: result.data.publishNow ? "open" : "draft",
+    published_at: result.data.publishNow ? new Date().toISOString() : null,
+    metadata: { created_from: "grade_item_form" } satisfies Json
+  });
+
+  revalidatePath("/admin/grades");
+  revalidatePath("/teacher/grades");
+  return error ? { ok: false, message: "The assessment could not be created." } : { ok: true, message: "Assessment created." };
 }
 
 function parseCsv(text: string) {
@@ -155,20 +252,18 @@ export async function importGradesCsvAction(formData: FormData) {
   const headers = rows[0].map((header) => header.trim().toLowerCase().replace(/\s+/g, "_"));
   const studentNumberIndex = headers.findIndex((header) => ["student_number", "student_id", "id"].includes(header));
   const scoreIndex = headers.findIndex((header) => ["score", "marks", "mark"].includes(header));
-  const commentsIndex = headers.findIndex((header) => ["comments", "comment", "remarks", "remark"].includes(header));
+  const commentsIndex = headers.findIndex((header) => ["comments", "comment", "remarks", "remark", "teacher_comment"].includes(header));
   if (studentNumberIndex < 0 || scoreIndex < 0) {
     return { ok: false, message: "The CSV must include student_number and score columns." };
   }
 
-  const { data: gradeItemData } = await admin.from("grade_items").select("id,course_id,courses(classroom_id)").eq("id", gradeItemId).maybeSingle();
-  const gradeItem = gradeItemData as unknown as { course_id: string; courses: { classroom_id: string } | { classroom_id: string }[] | null } | null;
-  const classroomId = one(gradeItem?.courses)?.classroom_id;
-  if (!gradeItem || !classroomId) return { ok: false, message: "The assessment is not linked to a classroom." };
+  const context = await getGradeItemContext(gradeItemId);
+  if (!context) return { ok: false, message: "The assessment is not linked to a classroom." };
 
   const { data: students } = await admin
     .from("students")
     .select("id,student_number")
-    .eq("classroom_id", classroomId)
+    .eq("classroom_id", context.classroomId)
     .eq("status", "active")
     .is("deleted_at", null);
   const studentsByNumber = new Map(((students ?? []) as Array<{ id: string; student_number: string }>).map((student) => [student.student_number.toUpperCase(), student.id]));
@@ -185,6 +280,10 @@ export async function importGradesCsvAction(formData: FormData) {
     }
     if (!Number.isFinite(score) || score < 0) {
       errors.push(`Row ${index + 2}: score is not valid.`);
+      continue;
+    }
+    if (score > context.maxScore) {
+      errors.push(`Row ${index + 2}: score exceeds ${context.maxScore}.`);
       continue;
     }
     const computed = await computeGrade(gradeItemId, score);
@@ -208,8 +307,12 @@ export async function importGradesCsvAction(formData: FormData) {
   }
 
   await admin.from("grade_import_batches").insert({
-    course_id: gradeItem.course_id,
+    course_id: context.courseId,
     grade_item_id: gradeItemId,
+    classroom_id: context.classroomId,
+    academic_year_id: context.academicYearId,
+    subject_id: context.subjectId,
+    term: context.term,
     uploaded_by: user.id,
     file_name: (file as File).name,
     status: errors.length && !gradeRows.length ? "failed" : "processed",

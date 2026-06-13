@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRoles } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Json } from "@/types/database.types";
 
 const attendanceSchema = z.object({
   studentId: z.string().uuid(),
@@ -70,12 +71,24 @@ export async function bulkRecordAttendanceAction(formData: FormData) {
 
   const { user, role } = await requireRoles(["super_admin", "school_admin", "teacher"]);
   const admin = createAdminClient();
+  const { data: existingRegisterData } = await admin
+    .from("attendance_registers")
+    .select("id,status")
+    .eq("classroom_id", result.data.classroomId)
+    .eq("attendance_date", result.data.attendanceDate)
+    .is("deleted_at", null)
+    .maybeSingle();
+  const existingRegister = existingRegisterData as { id: string; status: string } | null;
+  if (role === "teacher" && existingRegister && ["submitted", "locked"].includes(existingRegister.status)) {
+    return { ok: false, message: "This class attendance register has already been submitted for the selected day. Ask an administrator to reopen it for correction." };
+  }
+
   const { data: courses } = await admin
     .from("courses")
-    .select("id,teacher_id")
+    .select("id,teacher_id,academic_year_id")
     .eq("classroom_id", result.data.classroomId)
     .is("deleted_at", null);
-  const classroomCourses = (courses ?? []) as Array<{ id: string; teacher_id: string | null }>;
+  const classroomCourses = (courses ?? []) as Array<{ id: string; teacher_id: string | null; academic_year_id: string | null }>;
   if (!classroomCourses.length) return { ok: false, message: "The selected class could not be found." };
 
   if (role === "teacher" && !classroomCourses.some((course) => course.teacher_id === user.id)) {
@@ -99,6 +112,35 @@ export async function bulkRecordAttendanceAction(formData: FormData) {
     .is("deleted_at", null);
   const validIds = new Set(((students ?? []) as Array<{ id: string }>).map((student) => student.id));
   if (validIds.size !== submittedStatuses.length) return { ok: false, message: "Some students do not belong to the selected class." };
+  const counts = submittedStatuses.reduce<Record<string, number>>((summary, item) => {
+    summary[item.status] = (summary[item.status] ?? 0) + 1;
+    summary.total = (summary.total ?? 0) + 1;
+    return summary;
+  }, { present: 0, late: 0, absent: 0, excused: 0, total: 0 });
+
+  const registerPayload = {
+    classroom_id: result.data.classroomId,
+    academic_year_id: classroomCourses[0]?.academic_year_id ?? null,
+    attendance_date: result.data.attendanceDate,
+    status: "submitted",
+    submitted_by: user.id,
+    submitted_at: new Date().toISOString(),
+    locked_at: new Date().toISOString(),
+    counts: counts as Json,
+    metadata: {
+      submitted_count: submittedStatuses.length,
+      source: "bulk_attendance_form"
+    } satisfies Json
+  };
+  let registerId = existingRegister?.id ?? "";
+  if (registerId) {
+    const { error: registerUpdateError } = await admin.from("attendance_registers").update(registerPayload).eq("id", registerId);
+    if (registerUpdateError) return { ok: false, message: "The attendance register summary could not be updated." };
+  } else {
+    const { data: registerData, error: registerInsertError } = await admin.from("attendance_registers").insert(registerPayload).select("id").single();
+    if (registerInsertError || !registerData) return { ok: false, message: "The attendance register summary could not be created." };
+    registerId = String((registerData as { id: string }).id);
+  }
 
   const { error: clearError } = await admin
     .from("attendance_records")
@@ -115,7 +157,8 @@ export async function bulkRecordAttendanceAction(formData: FormData) {
     course_id: null,
     attendance_date: result.data.attendanceDate,
     status: item.status,
-    recorded_by: user.id
+    recorded_by: user.id,
+    register_id: registerId
   })));
 
   if (error) return { ok: false, message: "The attendance register could not be saved." };
@@ -125,5 +168,5 @@ export async function bulkRecordAttendanceAction(formData: FormData) {
   revalidatePath("/teacher/attendance");
   revalidatePath("/student/attendance");
   revalidatePath("/parent");
-  return { ok: true, message: `${submittedStatuses.length} attendance record${submittedStatuses.length === 1 ? "" : "s"} saved.` };
+  return { ok: true, message: `${submittedStatuses.length} attendance record${submittedStatuses.length === 1 ? "" : "s"} saved and the daily register was closed.` };
 }
