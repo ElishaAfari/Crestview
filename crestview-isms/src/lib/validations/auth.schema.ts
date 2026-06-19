@@ -16,8 +16,8 @@ export const resetPasswordSchema = z.object({
 });
 
 export const updatePasswordSchema = z.object({
-  password: z.string().min(8, "Use at least 8 characters."),
-  confirmPassword: z.string().min(8, "Confirm your new password.")
+  password: z.string().min(10, "Use at least 10 characters."),
+  confirmPassword: z.string().min(10, "Confirm your new password.")
 }).refine((values) => values.password === values.confirmPassword, {
   message: "Passwords do not match.",
   path: ["confirmPassword"]

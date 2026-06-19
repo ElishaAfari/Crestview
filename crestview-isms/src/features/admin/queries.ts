@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRoles } from "@/features/auth/guards";
+import type { Json } from "@/types/database.types";
 
 type Relation<T> = T | T[] | null;
 
@@ -371,15 +372,18 @@ export async function listAdmissionApplicationsForAdmin() {
   const admin = createAdminClient();
   const { data } = await admin
     .from("admission_applications")
-    .select("id,applicant_first_name,applicant_last_name,applying_grade,guardian_email,guardian_phone,status,submitted_at,notes,source,generated_student_number,onboarding_notes")
+    .select("id,applicant_first_name,applicant_middle_name,applicant_last_name,applicant_date_of_birth,applicant_gender,applying_grade,guardian_email,guardian_phone,status,submitted_at,notes,source,generated_student_number,onboarding_notes,previous_school,applicant_address,metadata,admission_guardians(first_name,last_name,relationship,email,phone,is_primary),admission_documents(document_type,status)")
     .is("deleted_at", null)
     .order("submitted_at", { ascending: false })
     .limit(100);
 
-  return ((data ?? []) as Array<{
+  return ((data ?? []) as unknown as Array<{
     id: string;
     applicant_first_name: string;
+    applicant_middle_name: string | null;
     applicant_last_name: string;
+    applicant_date_of_birth: string | null;
+    applicant_gender: string | null;
     applying_grade: string;
     guardian_email: string;
     guardian_phone: string | null;
@@ -389,17 +393,49 @@ export async function listAdmissionApplicationsForAdmin() {
     source: string | null;
     generated_student_number: string | null;
     onboarding_notes: string | null;
-  }>).map((application) => ({
-    id: application.id,
-    applicant: `${application.applicant_first_name} ${application.applicant_last_name}`,
-    applyingGrade: application.applying_grade,
-    guardian: application.guardian_email,
-    phone: application.guardian_phone ?? "Not provided",
-    status: application.status,
-    submittedAt: application.submitted_at ? new Intl.DateTimeFormat("en-GH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(application.submitted_at)) : "Not recorded",
-    notes: [application.notes, application.generated_student_number ? `Student ID: ${application.generated_student_number}` : null, application.onboarding_notes].filter(Boolean).join(" | "),
-    source: application.source ?? "website"
-  }));
+    previous_school: string | null;
+    applicant_address: Json | null;
+    metadata: Json | null;
+    admission_guardians: Array<{ first_name: string; last_name: string; relationship: string; email: string | null; phone: string | null; is_primary: boolean | null }> | null;
+    admission_documents: Array<{ document_type: string; status: string }> | null;
+  }>).map((application) => {
+    const address = application.applicant_address && typeof application.applicant_address === "object" && !Array.isArray(application.applicant_address) ? application.applicant_address : {};
+    const metadata = application.metadata && typeof application.metadata === "object" && !Array.isArray(application.metadata) ? application.metadata : {};
+    const emergency = typeof metadata.emergency_contact === "object" && !Array.isArray(metadata.emergency_contact) ? metadata.emergency_contact : null;
+    const health = typeof metadata.health === "object" && !Array.isArray(metadata.health) ? metadata.health : null;
+    const documents = application.admission_documents ?? [];
+    return {
+      id: application.id,
+      applicant: [application.applicant_first_name, application.applicant_middle_name, application.applicant_last_name].filter(Boolean).join(" "),
+      applyingGrade: application.applying_grade,
+      dateOfBirth: application.applicant_date_of_birth ?? "Not provided",
+      gender: application.applicant_gender?.replaceAll("_", " ") ?? "Not provided",
+      address: [address.home_address, address.city, address.zip_code].filter(Boolean).join(", ") || "Not provided",
+      previousSchool: application.previous_school ?? "Not provided",
+      guardian: application.guardian_email,
+      phone: application.guardian_phone ?? "Not provided",
+      guardians: (application.admission_guardians ?? []).map((guardian) => ({
+        name: `${guardian.first_name} ${guardian.last_name}`,
+        relationship: guardian.relationship,
+        email: guardian.email ?? "No email",
+        phone: guardian.phone ?? "No phone",
+        primary: Boolean(guardian.is_primary)
+      })),
+      emergencyContact: emergency ? [emergency.name, emergency.relationship, emergency.phone].filter(Boolean).join(" | ") : "Not provided",
+      healthSummary: health
+        ? [
+            health.has_allergies ? `Allergies: ${health.allergies_details ?? "listed"}` : "No allergies noted",
+            health.has_medical_conditions ? `Medical: ${health.medical_conditions_details ?? "listed"}` : "No medical conditions noted",
+            health.health_insurance_number ? `NHIS: ${health.health_insurance_number}` : null
+          ].filter(Boolean).join(" | ")
+        : "Not provided",
+      documents: documents.length ? documents.map((document) => `${document.document_type.replaceAll("_", " ")} (${document.status})`).join(", ") : "No documents marked",
+      status: application.status,
+      submittedAt: application.submitted_at ? new Intl.DateTimeFormat("en-GH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(application.submitted_at)) : "Not recorded",
+      notes: [application.notes, application.generated_student_number ? `Student ID: ${application.generated_student_number}` : null, application.onboarding_notes].filter(Boolean).join(" | "),
+      source: application.source ?? "website"
+    };
+  });
 }
 
 export async function listJobApplicationsForAdmin() {

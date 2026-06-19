@@ -1,27 +1,8 @@
 import type { NextConfig } from "next";
-import withPWAInit from "next-pwa";
 
-const withPWA = withPWAInit({
-  dest: "public",
-  disable: process.env.NODE_ENV === "development",
-  register: true,
-  skipWaiting: true,
-  runtimeCaching: [
-    {
-      urlPattern: /^https:\/\/.*\.supabase\.co\/.*/,
-      handler: "NetworkFirst",
-      options: {
-        cacheName: "supabase-cache",
-        expiration: { maxEntries: 50, maxAgeSeconds: 300 }
-      }
-    },
-    {
-      urlPattern: /\/_next\/static\/.*/,
-      handler: "CacheFirst",
-      options: { cacheName: "static-cache" }
-    }
-  ]
-});
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).host : undefined;
+const vercelUrl = process.env.VERCEL_URL;
+const allowedOrigins = [appUrl, vercelUrl].filter((origin): origin is string => Boolean(origin));
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -33,10 +14,8 @@ const nextConfig: NextConfig = {
     ]
   },
   experimental: {
-    serverActions: {
-      allowedOrigins: ["*"]
-    }
+    serverActions: allowedOrigins.length ? { allowedOrigins } : undefined
   }
 };
 
-export default withPWA(nextConfig);
+export default nextConfig;

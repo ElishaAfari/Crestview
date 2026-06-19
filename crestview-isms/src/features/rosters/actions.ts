@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRoles } from "@/features/auth/guards";
@@ -21,7 +22,7 @@ function studentEmailFor(studentNumber: string) {
 }
 
 function studentPasswordFor(studentNumber: string) {
-  return `${studentNumber.replace(/[^a-z0-9]/gi, "").slice(-8)}Cis!`;
+  return `${studentNumber.replace(/[^a-z0-9]/gi, "").slice(-8)}${randomBytes(12).toString("base64url")}Aa1!`;
 }
 
 async function canManageClassroom(userId: string, role: string, classroomId: string) {
@@ -67,7 +68,6 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
     const { data: currentProfile } = await admin.from("profiles").select("email,is_active,metadata").eq("id", existing.profile_id).maybeSingle();
     const profile = currentProfile as { email: string; is_active: boolean | null; metadata: Json | null } | null;
     const wasPending = profile?.is_active === false || (typeof profile?.metadata === "object" && !Array.isArray(profile.metadata) && profile.metadata?.student_access_pending === true);
-    const password = studentPasswordFor(studentNumber);
     await admin.from("profiles").update({
       first_name: input.firstName.trim(),
       last_name: input.lastName.trim(),
@@ -80,7 +80,7 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
     }).eq("id", existing.profile_id);
     if (wasPending) {
       await admin.auth.admin.updateUserById(existing.profile_id, {
-        password,
+        password: studentPasswordFor(studentNumber),
         user_metadata: {
           first_name: input.firstName.trim(),
           last_name: input.lastName.trim(),
@@ -104,7 +104,7 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
         roster_updated_at: new Date().toISOString()
       } satisfies Json
     }).eq("id", existing.id);
-    return { created: false, credential: wasPending && profile?.email ? `${profile.email} / ${password}` : null };
+    return { created: false, accessPrepared: wasPending && Boolean(profile?.email) };
   }
 
   const email = studentEmailFor(studentNumber);
@@ -157,11 +157,11 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
   await admin.from("account_lifecycle_records").insert({
     profile_id: account.user.id,
     student_id: (createdStudent?.data as { id: string } | null)?.id ?? null,
-    action: "password_issued",
+    action: "created",
     reason: "Student portal account created from class roster",
-    snapshot: { student_number: studentNumber, classroom_id: classroomId }
+    snapshot: { student_number: studentNumber, classroom_id: classroomId, access_method: "secure_access_required" }
   });
-  return { created: true, credential: `${email} / ${password}` };
+  return { created: true, accessPrepared: true };
 }
 
 export async function saveClassRosterAction(formData: FormData) {
@@ -192,13 +192,13 @@ export async function saveClassRosterAction(formData: FormData) {
 
   let created = 0;
   let updated = 0;
-  const credentials: string[] = [];
+  let accessPrepared = 0;
   try {
     for (const student of deduped) {
       const outcome = await createStudentFromRoster(student, classroomId, String(studentRole.id));
       if (outcome.created) created += 1;
       else updated += 1;
-      if (outcome.credential) credentials.push(outcome.credential);
+      if (outcome.accessPrepared) accessPrepared += 1;
     }
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "The class roster could not be saved." };
@@ -255,8 +255,8 @@ export async function saveClassRosterAction(formData: FormData) {
   revalidatePath("/teacher/attendance");
   revalidatePath("/admin/students");
   revalidatePath("/admin/attendance");
-  const credentialMessage = credentials.length
-    ? ` Access issued: ${credentials.slice(0, 6).join("; ")}${credentials.length > 6 ? `; +${credentials.length - 6} more` : ""}.`
+  const accessMessage = accessPrepared
+    ? ` ${accessPrepared} student portal record${accessPrepared === 1 ? "" : "s"} prepared; send secure access from User Management when ready.`
     : "";
-  return { ok: true, message: `${deduped.length} students saved. ${created} new, ${updated} updated.${credentialMessage}` };
+  return { ok: true, message: `${deduped.length} students saved. ${created} new, ${updated} updated.${accessMessage}` };
 }

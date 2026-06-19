@@ -91,7 +91,7 @@ export async function invitePortalUserAction(_: AccessActionState, formData: For
 
   const { data: invitation, error: invitationError } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${APP_URL}/reset-password`,
-    data: { first_name: result.data.firstName, last_name: result.data.lastName, role: result.data.role, beta_access: true }
+    data: { first_name: result.data.firstName, last_name: result.data.lastName, role: result.data.role, pilot_access: true }
   });
   if (invitationError || !invitation.user) return { ok: false, message: "The invitation could not be sent. The email may already have an account." };
 
@@ -101,7 +101,7 @@ export async function invitePortalUserAction(_: AccessActionState, formData: For
     first_name: result.data.firstName,
     last_name: result.data.lastName,
     email,
-    metadata: { account_source: "admin_beta_invite", beta_access: true }
+    metadata: { account_source: "admin_pilot_invite", pilot_access: true }
   });
   const { error: auditError } = profileError ? { error: profileError } : await admin.from("portal_invitations").insert({
     email,
@@ -110,7 +110,7 @@ export async function invitePortalUserAction(_: AccessActionState, formData: For
     last_name: result.data.lastName,
     invited_by: user.id,
     auth_user_id: invitation.user.id,
-    metadata: { beta_access: true }
+    metadata: { pilot_access: true }
   });
 
   if (profileError || auditError) {

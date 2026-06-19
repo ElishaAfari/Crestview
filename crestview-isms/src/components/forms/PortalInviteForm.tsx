@@ -29,8 +29,8 @@ export function PortalInviteForm() {
         <Select name="role" defaultValue="teacher" className="mt-1">
           <option value="school_admin">School administrator</option>
           <option value="teacher">Teacher</option>
-          <option value="student">Student beta account</option>
-          <option value="parent">Parent beta account</option>
+          <option value="student">Student account</option>
+          <option value="parent">Parent account</option>
           <option value="hr_staff">HR staff</option>
           <option value="finance_officer">Finance officer</option>
           <option value="librarian">Librarian</option>

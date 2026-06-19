@@ -1,6 +1,6 @@
 # Crestview International School Management System
 
-Crestview ISMS is a Supabase-native, Next.js App Router PWA for school operations, academics, finance, HR, admissions, parent engagement, realtime notifications, and AI-assisted learning.
+Crestview ISMS is a Supabase-native, Next.js App Router platform for school operations, academics, finance, HR, admissions, parent engagement, realtime notifications, and AI-assisted learning.
 
 ## Tech Stack
 
@@ -74,9 +74,9 @@ Seeded roles are `super_admin`, `school_admin`, `teacher`, `student`, `parent`, 
 
 The AI tutor endpoint is available at `POST /api/ai/tutor`. It validates authentication, applies a Supabase-backed hourly rate limit, builds a student-aware system prompt, and streams OpenAI output when `OPENAI_API_KEY` is configured.
 
-## PWA
+## Installable App
 
-The project includes a manifest, placeholder icons, and `next-pwa` configuration. Production builds generate the service worker into `public`.
+The project includes a web app manifest and app icons. Service-worker generation is intentionally disabled for the pilot until a dependency chain without critical advisories is selected.
 
 ## Testing
 

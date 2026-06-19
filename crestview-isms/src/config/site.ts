@@ -8,8 +8,8 @@ export const siteConfig = {
   address: "Asamankese Yayo, former Omega School premises",
   phones: [
     { label: "024 513 1619", href: "tel:+233245131619" },
-    { label: "024 450 4332", href: "tel:+233244504332" },
-    { label: "050 816 8358", href: "tel:+233508168358" }
+    { label: "054 676 7992", href: "tel:+233546767992" },
+    { label: "027 061 6220", href: "tel:+233270616220" }
   ],
   mainNav: [
     { title: "Home", href: "/" },

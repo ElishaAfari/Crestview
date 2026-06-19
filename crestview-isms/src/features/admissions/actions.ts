@@ -1,9 +1,10 @@
 "use server";
 
-import { randomInt } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { requireRoles } from "@/features/auth/guards";
 import { createWorkflowTask } from "@/features/automation/actions";
+import { APP_URL } from "@/lib/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { admissionSchema } from "@/lib/validations/admission.schema";
 import type { Json } from "@/types/database.types";
@@ -12,13 +13,20 @@ function studentNumberFor(applicationId: string) {
   return `CIS-${new Date().getFullYear()}-${applicationId.slice(0, 6).toUpperCase()}`;
 }
 
-function generatedPassword(lastName: string) {
-  const base = lastName.replace(/[^a-z0-9]/gi, "").slice(0, 12) || "Crestview";
-  return `${base}${randomInt(1000, 9999)}!`;
+function internalPlaceholderPassword() {
+  return `${randomBytes(24).toString("base64url")}Aa1!`;
 }
 
-function generatedStudentPassword(studentNumber: string) {
-  return `${studentNumber.replace(/[^a-z0-9]/gi, "").slice(-8)}Cis!`;
+function formString(formData: FormData, key: string) {
+  return String(formData.get(key) ?? "");
+}
+
+function splitFullName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] ?? "Guardian",
+    lastName: parts.slice(1).join(" ") || "Guardian"
+  };
 }
 
 async function notifyAdministrators(title: string, body: string, metadata: Json) {
@@ -43,12 +51,51 @@ async function notifyAdministrators(title: string, body: string, metadata: Json)
 
 export async function submitAdmissionAction(formData: FormData) {
   const values = {
-    applicantFirstName: String(formData.get("applicantFirstName") ?? ""),
-    applicantLastName: String(formData.get("applicantLastName") ?? ""),
-    applyingGrade: String(formData.get("applyingGrade") ?? ""),
-    guardianEmail: String(formData.get("guardianEmail") ?? ""),
-    guardianPhone: String(formData.get("guardianPhone") ?? ""),
-    notes: String(formData.get("notes") ?? "")
+    applicantFirstName: formString(formData, "applicantFirstName"),
+    applicantMiddleName: formString(formData, "applicantMiddleName"),
+    applicantLastName: formString(formData, "applicantLastName"),
+    applicantDateOfBirth: formString(formData, "applicantDateOfBirth"),
+    applyingGrade: formString(formData, "applyingGrade"),
+    applicantGender: formString(formData, "applicantGender"),
+    homeAddress: formString(formData, "homeAddress"),
+    city: formString(formData, "city"),
+    zipCode: formString(formData, "zipCode"),
+    previousSchool: formString(formData, "previousSchool"),
+    fatherName: formString(formData, "fatherName"),
+    fatherPhone: formString(formData, "fatherPhone"),
+    fatherEmail: formString(formData, "fatherEmail"),
+    fatherAddress: formString(formData, "fatherAddress"),
+    fatherOccupation: formString(formData, "fatherOccupation"),
+    fatherLocation: formString(formData, "fatherLocation"),
+    motherName: formString(formData, "motherName"),
+    motherPhone: formString(formData, "motherPhone"),
+    motherEmail: formString(formData, "motherEmail"),
+    motherAddress: formString(formData, "motherAddress"),
+    motherOccupation: formString(formData, "motherOccupation"),
+    motherLocation: formString(formData, "motherLocation"),
+    guardianName: formString(formData, "guardianName"),
+    guardianPhone: formString(formData, "guardianPhone"),
+    guardianEmail: formString(formData, "guardianEmail"),
+    guardianAddress: formString(formData, "guardianAddress"),
+    guardianRelationship: formString(formData, "guardianRelationship"),
+    guardianRelationshipOther: formString(formData, "guardianRelationshipOther"),
+    emergencyContactName: formString(formData, "emergencyContactName"),
+    emergencyContactRelationship: formString(formData, "emergencyContactRelationship"),
+    emergencyContactPhone: formString(formData, "emergencyContactPhone"),
+    primaryPhysicianName: formString(formData, "primaryPhysicianName"),
+    primaryPhysicianPhone: formString(formData, "primaryPhysicianPhone"),
+    healthInsuranceNumber: formString(formData, "healthInsuranceNumber"),
+    hasAllergies: formString(formData, "hasAllergies"),
+    allergiesDetails: formString(formData, "allergiesDetails"),
+    hasMedicalConditions: formString(formData, "hasMedicalConditions"),
+    medicalConditionsDetails: formString(formData, "medicalConditionsDetails"),
+    submittedBirthCertificate: formString(formData, "submittedBirthCertificate"),
+    submittedProofOfAddress: formString(formData, "submittedProofOfAddress"),
+    submittedNhis: formString(formData, "submittedNhis"),
+    certifyAccuracy: formString(formData, "certifyAccuracy"),
+    consentEmergencyTreatment: formString(formData, "consentEmergencyTreatment"),
+    acknowledgeNoGuarantee: formString(formData, "acknowledgeNoGuarantee"),
+    notes: formString(formData, "notes")
   };
 
   const result = admissionSchema.safeParse(values);
@@ -57,19 +104,122 @@ export async function submitAdmissionAction(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  const primaryGuardian = splitFullName(result.data.guardianName);
+  const guardianRows = [
+    result.data.fatherName ? {
+      first_name: splitFullName(result.data.fatherName).firstName,
+      last_name: splitFullName(result.data.fatherName).lastName,
+      relationship: "father",
+      email: result.data.fatherEmail ?? null,
+      phone: result.data.fatherPhone ?? null,
+      occupation: result.data.fatherOccupation ?? null,
+      address: {
+        address: result.data.fatherAddress ?? null,
+        location: result.data.fatherLocation ?? null
+      } satisfies Json,
+      is_primary: result.data.guardianRelationship.toLowerCase() === "father"
+    } : null,
+    result.data.motherName ? {
+      first_name: splitFullName(result.data.motherName).firstName,
+      last_name: splitFullName(result.data.motherName).lastName,
+      relationship: "mother",
+      email: result.data.motherEmail ?? null,
+      phone: result.data.motherPhone ?? null,
+      occupation: result.data.motherOccupation ?? null,
+      address: {
+        address: result.data.motherAddress ?? null,
+        location: result.data.motherLocation ?? null
+      } satisfies Json,
+      is_primary: result.data.guardianRelationship.toLowerCase() === "mother"
+    } : null,
+    {
+      first_name: primaryGuardian.firstName,
+      last_name: primaryGuardian.lastName,
+      relationship: result.data.guardianRelationship === "Other" && result.data.guardianRelationshipOther ? result.data.guardianRelationshipOther : result.data.guardianRelationship,
+      email: result.data.guardianEmail.trim().toLowerCase(),
+      phone: result.data.guardianPhone.trim(),
+      occupation: null,
+      address: {
+        address: result.data.guardianAddress ?? null
+      } satisfies Json,
+      is_primary: true
+    }
+  ].filter((row): row is NonNullable<typeof row> => Boolean(row));
+  const metadata = {
+    source_form: "crestview_admission_form_pdf_v1",
+    emergency_contact: {
+      name: result.data.emergencyContactName,
+      relationship: result.data.emergencyContactRelationship,
+      phone: result.data.emergencyContactPhone
+    },
+    health: {
+      has_allergies: result.data.hasAllergies === "yes",
+      allergies_details: result.data.allergiesDetails ?? null,
+      has_medical_conditions: result.data.hasMedicalConditions === "yes",
+      medical_conditions_details: result.data.medicalConditionsDetails ?? null,
+      primary_physician_name: result.data.primaryPhysicianName ?? null,
+      primary_physician_phone: result.data.primaryPhysicianPhone ?? null,
+      health_insurance_number: result.data.healthInsuranceNumber ?? null
+    },
+    documents_submitted: {
+      birth_certificate: result.data.submittedBirthCertificate,
+      proof_of_address: result.data.submittedProofOfAddress,
+      nhis: result.data.submittedNhis
+    },
+    declarations: {
+      certified_accurate: result.data.certifyAccuracy,
+      emergency_treatment_consent: result.data.consentEmergencyTreatment,
+      no_admission_guarantee_acknowledged: result.data.acknowledgeNoGuarantee,
+      signed_at: new Date().toISOString()
+    }
+  } satisfies Json;
   const { data: application, error } = await admin.from("admission_applications").insert({
     applicant_first_name: result.data.applicantFirstName.trim(),
+    applicant_middle_name: result.data.applicantMiddleName ?? null,
     applicant_last_name: result.data.applicantLastName.trim(),
+    applicant_date_of_birth: result.data.applicantDateOfBirth,
+    applicant_gender: result.data.applicantGender,
     applying_grade: result.data.applyingGrade.trim(),
     guardian_email: result.data.guardianEmail.trim().toLowerCase(),
     guardian_phone: result.data.guardianPhone.trim(),
+    previous_school: result.data.previousSchool ?? null,
+    applicant_address: {
+      home_address: result.data.homeAddress,
+      city: result.data.city,
+      zip_code: result.data.zipCode ?? null
+    } satisfies Json,
     notes: result.data.notes?.trim() || null,
     source: "school_website",
-    status: "submitted"
+    status: "submitted",
+    metadata
   }).select("id").single();
 
   const applicationRecord = application as { id: string } | null;
   if (error || !applicationRecord) return { ok: false, message: "We could not submit the application. Please call the school for assistance." };
+  const guardiansWithApplication = guardianRows.map((row) => ({ ...row, application_id: applicationRecord.id }));
+  const documents = [
+    result.data.submittedBirthCertificate ? "birth_certificate" : null,
+    result.data.submittedProofOfAddress ? "proof_of_address" : null,
+    result.data.submittedNhis ? "nhis" : null
+  ].filter((documentType): documentType is string => Boolean(documentType));
+  const { error: guardianError } = await admin.from("admission_guardians").insert(guardiansWithApplication);
+  const { error: documentError } = documents.length
+    ? await admin.from("admission_documents").insert(documents.map((documentType) => ({
+        application_id: applicationRecord.id,
+        document_type: documentType,
+        status: "pending",
+        notes: "Marked as submitted on the public admission form."
+      })))
+    : { error: null };
+  if (guardianError || documentError) {
+    await admin.from("admission_applications").delete().eq("id", applicationRecord.id);
+    return { ok: false, message: "We could not save the full application. Please call the school for assistance." };
+  }
+  await admin.from("admission_status_history").insert({
+    application_id: applicationRecord.id,
+    to_status: "submitted",
+    reason: "Submitted from the public admission form"
+  });
   await notifyAdministrators(
     "New student application",
     `${result.data.applicantFirstName} ${result.data.applicantLastName} applied for ${result.data.applyingGrade}.`,
@@ -94,55 +244,60 @@ async function ensureParentAccount(application: {
   const admin = createAdminClient();
   const email = application.guardian_email.toLowerCase();
   const existing = await findProfileByEmail(email);
-  if (existing) return { ok: true as const, profileId: existing.id, password: null as string | null, created: false };
+  if (existing) return { ok: true as const, profileId: existing.id, created: false, accessEmailSent: false };
 
   const { data: role } = await admin.from("roles").select("id").eq("name", "parent").maybeSingle();
   if (!role) return { ok: false as const, message: "The parent role is not configured." };
-  const password = generatedPassword(application.applicant_last_name);
-  const { data: account, error } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { first_name: "Guardian", last_name: application.applicant_last_name, role: "parent", admission_application_id: application.id }
+  const { data: primaryGuardian } = await admin
+    .from("admission_guardians")
+    .select("first_name,last_name,phone")
+    .eq("application_id", application.id)
+    .eq("is_primary", true)
+    .maybeSingle();
+  const guardian = primaryGuardian as { first_name: string; last_name: string; phone: string | null } | null;
+  const firstName = guardian?.first_name ?? "Guardian";
+  const lastName = guardian?.last_name ?? application.applicant_last_name;
+  const { data: account, error } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${APP_URL}/reset-password`,
+    data: { first_name: firstName, last_name: lastName, role: "parent", admission_application_id: application.id }
   });
-  if (error || !account.user) return { ok: false as const, message: "The guardian portal account could not be created. The email may already have an account." };
+  if (error || !account.user) return { ok: false as const, message: "The guardian portal invitation could not be sent. The email may already have an account." };
   const { error: profileError } = await admin.from("profiles").insert({
     id: account.user.id,
     role_id: role.id,
-    first_name: "Guardian",
-    last_name: application.applicant_last_name,
+    first_name: firstName,
+    last_name: lastName,
     email,
-    phone: application.guardian_phone,
-    onboarding_completed_at: new Date().toISOString(),
-    metadata: { account_source: "admission_acceptance", admission_application_id: application.id }
+    phone: guardian?.phone ?? application.guardian_phone,
+    is_active: true,
+    metadata: { account_source: "admission_acceptance", admission_application_id: application.id, password_set_by_user: true }
   });
   const { error: invitationError } = profileError ? { error: profileError } : await admin.from("portal_invitations").insert({
     email,
     role_id: role.id,
-    first_name: "Guardian",
-    last_name: application.applicant_last_name,
+    first_name: firstName,
+    last_name: lastName,
     invited_by: actorId,
     auth_user_id: account.user.id,
-    status: "active",
-    accepted_at: new Date().toISOString(),
+    status: "invited",
     metadata: {
       account_source: "admission_acceptance",
       admission_application_id: application.id,
-      temporary_password_issued_at: new Date().toISOString()
+      password_set_by_user: true
     }
   });
   if (profileError || invitationError) {
     await admin.auth.admin.deleteUser(account.user.id);
-    return { ok: false as const, message: "The guardian portal account could not be created." };
+    return { ok: false as const, message: "The guardian portal invitation could not be recorded." };
   }
   await admin.from("account_lifecycle_records").insert({
     profile_id: account.user.id,
-    action: "password_issued",
-    reason: "Parent account created after accepted admission",
+    action: "created",
+    reason: "Parent account invited after accepted admission",
     performed_by: actorId,
-    snapshot: { admission_application_id: application.id, password_pattern: "lastname+4digits" }
+    snapshot: { admission_application_id: application.id, access_method: "secure_invite_link" }
   });
-  return { ok: true as const, profileId: account.user.id, password, created: true };
+  return { ok: true as const, profileId: account.user.id, created: true, accessEmailSent: true };
 }
 
 async function acceptAdmission(applicationId: string, actorId: string) {
@@ -151,12 +306,17 @@ async function acceptAdmission(applicationId: string, actorId: string) {
   const application = data as {
     id: string;
     applicant_first_name: string;
+    applicant_middle_name: string | null;
     applicant_last_name: string;
+    applicant_date_of_birth: string | null;
+    applicant_gender: "male" | "female" | "other" | "prefer_not_to_say" | null;
     applying_grade: string;
     guardian_email: string;
     guardian_phone: string | null;
     status: string;
     previous_school: string | null;
+    applicant_address: Json | null;
+    metadata: Json | null;
     accepted_student_id: string | null;
     parent_profile_id: string | null;
   } | null;
@@ -176,13 +336,13 @@ async function acceptAdmission(applicationId: string, actorId: string) {
 
   const studentNumber = studentNumberFor(application.id);
   const studentEmail = `${studentNumber.toLowerCase()}@students.crestview.local`;
-  const initialStudentPassword = generatedStudentPassword(studentNumber);
   const { data: account, error: accountError } = await admin.auth.admin.createUser({
     email: studentEmail,
-    password: initialStudentPassword,
+    password: internalPlaceholderPassword(),
     email_confirm: true,
     user_metadata: {
       first_name: application.applicant_first_name,
+      middle_name: application.applicant_middle_name,
       last_name: application.applicant_last_name,
       role: "student",
       admission_application_id: application.id
@@ -194,15 +354,20 @@ async function acceptAdmission(applicationId: string, actorId: string) {
     id: account.user.id,
     role_id: studentRole.id,
     first_name: application.applicant_first_name,
+    middle_name: application.applicant_middle_name,
     last_name: application.applicant_last_name,
     email: studentEmail,
+    date_of_birth: application.applicant_date_of_birth,
+    gender: application.applicant_gender,
+    address: application.applicant_address,
+    emergency_contact: application.metadata && typeof application.metadata === "object" && !Array.isArray(application.metadata) ? application.metadata.emergency_contact as Json : null,
     is_active: false,
     metadata: {
       account_source: "admission_acceptance",
       admission_application_id: application.id,
       guardian_email: application.guardian_email,
       student_access_pending: true,
-      temporary_password_pattern: "student-id+Cis!"
+      activation_method: "class_teacher_or_admin_secure_access"
     }
   });
   const { data: studentData, error: studentError } = profileError ? { data: null, error: profileError } : await admin.from("students").insert({
@@ -234,11 +399,13 @@ async function acceptAdmission(applicationId: string, actorId: string) {
   await admin.from("admission_applications").update({
     status: "accepted",
     decision_at: new Date().toISOString(),
-    assigned_to: account.user.id,
+    assigned_to: actorId,
     accepted_student_id: student.id,
     parent_profile_id: parent.profileId,
     generated_student_number: studentNumber,
-    onboarding_notes: "Parent account is active. Student portal is pending teacher roster activation."
+    onboarding_notes: parent.accessEmailSent
+      ? "Parent secure access email sent. Student portal is pending teacher roster activation."
+      : "Existing parent account linked. Student portal is pending teacher roster activation."
   }).eq("id", application.id);
   await createWorkflowTask({
     title: `Complete onboarding for ${application.applicant_first_name} ${application.applicant_last_name}`,
@@ -278,7 +445,9 @@ async function acceptAdmission(applicationId: string, actorId: string) {
     {
       recipient_id: parent.profileId,
       title: "Admission accepted",
-      body: `${application.applicant_first_name}'s Crestview admission has been accepted. Please use the temporary password issued by the administrator to enter the parent workspace.`,
+      body: parent.accessEmailSent
+        ? `${application.applicant_first_name}'s Crestview admission has been accepted. Open the secure access email to choose your password and enter the parent workspace.`
+        : `${application.applicant_first_name}'s Crestview admission has been accepted and linked to your parent workspace.`,
       type: "workflow",
       metadata: { admission_application_id: application.id, student_id: student.id }
     },
@@ -290,12 +459,12 @@ async function acceptAdmission(applicationId: string, actorId: string) {
       metadata: { admission_application_id: application.id, student_id: student.id }
     }
   ]);
-  const credentialLine = parent.password
-    ? ` Parent login: ${application.guardian_email.toLowerCase()} / ${parent.password}.`
+  const accessLine = parent.accessEmailSent
+    ? ` Secure parent access email sent to ${application.guardian_email.toLowerCase()}.`
     : ` Parent account already exists for ${application.guardian_email.toLowerCase()}.`;
   return {
     ok: true,
-    message: `${application.applicant_first_name} ${application.applicant_last_name} accepted as ${studentNumber}.${credentialLine} Student portal is prepared and inactive until the class teacher activates it.`
+    message: `${application.applicant_first_name} ${application.applicant_last_name} accepted as ${studentNumber}.${accessLine} Student portal is prepared and inactive until the class teacher activates it.`
   };
 }
 

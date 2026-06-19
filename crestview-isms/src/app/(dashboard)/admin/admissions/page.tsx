@@ -24,6 +24,7 @@ export default async function AdminAdmissionsPage() {
                     <th className="px-4 py-3">Applicant</th>
                     <th className="px-4 py-3">Grade</th>
                     <th className="px-4 py-3">Guardian</th>
+                    <th className="px-4 py-3">Health & documents</th>
                     <th className="px-4 py-3">Received</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Notes</th>
@@ -36,11 +37,28 @@ export default async function AdminAdmissionsPage() {
                       <td className="px-4 py-3">
                         <p className="font-black text-[var(--portal-text)]">{application.applicant}</p>
                         <p className="text-xs text-[var(--portal-muted)]">{application.source}</p>
+                        <p className="mt-1 text-xs font-semibold text-[var(--portal-muted)]">DOB: {application.dateOfBirth} | {application.gender}</p>
+                        <p className="mt-1 max-w-72 text-xs font-semibold text-[var(--portal-muted)]">{application.address}</p>
                       </td>
-                      <td className="px-4 py-3 text-[var(--portal-text)]">{application.applyingGrade}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-bold text-[var(--portal-text)]">{application.applyingGrade}</p>
+                        <p className="mt-1 text-xs font-semibold text-[var(--portal-muted)]">Previous: {application.previousSchool}</p>
+                      </td>
                       <td className="px-4 py-3">
                         <p className="text-[var(--portal-text)]">{application.guardian}</p>
                         <p className="text-xs text-[var(--portal-muted)]">{application.phone}</p>
+                        <div className="mt-2 grid gap-1">
+                          {application.guardians.slice(0, 3).map((guardian) => (
+                            <p key={`${guardian.name}-${guardian.relationship}`} className="text-xs font-semibold text-[var(--portal-muted)]">
+                              {guardian.primary ? "Primary: " : ""}{guardian.name} ({guardian.relationship}) | {guardian.phone}
+                            </p>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="max-w-80 px-4 py-3">
+                        <p className="text-xs font-semibold text-[var(--portal-muted)]">{application.emergencyContact}</p>
+                        <p className="mt-1 text-xs font-semibold text-[var(--portal-muted)]">{application.healthSummary}</p>
+                        <p className="mt-1 text-xs font-semibold text-[var(--portal-muted)]">{application.documents}</p>
                       </td>
                       <td className="px-4 py-3 font-semibold text-[var(--portal-muted)]">{application.submittedAt}</td>
                       <td className="px-4 py-3"><StatusBadge status={application.status} /></td>

@@ -9,7 +9,7 @@ type RoleExperience = {
 };
 
 export const roleExperiences: RoleExperience[] = [
-  { role: "super_admin", label: "Head Administrator", home: "/admin", summary: "School-wide oversight and beta coordination.", access: ["All admin suites", "Access management", "Settings and reports"] },
+  { role: "super_admin", label: "Head Administrator", home: "/admin", summary: "School-wide oversight and pilot coordination.", access: ["All admin suites", "Access management", "Settings and reports"] },
   { role: "school_admin", label: "School Administrator", home: "/admin", summary: "Daily academic and operational management.", access: ["Students and staff", "Attendance and grades", "Fees, reports, and access"] },
   { role: "teacher", label: "Teacher", home: "/teacher", summary: "Classroom delivery and learner progress.", access: ["Classes and attendance", "Grades and assignments", "Lesson planner"] },
   { role: "student", label: "Student", home: "/student", summary: "Personal learning workspace.", access: ["Assignments", "Attendance and grades", "AI tutor"] },
