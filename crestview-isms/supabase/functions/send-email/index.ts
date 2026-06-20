@@ -7,6 +7,8 @@ serve(async (req) => {
 
   const payload = await req.json() as { to?: string; subject?: string; html?: string; type?: string };
   const apiKey = Deno.env.get("RESEND_API_KEY");
+  const from = Deno.env.get("CRESTVIEW_EMAIL_FROM") ?? Deno.env.get("RESEND_FROM_EMAIL") ?? "Crestview International School <noreply@crestview.edu>";
+  const replyTo = Deno.env.get("CRESTVIEW_EMAIL_REPLY_TO");
 
   if (!apiKey) {
     return Response.json({ queued: false, reason: "RESEND_API_KEY is not configured.", payload });
@@ -19,10 +21,11 @@ serve(async (req) => {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      from: "Crestview <noreply@crestview.edu>",
+      from,
       to: payload.to,
       subject: payload.subject ?? "Crestview notification",
-      html: payload.html ?? `<p>${payload.type ?? "Notification"}</p>`
+      html: payload.html ?? `<p>${payload.type ?? "Notification"}</p>`,
+      ...(replyTo ? { reply_to: replyTo } : {})
     })
   });
 

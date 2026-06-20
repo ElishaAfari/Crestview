@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireRoles } from "@/features/auth/guards";
 import { createWorkflowTask } from "@/features/automation/actions";
 import { APP_URL } from "@/lib/constants";
+import { createPortalInvitation } from "@/lib/email/portal-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { admissionSchema } from "@/lib/validations/admission.schema";
 import type { Json } from "@/types/database.types";
@@ -257,11 +258,16 @@ async function ensureParentAccount(application: {
   const guardian = primaryGuardian as { first_name: string; last_name: string; phone: string | null } | null;
   const firstName = guardian?.first_name ?? "Guardian";
   const lastName = guardian?.last_name ?? application.applicant_last_name;
-  const { data: account, error } = await admin.auth.admin.inviteUserByEmail(email, {
+  const account = await createPortalInvitation({
+    admin,
+    email,
+    firstName,
+    lastName,
+    role: "parent",
     redirectTo: `${APP_URL}/reset-password`,
-    data: { first_name: firstName, last_name: lastName, role: "parent", admission_application_id: application.id }
+    metadata: { first_name: firstName, last_name: lastName, role: "parent", admission_application_id: application.id, account_source: "admission_acceptance" }
   });
-  if (error || !account.user) return { ok: false as const, message: "The guardian portal invitation could not be sent. The email may already have an account." };
+  if (!account.ok) return { ok: false as const, message: account.message };
   const { error: profileError } = await admin.from("profiles").insert({
     id: account.user.id,
     role_id: role.id,
@@ -295,9 +301,9 @@ async function ensureParentAccount(application: {
     action: "created",
     reason: "Parent account invited after accepted admission",
     performed_by: actorId,
-    snapshot: { admission_application_id: application.id, access_method: "secure_invite_link" }
+    snapshot: { admission_application_id: application.id, access_method: "secure_invite_link", delivery: account.delivery, delivered_to: account.deliveredTo }
   });
-  return { ok: true as const, profileId: account.user.id, created: true, accessEmailSent: true };
+  return { ok: true as const, profileId: account.user.id, created: true, accessEmailSent: true, delivery: account.delivery, deliveredTo: account.deliveredTo };
 }
 
 async function acceptAdmission(applicationId: string, actorId: string) {

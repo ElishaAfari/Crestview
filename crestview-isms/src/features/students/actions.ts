@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { APP_URL } from "@/lib/constants";
 import { requireRoles } from "@/features/auth/guards";
+import { createPortalInvitation } from "@/lib/email/portal-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { studentSchema } from "@/lib/validations/student.schema";
 import type { Json } from "@/types/database.types";
@@ -24,11 +25,16 @@ export async function createStudentAction(formData: FormData) {
   const { data: studentRole } = await admin.from("roles").select("id").eq("name", "student").single();
   if (!studentRole) return { ok: false, message: "The student role is not configured." };
 
-  const { data: invite, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+  const invite = await createPortalInvitation({
+    admin,
+    email,
+    firstName: result.data.firstName.trim(),
+    lastName: result.data.lastName.trim(),
+    role: "student",
     redirectTo: `${APP_URL}/reset-password`,
-    data: { first_name: result.data.firstName.trim(), last_name: result.data.lastName.trim(), role: "student" }
+    metadata: { account_source: "manual_student_enrollment" }
   });
-  if (inviteError || !invite.user) return { ok: false, message: "The student invitation could not be sent. The email may already be in use." };
+  if (!invite.ok) return { ok: false, message: invite.message };
 
   const { error: profileError } = await admin.from("profiles").insert({
     id: invite.user.id,
@@ -49,7 +55,8 @@ export async function createStudentAction(formData: FormData) {
     return { ok: false, message: "The student record could not be created. Check the student number and classroom." };
   }
 
-  return { ok: true, message: "Student invited and enrolled." };
+  const delivery = invite.delivery === "crestview" ? "Crestview-branded access email" : "Supabase Auth access email";
+  return { ok: true, message: `Student invited and enrolled. ${delivery} sent to ${invite.deliveredTo}.` };
 }
 
 export async function withdrawStudentAction(formData: FormData) {

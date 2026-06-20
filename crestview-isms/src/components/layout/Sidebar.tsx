@@ -32,7 +32,7 @@ export function Sidebar() {
   const groupedItems = groupNavigation(items);
 
   return (
-    <aside className="hidden min-h-screen w-76 shrink-0 flex-col bg-[var(--portal-shell)] text-white shadow-[10px_0_40px_-28px_rgba(15,23,42,0.7)] lg:flex">
+    <aside className="hidden h-full min-h-0 w-76 shrink-0 flex-col overflow-hidden bg-[var(--portal-shell)] text-white shadow-[10px_0_40px_-28px_rgba(15,23,42,0.7)] lg:flex">
       <div className="border-b border-white/15 px-5 py-5">
         <Link href={home} className="flex items-center gap-3">
           <span className="relative size-12 overflow-hidden rounded-lg bg-white shadow-lg shadow-slate-950/20">

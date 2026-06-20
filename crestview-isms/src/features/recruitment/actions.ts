@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { APP_URL } from "@/lib/constants";
 import { requireRoles } from "@/features/auth/guards";
+import { createPortalInvitation } from "@/lib/email/portal-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createWorkflowTask } from "@/features/automation/actions";
 import { jobApplicationSchema } from "@/lib/validations/recruitment.schema";
@@ -214,11 +215,16 @@ async function createStaffFromApplication(applicationId: string, actorId: string
   const { data: role } = await admin.from("roles").select("id").eq("name", roleName).maybeSingle();
   if (!role) return { ok: false, message: "The matching staff role is not configured." };
 
-  const { data: invite, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+  const invite = await createPortalInvitation({
+    admin,
+    email,
+    firstName: record.first_name,
+    lastName: record.last_name,
+    role: roleName,
     redirectTo: `${APP_URL}/reset-password`,
-    data: { first_name: record.first_name, last_name: record.last_name, role: roleName, application_source: "recruitment" }
+    metadata: { application_source: "recruitment", account_source: "recruitment_acceptance", job_application_id: record.id }
   });
-  if (inviteError || !invite.user) return { ok: false, message: "The portal invitation could not be sent. Try again later." };
+  if (!invite.ok) return { ok: false, message: invite.message };
 
   const { error: profileError } = await admin.from("profiles").insert({
     id: invite.user.id,
@@ -273,7 +279,8 @@ async function createStaffFromApplication(applicationId: string, actorId: string
     type: "workflow",
     metadata: { job_application_id: record.id }
   });
-  return { ok: true, message: `${record.first_name} ${record.last_name} accepted and invited as ${roleName.replaceAll("_", " ")}.` };
+  const delivery = invite.delivery === "crestview" ? "Crestview-branded access email" : "Supabase Auth access email";
+  return { ok: true, message: `${record.first_name} ${record.last_name} accepted and invited as ${roleName.replaceAll("_", " ")}. ${delivery} sent to ${invite.deliveredTo}.` };
 }
 
 export async function decideJobApplicationAction(formData: FormData) {

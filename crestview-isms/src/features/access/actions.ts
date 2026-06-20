@@ -4,8 +4,10 @@ import { timingSafeEqual } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { APP_URL } from "@/lib/constants";
 import { requireRoles } from "@/features/auth/guards";
+import { createPortalInvitation, sendPortalAccessEmail } from "@/lib/email/portal-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { bootstrapAdminSchema, portalInviteSchema, resendPortalAccessSchema, updatePortalAccountSchema } from "@/lib/validations/access.schema";
+import type { Json } from "@/types/database.types";
 
 export type AccessActionState = { ok: boolean; message: string };
 
@@ -14,6 +16,35 @@ function matchesSecret(input: string, expected: string | undefined) {
   const inputBytes = Buffer.from(input);
   const expectedBytes = Buffer.from(expected);
   return inputBytes.length === expectedBytes.length && timingSafeEqual(inputBytes, expectedBytes);
+}
+
+function one<T>(value: T | T[] | null | undefined) {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
+
+function metadataRecord(metadata: Json | null | undefined): Record<string, unknown> {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata as Record<string, unknown> : {};
+}
+
+function isDeliverableEmail(email: string | null | undefined) {
+  return Boolean(email && email.includes("@") && !email.toLowerCase().endsWith(".local"));
+}
+
+async function resolveStudentDeliveryEmail(admin: ReturnType<typeof createAdminClient>, profileId: string, metadata: Json | null | undefined) {
+  const guardianEmail = metadataRecord(metadata).guardian_email;
+  if (typeof guardianEmail === "string" && isDeliverableEmail(guardianEmail)) return guardianEmail.toLowerCase();
+
+  const { data: student } = await admin.from("students").select("id").eq("profile_id", profileId).maybeSingle();
+  const studentId = (student as { id: string } | null)?.id;
+  if (!studentId) return null;
+
+  const { data: link } = await admin.from("parent_students").select("parent_profile_id").eq("student_id", studentId).limit(1).maybeSingle();
+  const parentProfileId = (link as { parent_profile_id: string | null } | null)?.parent_profile_id;
+  if (!parentProfileId) return null;
+
+  const { data: parent } = await admin.from("profiles").select("email").eq("id", parentProfileId).maybeSingle();
+  const parentEmail = (parent as { email: string | null } | null)?.email;
+  return isDeliverableEmail(parentEmail) ? parentEmail!.toLowerCase() : null;
 }
 
 export async function isBootstrapAvailable() {
@@ -89,11 +120,16 @@ export async function invitePortalUserAction(_: AccessActionState, formData: For
   const { data: role } = await admin.from("roles").select("id").eq("name", result.data.role).single();
   if (!role) return { ok: false, message: "The selected role is not configured." };
 
-  const { data: invitation, error: invitationError } = await admin.auth.admin.inviteUserByEmail(email, {
+  const invitation = await createPortalInvitation({
+    admin,
+    email,
+    firstName: result.data.firstName,
+    lastName: result.data.lastName,
+    role: result.data.role,
     redirectTo: `${APP_URL}/reset-password`,
-    data: { first_name: result.data.firstName, last_name: result.data.lastName, role: result.data.role, pilot_access: true }
+    metadata: { pilot_access: true, account_source: "admin_pilot_invite" }
   });
-  if (invitationError || !invitation.user) return { ok: false, message: "The invitation could not be sent. The email may already have an account." };
+  if (!invitation.ok) return { ok: false, message: invitation.message };
 
   const { error: profileError } = await admin.from("profiles").insert({
     id: invitation.user.id,
@@ -119,7 +155,8 @@ export async function invitePortalUserAction(_: AccessActionState, formData: For
   }
 
   revalidatePath("/admin/access");
-  return { ok: true, message: "Portal account created and secure access email sent." };
+  const delivery = invitation.delivery === "crestview" ? "Crestview-branded access email" : "Supabase Auth access email";
+  return { ok: true, message: `Portal account created. ${delivery} sent to ${invitation.deliveredTo}.` };
 }
 
 export async function updatePortalAccountAction(_: AccessActionState, formData: FormData): Promise<AccessActionState> {
@@ -178,13 +215,42 @@ export async function resendPortalAccessAction(_: AccessActionState, formData: F
 
   const { user } = await requireRoles(["super_admin", "school_admin"]);
   const admin = createAdminClient();
-  const { data: profile } = await admin.from("profiles").select("id,email,first_name,last_name,role_id,is_active").eq("id", result.data.accountId).maybeSingle();
+  const { data: profileData } = await admin
+    .from("profiles")
+    .select("id,email,first_name,last_name,role_id,is_active,metadata,roles(name)")
+    .eq("id", result.data.accountId)
+    .maybeSingle();
+  const profile = profileData as unknown as {
+    id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    role_id: string | null;
+    is_active: boolean | null;
+    metadata: Json | null;
+    roles: { name: string } | { name: string }[] | null;
+  } | null;
   if (!profile || profile.is_active === false) return { ok: false, message: "Enable this account before resending access." };
+  const roleName = one(profile.roles)?.name ?? "unassigned";
+  const deliveryEmail = roleName === "student"
+    ? await resolveStudentDeliveryEmail(admin, profile.id, profile.metadata) ?? profile.email
+    : profile.email;
 
-  const { error } = await admin.auth.resetPasswordForEmail(profile.email, {
-    redirectTo: `${APP_URL}/reset-password`
+  const access = await sendPortalAccessEmail({
+    admin,
+    authEmail: profile.email,
+    deliveryEmail,
+    firstName: profile.first_name,
+    lastName: profile.last_name,
+    role: roleName,
+    redirectTo: `${APP_URL}/reset-password`,
+    intro: roleName === "student"
+      ? `${profile.first_name}'s Crestview student portal access is ready. Use this secure link to choose the student account password.`
+      : "Your Crestview portal access link is ready. Use this secure link to choose a password and continue into your workspace.",
+    subject: roleName === "student" ? `${profile.first_name}'s Crestview student portal access` : "Your Crestview portal access link",
+    accountEmailLabel: roleName === "student" ? "Student sign-in email" : "Sign-in email"
   });
-  if (error) return { ok: false, message: "The secure access email could not be sent." };
+  if (!access.ok) return { ok: false, message: access.message };
 
   const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
   const { data: invitation } = await admin.from("portal_invitations").select("id").eq("auth_user_id", profile.id).maybeSingle();
@@ -204,5 +270,6 @@ export async function resendPortalAccessAction(_: AccessActionState, formData: F
   }
 
   revalidatePath("/admin/access");
-  return { ok: true, message: "A fresh secure access email has been sent." };
+  const delivery = access.delivery === "crestview" ? "Crestview-branded access email" : "Supabase Auth access email";
+  return { ok: true, message: `${delivery} sent to ${access.deliveredTo}.` };
 }

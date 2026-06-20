@@ -69,7 +69,7 @@ export function TopNav() {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--portal-border)] bg-[var(--portal-surface)]/95 px-3 py-3 shadow-[0_8px_28px_-26px_rgba(7,55,127,0.65)] backdrop-blur-xl sm:px-6 lg:px-8">
+    <header className="z-30 shrink-0 border-b border-[var(--portal-border)] bg-[var(--portal-surface)]/95 px-3 py-3 shadow-[0_8px_28px_-26px_rgba(7,55,127,0.65)] backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-3">
         <Button variant="ghost" size="icon" className="shrink-0 lg:hidden" onClick={toggleSidebar} aria-label="Open navigation">
           <Menu className="size-5" aria-hidden />

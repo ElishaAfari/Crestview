@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRoles } from "@/features/auth/guards";
 import { createWorkflowTask } from "@/features/automation/actions";
+import { sendPortalAccessEmail } from "@/lib/email/portal-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.types";
 
@@ -23,6 +24,27 @@ function studentEmailFor(studentNumber: string) {
 
 function studentPasswordFor(studentNumber: string) {
   return `${studentNumber.replace(/[^a-z0-9]/gi, "").slice(-8)}${randomBytes(12).toString("base64url")}Aa1!`;
+}
+
+function metadataRecord(metadata: Json | null | undefined): Record<string, unknown> {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata as Record<string, unknown> : {};
+}
+
+function isDeliverableEmail(email: string | null | undefined) {
+  return Boolean(email && email.includes("@") && !email.toLowerCase().endsWith(".local"));
+}
+
+async function guardianEmailForStudent(admin: ReturnType<typeof createAdminClient>, studentId: string, metadata: Json | null | undefined) {
+  const guardianEmail = metadataRecord(metadata).guardian_email;
+  if (typeof guardianEmail === "string" && isDeliverableEmail(guardianEmail)) return guardianEmail.toLowerCase();
+
+  const { data: link } = await admin.from("parent_students").select("parent_profile_id").eq("student_id", studentId).limit(1).maybeSingle();
+  const parentProfileId = (link as { parent_profile_id: string | null } | null)?.parent_profile_id;
+  if (!parentProfileId) return null;
+
+  const { data: parent } = await admin.from("profiles").select("email").eq("id", parentProfileId).maybeSingle();
+  const parentEmail = (parent as { email: string | null } | null)?.email;
+  return isDeliverableEmail(parentEmail) ? parentEmail!.toLowerCase() : null;
 }
 
 async function canManageClassroom(userId: string, role: string, classroomId: string) {
@@ -68,6 +90,8 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
     const { data: currentProfile } = await admin.from("profiles").select("email,is_active,metadata").eq("id", existing.profile_id).maybeSingle();
     const profile = currentProfile as { email: string; is_active: boolean | null; metadata: Json | null } | null;
     const wasPending = profile?.is_active === false || (typeof profile?.metadata === "object" && !Array.isArray(profile.metadata) && profile.metadata?.student_access_pending === true);
+    let accessSent = false;
+    let accessMessage: string | undefined;
     await admin.from("profiles").update({
       first_name: input.firstName.trim(),
       last_name: input.lastName.trim(),
@@ -88,6 +112,32 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
           student_number: studentNumber
         }
       });
+      if (profile?.email) {
+        const deliveryEmail = await guardianEmailForStudent(admin, existing.id, profile.metadata);
+        const access = await sendPortalAccessEmail({
+          admin,
+          authEmail: profile.email,
+          deliveryEmail: deliveryEmail ?? profile.email,
+          firstName: input.firstName.trim(),
+          lastName: input.lastName.trim(),
+          role: "student",
+          subject: `${input.firstName.trim()}'s Crestview student portal access`,
+          intro: `${input.firstName.trim()}'s Crestview student portal has been activated for class learning, attendance, reports, and academic updates. Use this secure link to choose the student account password.`,
+          buttonLabel: "Choose student password",
+          accountEmailLabel: "Student sign-in email"
+        });
+        accessSent = access.ok;
+        accessMessage = access.ok ? `Student access email sent to ${access.deliveredTo}.` : access.message;
+        if (access.ok) {
+          await admin.from("account_lifecycle_records").insert({
+            profile_id: existing.profile_id,
+            student_id: existing.id,
+            action: "password_issued",
+            reason: "Student setup link sent after roster activation",
+            snapshot: { student_number: studentNumber, classroom_id: classroomId, delivery: access.delivery, delivered_to: access.deliveredTo }
+          });
+        }
+      }
       await admin.from("account_lifecycle_records").insert({
         profile_id: existing.profile_id,
         student_id: existing.id,
@@ -104,7 +154,7 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
         roster_updated_at: new Date().toISOString()
       } satisfies Json
     }).eq("id", existing.id);
-    return { created: false, accessPrepared: wasPending && Boolean(profile?.email) };
+    return { created: false, accessPrepared: wasPending && Boolean(profile?.email), accessSent, accessMessage };
   }
 
   const email = studentEmailFor(studentNumber);
@@ -161,7 +211,7 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
     reason: "Student portal account created from class roster",
     snapshot: { student_number: studentNumber, classroom_id: classroomId, access_method: "secure_access_required" }
   });
-  return { created: true, accessPrepared: true };
+  return { created: true, accessPrepared: true, accessSent: false, accessMessage: undefined };
 }
 
 export async function saveClassRosterAction(formData: FormData) {
@@ -193,12 +243,20 @@ export async function saveClassRosterAction(formData: FormData) {
   let created = 0;
   let updated = 0;
   let accessPrepared = 0;
+  let accessSent = 0;
+  let accessBlocked = 0;
+  const accessWarnings = new Set<string>();
   try {
     for (const student of deduped) {
       const outcome = await createStudentFromRoster(student, classroomId, String(studentRole.id));
       if (outcome.created) created += 1;
       else updated += 1;
       if (outcome.accessPrepared) accessPrepared += 1;
+      if (outcome.accessSent) accessSent += 1;
+      if (outcome.accessPrepared && !outcome.accessSent && outcome.accessMessage) {
+        accessBlocked += 1;
+        accessWarnings.add(outcome.accessMessage);
+      }
     }
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "The class roster could not be saved." };
@@ -255,8 +313,11 @@ export async function saveClassRosterAction(formData: FormData) {
   revalidatePath("/teacher/attendance");
   revalidatePath("/admin/students");
   revalidatePath("/admin/attendance");
-  const accessMessage = accessPrepared
-    ? ` ${accessPrepared} student portal record${accessPrepared === 1 ? "" : "s"} prepared; send secure access from User Management when ready.`
+  const warningText = accessBlocked ? ` ${accessBlocked} access email${accessBlocked === 1 ? "" : "s"} could not be delivered: ${Array.from(accessWarnings).slice(0, 2).join(" ")}` : "";
+  const accessMessage = accessSent
+    ? ` ${accessSent} student portal access email${accessSent === 1 ? "" : "s"} sent.`
+    : accessPrepared
+      ? ` ${accessPrepared} student portal record${accessPrepared === 1 ? "" : "s"} prepared; send secure access from User Management when ready.`
     : "";
-  return { ok: true, message: `${deduped.length} students saved. ${created} new, ${updated} updated.${accessMessage}` };
+  return { ok: true, message: `${deduped.length} students saved. ${created} new, ${updated} updated.${accessMessage}${warningText}` };
 }

@@ -143,7 +143,7 @@ export function AdmissionForm() {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-5">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="grid max-h-[calc(100dvh-9rem)] gap-5 overflow-y-auto overscroll-contain pr-1 sm:pr-2 lg:max-h-[calc(100dvh-15rem)]">
       <Section title="Learner Information">
         <TextField label="First name" required><Input required className={inputClass} {...form.register("applicantFirstName")} /></TextField>
         <TextField label="Middle name"><Input className={inputClass} {...form.register("applicantMiddleName")} /></TextField>

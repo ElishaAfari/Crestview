@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { APP_URL } from "@/lib/constants";
 import { requireRoles } from "@/features/auth/guards";
+import { createPortalInvitation } from "@/lib/email/portal-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { staffSchema } from "@/lib/validations/staff.schema";
 
@@ -25,11 +26,16 @@ export async function createStaffAction(formData: FormData) {
   const { data: staffRole } = await admin.from("roles").select("id").eq("name", result.data.role).single();
   if (!staffRole) return { ok: false, message: "The selected staff role is not configured." };
 
-  const { data: invite, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+  const invite = await createPortalInvitation({
+    admin,
+    email,
+    firstName: result.data.firstName.trim(),
+    lastName: result.data.lastName.trim(),
+    role: result.data.role,
     redirectTo: `${APP_URL}/reset-password`,
-    data: { first_name: result.data.firstName.trim(), last_name: result.data.lastName.trim(), role: result.data.role }
+    metadata: { account_source: "manual_staff_create" }
   });
-  if (inviteError || !invite.user) return { ok: false, message: "The staff invitation could not be sent. The email may already be in use." };
+  if (!invite.ok) return { ok: false, message: invite.message };
 
   const { error: profileError } = await admin.from("profiles").insert({
     id: invite.user.id,
@@ -55,7 +61,8 @@ export async function createStaffAction(formData: FormData) {
     return { ok: false, message: "The staff profile could not be created. Check the staff number and role." };
   }
 
-  return { ok: true, message: `Staff member invited with staff number ${staffNumber}.` };
+  const delivery = invite.delivery === "crestview" ? "Crestview-branded access email" : "Supabase Auth access email";
+  return { ok: true, message: `Staff member invited with staff number ${staffNumber}. ${delivery} sent to ${invite.deliveredTo}.` };
 }
 
 export async function deactivateStaffAction(formData: FormData) {
