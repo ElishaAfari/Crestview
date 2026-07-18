@@ -52,7 +52,7 @@ const accentStyles = {
 const quickActions = [
   { label: "Review admissions", href: "/admin/admissions", icon: UserCheck, tone: "blue" as const },
   { label: "Review recruitment", href: "/admin/recruitment", icon: BriefcaseBusiness, tone: "amber" as const },
-  { label: "Create invoice", href: "/admin/fees#create-invoice", icon: FilePlus2, tone: "green" as const },
+  { label: "Daily fee capture", href: "/admin/fees#daily-payment", icon: FilePlus2, tone: "green" as const },
   { label: "User access", href: "/admin/access", icon: UserRoundCog, tone: "red" as const },
   { label: "Student 360", href: "/admin/student-360", icon: Sparkles, tone: "blue" as const },
   { label: "Automation", href: "/admin/automation", icon: GitBranch, tone: "amber" as const }

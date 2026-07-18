@@ -2,7 +2,9 @@
 
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-const data = [
+type FinanceChartDatum = { month: string; collected: number; pending: number };
+
+const fallbackData: FinanceChartDatum[] = [
   { month: "Jan", collected: 82, pending: 18 },
   { month: "Feb", collected: 88, pending: 12 },
   { month: "Mar", collected: 91, pending: 9 },
@@ -10,7 +12,7 @@ const data = [
   { month: "May", collected: 93, pending: 7 }
 ];
 
-export function FinanceChart() {
+export function FinanceChart({ data = fallbackData }: { data?: FinanceChartDatum[] }) {
   return (
     <div className="h-72">
       <ResponsiveContainer width="100%" height="100%">

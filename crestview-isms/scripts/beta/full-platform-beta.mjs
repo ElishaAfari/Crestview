@@ -177,7 +177,14 @@ async function cleanupRun(cleanupRunId) {
   const bookIds = await selectColumn("library_books", "id", (query) => query.ilike("isbn", `BETA-${cleanupRunId}-%`));
   const copyIds = bookIds.length ? await selectColumn("library_copies", "id", (query) => query.in("book_id", bookIds)) : [];
   const payrollPeriodIds = await selectColumn("payroll_periods", "id", (query) => query.ilike("name", `%${cleanupRunId}%`));
-  const conversationIds = await selectColumn("conversations", "id", (query) => query.ilike("title", `%${cleanupRunId}%`));
+  const conversationIdsByTitle = await selectColumn("conversations", "id", (query) => query.ilike("title", `%${cleanupRunId}%`));
+  const conversationIdsByMember = profileIds.length
+    ? await selectColumn("conversation_members", "conversation_id", (query) => query.in("profile_id", profileIds))
+    : [];
+  const conversationIdsBySender = profileIds.length
+    ? await selectColumn("messages", "conversation_id", (query) => query.in("sender_id", profileIds))
+    : [];
+  const conversationIds = [...new Set([...conversationIdsByTitle, ...conversationIdsByMember, ...conversationIdsBySender])];
   const messageIds = conversationIds.length ? await selectColumn("messages", "id", (query) => query.in("conversation_id", conversationIds)) : [];
 
   await deleteByIn("support_ticket_comments", "ticket_id", ticketIds);
@@ -192,7 +199,9 @@ async function cleanupRun(cleanupRunId) {
   await deleteByIn("leave_requests", "staff_profile_id", staffProfileIds);
   await deleteByIn("message_attachments", "message_id", messageIds);
   await deleteByIn("messages", "conversation_id", conversationIds);
+  await deleteByIn("messages", "sender_id", profileIds);
   await deleteByIn("conversation_members", "conversation_id", conversationIds);
+  await deleteByIn("conversation_members", "profile_id", profileIds);
   await deleteByIn("conversations", "id", conversationIds);
   await deleteByIn("communication_recipients", "campaign_id", campaignIds);
   await deleteWhere("communication_recipients", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
@@ -208,6 +217,8 @@ async function cleanupRun(cleanupRunId) {
   await deleteWhere("grade_items", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
   await deleteByIn("attendance_records", "register_id", registerIds);
   await deleteWhere("attendance_registers", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteByIn("daily_fee_payments", "student_id", studentIds);
+  await deleteWhere("daily_fee_plans", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
   await deleteByIn("invoice_items", "invoice_id", invoiceIds);
   await deleteByIn("payments", "invoice_id", invoiceIds);
   await deleteWhere("invoices", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
@@ -216,7 +227,10 @@ async function cleanupRun(cleanupRunId) {
   await deleteWhere("job_applications", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
   await deleteWhere("job_postings", (query) => query.ilike("title", `%Beta ${cleanupRunId}%`));
   await deleteWhere("admission_applications", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteWhere("events", (query) => query.contains("metadata", { beta_run_id: cleanupRunId }));
+  await deleteByIn("events", "created_by", profileIds);
   await deleteByIn("student_documents", "student_id", studentIds);
+  await deleteByIn("student_id_cards", "student_id", studentIds);
   await deleteByIn("student_behavior_records", "student_id", studentIds);
   await deleteByIn("student_medical_records", "student_id", studentIds);
   await deleteByIn("student_enrollments", "student_id", studentIds);
@@ -227,8 +241,11 @@ async function cleanupRun(cleanupRunId) {
   await deleteByIn("teacher_assignments", "course_id", courseIds);
   await deleteByIn("courses", "id", courseIds);
   await deleteByIn("classrooms", "id", classroomIds);
+  await deleteWhere("school_days", (query) => query.in("academic_year_id", academicYearIds));
   await deleteWhere("terms", (query) => query.in("academic_year_id", academicYearIds));
   await deleteByIn("staff_profiles", "id", staffProfileIds);
+  await deleteByIn("audit_logs", "actor_id", profileIds);
+  await deleteByIn("audit_logs", "record_id", [...profileIds, ...studentIds, ...staffProfileIds]);
 
   for (const profileId of profileIds) {
     const { error } = await supabase.auth.admin.deleteUser(profileId);
@@ -313,6 +330,9 @@ const classPlan = [
   { name: "Primary 4", level: "Primary 4", capacity: 35, subjects: ["Maths", "English", "RME", "Creative Art", "Digital Literacy", "Ghanaian Language", "French", "History"] },
   { name: "Primary 5", level: "Primary 5", capacity: 35, subjects: ["Maths", "English", "RME", "Creative Art", "Digital Literacy", "Ghanaian Language", "French", "History"] },
   { name: "Primary 6", level: "Primary 6", capacity: 35, subjects: ["Maths", "English", "RME", "Creative Art", "Digital Literacy", "Ghanaian Language", "French", "History"] },
+  { name: "JHS 1", level: "Junior High 1", capacity: 35, subjects: ["English Language", "Mathematics", "Integrated Science", "Social Studies", "Computing / ICT", "Religious and Moral Education (RME)", "Career Technology", "Creative Arts and Design", "Ghanaian Language and Culture", "French"] },
+  { name: "JHS 2", level: "Junior High 2", capacity: 35, subjects: ["English Language", "Mathematics", "Integrated Science", "Social Studies", "Computing / ICT", "Religious and Moral Education (RME)", "Career Technology", "Creative Arts and Design", "Ghanaian Language and Culture", "French"] },
+  { name: "JHS 3", level: "Junior High 3", capacity: 35, subjects: ["English Language", "Mathematics", "Integrated Science", "Social Studies", "Computing / ICT", "Religious and Moral Education (RME)", "Career Technology", "Creative Arts and Design", "Ghanaian Language and Culture", "French"] },
 ];
 
 const firstNames = [
@@ -427,14 +447,23 @@ const { academicYear, terms } = await step("create beta academic calendar", asyn
 
 const { departments, subjects, classrooms } = await step("create school structure", async () => {
   const departmentRows = [
-    ["ADM", "Administration"],
+    ["ADMIN", "Administration"],
     ["ACA", "Academics"],
     ["FIN", "Finance"],
     ["HR", "Human Resource"],
     ["LIB", "Library"],
     ["IT", "Information Technology"],
   ].map(([code, name]) => ({ code, name, description: `${name} beta department` }));
-  const createdDepartments = await dbUpsert("departments", departmentRows, { onConflict: "code" });
+  const existingDepartments = await dbSelect("departments", "id,code,name,description");
+  const existingDepartmentCodes = new Set(existingDepartments.map((department) => department.code));
+  const insertedDepartments = await dbInsert(
+    "departments",
+    departmentRows.filter((department) => !existingDepartmentCodes.has(department.code)),
+  );
+  const createdDepartments = [
+    ...existingDepartments.filter((department) => departmentRows.some((row) => row.code === department.code)),
+    ...insertedDepartments,
+  ];
   const academicDepartment = createdDepartments.find((department) => department.code === "ACA");
   const subjectNames = [...new Set(classPlan.flatMap((item) => item.subjects))];
   const createdSubjects = await dbUpsert(
@@ -523,7 +552,7 @@ const staffProfiles = await step("create staff records and class assignments", a
                 ? department.code === "IT"
                 : person.role === "teacher"
                   ? department.code === "ACA"
-                  : department.code === "ADM",
+                  : department.code === "ADMIN",
       )?.id ?? null,
     job_title: person.role.replace(/_/g, " "),
     employment_type: "full_time",
@@ -698,7 +727,7 @@ const applications = await step("simulate admissions and recruitment", async () 
     "job_postings",
     ["STEM and Robotics Teacher", "Music Teacher", "Lower Primary Teacher", "School Nurse"].map((title, index) => ({
       title: `${title} Beta ${runId}`,
-      department_id: departments.find((department) => (index === 3 ? department.code === "ADM" : department.code === "ACA"))?.id ?? null,
+      department_id: departments.find((department) => (index === 3 ? department.code === "ADMIN" : department.code === "ACA"))?.id ?? null,
       employment_type: index === 3 ? "part_time" : "full_time",
       description: `${title} recruitment workflow generated for beta readiness testing.`,
       closes_on: plusDays(30 + index),
@@ -733,13 +762,64 @@ const applications = await step("simulate admissions and recruitment", async () 
 });
 
 const finance = await step("simulate class billing, invoices, and payments", async () => {
+  const dailyFeePlans = await dbInsert(
+    "daily_fee_plans",
+    classrooms.map((classroom, index) => ({
+      classroom_id: classroom.id,
+      academic_year_id: academicYear.id,
+      name: `${classroom.grade_level} Daily School Fee`,
+      amount: index < 2 ? 7 : index < 4 ? 8 : index < 10 ? 10 : 12,
+      currency: "GHS",
+      effective_from: "2026-09-01",
+      effective_to: "2027-07-31",
+      is_active: true,
+      created_by: peopleByRole.finance_officer[0].id,
+      metadata: {
+        ...betaMarker,
+        model: "daily_fee",
+        qr_enabled: true,
+        applies_when: "student attends school for the day",
+      },
+    })),
+  );
+  const planByClass = Object.fromEntries(dailyFeePlans.map((plan) => [plan.classroom_id, plan]));
+  const dailyFeeRows = [];
+  for (let day = 0; day < 5; day += 1) {
+    students.forEach((student, index) => {
+      const plan = planByClass[student.classroom_id];
+      if (!plan || (index + day) % 29 === 0) return;
+      const paymentStatus = (index + day) % 31 === 0 ? "waived" : "paid";
+      dailyFeeRows.push({
+        student_id: student.id,
+        classroom_id: student.classroom_id,
+        academic_year_id: academicYear.id,
+        fee_plan_id: plan.id,
+        payment_date: plusDays(day),
+        student_number: student.student_number,
+        qr_payload: `CIS-STUDENT:${student.student_number.toUpperCase()}`,
+        amount: plan.amount,
+        currency: "GHS",
+        method: (index + day) % 4 === 0 ? "mobile_money" : "cash",
+        status: paymentStatus,
+        reference: `DFP-${runId}-${String(day + 1).padStart(2, "0")}-${String(index + 1).padStart(3, "0")}`,
+        recorded_by: peopleByRole.finance_officer[index % peopleByRole.finance_officer.length].id,
+        notes: paymentStatus === "waived" ? "Beta bursary waiver for daily fee workflow." : "Beta daily fee collected at finance desk.",
+        metadata: {
+          ...betaMarker,
+          scan_source: (index + day) % 4 === 0 ? "student_qr_card" : "manual_student_id",
+          school_fee_model: "daily",
+        },
+      });
+    });
+  }
+  const dailyFeePayments = await dbInsert("daily_fee_payments", dailyFeeRows);
   const batches = await dbInsert(
     "billing_batches",
     classrooms.map((classroom, index) => ({
       batch_number: `BILL-${runId}-${String(index + 1).padStart(2, "0")}`,
       classroom_id: classroom.id,
-      title: `${classroom.grade_level} Term 1 Fees`,
-      description: "Class-level automated fee billing generated during beta readiness testing.",
+      title: `${classroom.grade_level} Special Bill`,
+      description: "Exceptional class-level billing retained for uniforms, resources, trips, and other non-daily charges.",
       amount: index < 2 ? 1500 : index < 4 ? 1800 : 2200 + index * 150,
       currency: "GHS",
       due_date: plusDays(35),
@@ -803,7 +883,7 @@ const finance = await step("simulate class billing, invoices, and payments", asy
       metadata: betaMarker,
     })),
   );
-  return { batches, invoices, payments };
+  return { batches, invoices, payments, dailyFeePlans, dailyFeePayments };
 });
 
 const attendance = await step("submit teacher attendance registers", async () => {
@@ -1326,6 +1406,13 @@ await step("create notifications, messages, tasks, and lifecycle records", async
 });
 
 await step("audit beta platform readiness", async () => {
+  const expectedCourseCount = classPlan.reduce((sum, classroom) => sum + classroom.subjects.length, 0);
+  const studentCountByClassroom = new Map();
+  students.forEach((student) => {
+    studentCountByClassroom.set(student.classroom_id, (studentCountByClassroom.get(student.classroom_id) ?? 0) + 1);
+  });
+  const expectedGradeCount = courses.reduce((sum, course) => sum + (studentCountByClassroom.get(course.classroom_id) ?? 0), 0);
+  const expectedDailyFeePaymentMinimum = Math.floor(students.length * 5 * 0.9);
   const counts = {
     profiles: await countRows("profiles", (query) => query.contains("metadata", { beta_run_id: runId })),
     students: await countRows("students", (query) => query.contains("metadata", { beta_run_id: runId })),
@@ -1334,6 +1421,9 @@ await step("audit beta platform readiness", async () => {
     jobApplications: await countRows("job_applications", (query) => query.contains("metadata", { beta_run_id: runId })),
     invoices: await countRows("invoices", (query) => query.contains("metadata", { beta_run_id: runId })),
     payments: finance.payments.length,
+    dailyFeePlans: finance.dailyFeePlans.length,
+    dailyFeePayments: finance.dailyFeePayments.length,
+    activeStudentIdCards: await countRows("student_id_cards", (query) => query.in("student_id", students.map((student) => student.id)).eq("status", "active").is("deleted_at", null)),
     attendanceRegisters: await countRows("attendance_registers", (query) => query.contains("metadata", { beta_run_id: runId })),
     attendanceRecords: attendance.records.length,
     gradeItems: gradebook.gradeItems.length,
@@ -1354,14 +1444,18 @@ await step("audit beta platform readiness", async () => {
   assertCheck("created 110 students", counts.students === 110, { expected: 110, actual: counts.students });
   assertCheck("linked every student to a guardian", parentLinks.length === students.length, { expected: students.length, actual: parentLinks.length });
   assertCheck("created staff profiles for every operational account", counts.staffProfiles === 35, { expected: 35, actual: counts.staffProfiles });
-  assertCheck("class curriculum has courses for all required subjects", courses.length === 64, { expected: 64, actual: courses.length });
+  assertCheck("class curriculum has courses for all required subjects including JHS", courses.length === expectedCourseCount, { expected: expectedCourseCount, actual: courses.length });
+  assertCheck("JHS 1-3 curriculum includes the ten required junior high subjects", courses.filter((course) => classrooms.find((classroom) => classroom.id === course.classroom_id)?.grade_level?.startsWith("Junior High")).length === 30, { expected: 30, actual: courses.filter((course) => classrooms.find((classroom) => classroom.id === course.classroom_id)?.grade_level?.startsWith("Junior High")).length });
   assertCheck("admissions workflow generated review records", counts.admissions === 24, { expected: 24, actual: counts.admissions });
   assertCheck("recruitment workflow generated applications", counts.jobApplications === 18, { expected: 18, actual: counts.jobApplications });
-  assertCheck("finance generated one invoice per student", counts.invoices === students.length, { expected: students.length, actual: counts.invoices });
+  assertCheck("finance generated daily fee plans for every class", counts.dailyFeePlans === classrooms.length, { expected: classrooms.length, actual: counts.dailyFeePlans });
+  assertCheck("finance recorded daily QR/ID fee payments across the test week", counts.dailyFeePayments >= expectedDailyFeePaymentMinimum, { expectedAtLeast: expectedDailyFeePaymentMinimum, actual: counts.dailyFeePayments });
+  assertCheck("every active student has a QR ID card", counts.activeStudentIdCards === students.length, { expected: students.length, actual: counts.activeStudentIdCards });
+  assertCheck("finance generated one special invoice per student", counts.invoices === students.length, { expected: students.length, actual: counts.invoices });
   assertCheck("payments were recorded for paid invoices", counts.payments > 0, { actual: counts.payments });
   assertCheck("attendance registers cover each class for five days", counts.attendanceRegisters === classrooms.length * 5, { expected: classrooms.length * 5, actual: counts.attendanceRegisters });
   assertCheck("attendance records cover every student for five days", counts.attendanceRecords === students.length * 5, { expected: students.length * 5, actual: counts.attendanceRecords });
-  assertCheck("professional 30/70 gradebook covers class subjects", counts.grades === 704, { expected: 704, actual: counts.grades });
+  assertCheck("professional 30/70 gradebook covers every class subject", counts.grades === expectedGradeCount, { expected: expectedGradeCount, actual: counts.grades });
   assertCheck("published one report per student", counts.reports === students.length, { expected: students.length, actual: counts.reports });
   assertCheck("notifications include all roles plus parent invoice alerts", counts.notifications >= 300, { expectedAtLeast: 300, actual: counts.notifications });
   assertCheck("workflow automation tasks were created", counts.workflowTasks >= 30, { expectedAtLeast: 30, actual: counts.workflowTasks });
@@ -1371,9 +1465,11 @@ await step("audit beta platform readiness", async () => {
   const sampleParent = peopleByRole.parent[0];
   const sampleStudentLink = parentLinks.find((link) => link.parent_profile_id === sampleParent.id);
   const sampleInvoices = finance.invoices.filter((invoice) => invoice.student_id === sampleStudentLink?.student_id);
+  const sampleDailyFees = finance.dailyFeePayments.filter((payment) => payment.student_id === sampleStudentLink?.student_id);
   const sampleReports = reportsAndAnalytics.reports.filter((item) => item.student_id === sampleStudentLink?.student_id);
-  assertCheck("sample parent sees linked ward finance and report data", Boolean(sampleStudentLink && sampleInvoices.length && sampleReports.length), {
+  assertCheck("sample parent sees linked ward daily fees, finance, and report data", Boolean(sampleStudentLink && sampleDailyFees.length && sampleInvoices.length && sampleReports.length), {
     parent: sampleParent.email,
+    dailyFees: sampleDailyFees.length,
     invoices: sampleInvoices.length,
     reports: sampleReports.length,
   });
@@ -1391,7 +1487,7 @@ fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
 const failedChecks = report.checks.filter((check) => check.status === "fail");
 process.stdout.write(`\n\n[beta:${runId}] Report: ${reportPath}\n`);
 process.stdout.write(`[beta:${runId}] Checks passed: ${report.checks.length - failedChecks.length}/${report.checks.length}\n`);
-process.stdout.write(`[beta:${runId}] Profiles: ${report.counts.profiles}, students: ${report.counts.students}, grades: ${report.counts.grades}, attendance: ${report.counts.attendanceRecords}\n`);
+process.stdout.write(`[beta:${runId}] Profiles: ${report.counts.profiles}, students: ${report.counts.students}, grades: ${report.counts.grades}, attendance: ${report.counts.attendanceRecords}, daily fees: ${report.counts.dailyFeePayments}\n`);
 
 if (report.failures.length > 0) {
   process.stdout.write(`[beta:${runId}] Failures: ${report.failures.length}\n`);

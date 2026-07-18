@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 const actions = [
   { label: "Review Admissions", icon: UserCheck, href: "/admin/admissions" },
   { label: "Review Recruitment", icon: BriefcaseBusiness, href: "/admin/recruitment" },
-  { label: "Create Invoice", icon: FilePlus2, href: "/admin/fees#create-invoice" },
+  { label: "Daily Fee Capture", icon: FilePlus2, href: "/admin/fees#daily-payment" },
   { label: "Schedule Event", icon: CalendarPlus, href: "/admin/settings#schedule-event" }
 ];
 

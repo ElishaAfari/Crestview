@@ -27,12 +27,86 @@ const invoiceLifecycleSchema = z.object({
   intent: z.enum(["mark_paid", "mark_overdue", "void"])
 });
 
+const dailyFeePlanSchema = z.object({
+  classroomId: z.string().uuid(),
+  name: z.string().trim().min(2).max(120).default("Daily attendance fee"),
+  amount: z.coerce.number().min(0),
+  currency: z.string().trim().length(3).default("GHS"),
+  effectiveFrom: z.string().date(),
+  effectiveTo: z.string().date().optional(),
+  notes: z.string().trim().max(1000).optional()
+});
+
+const dailyFeePaymentSchema = z.object({
+  studentLookup: z.string().trim().min(4).max(160),
+  paymentDate: z.string().date(),
+  amount: z.preprocess(
+    (value) => String(value ?? "").trim() === "" ? undefined : Number(value),
+    z.number().min(0).optional()
+  ),
+  currency: z.string().trim().length(3).optional(),
+  method: z.enum(["cash", "mobile_money", "card", "bank", "other"]).default("cash"),
+  status: z.enum(["paid", "waived"]).default("paid"),
+  reference: z.string().trim().max(120).optional(),
+  notes: z.string().trim().max(1000).optional()
+});
+
+type Relation<T> = T | T[] | null;
+type StudentLookupResult = {
+  id: string;
+  student_number: string;
+  classroom_id: string | null;
+  status: string;
+  classrooms: Relation<{ id: string; name: string; grade_level: string; academic_year_id: string | null }>;
+  profiles: Relation<{ first_name: string; last_name: string }>;
+};
+
+function one<T>(value: Relation<T> | undefined) {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
+
+function normalizeStudentLookup(value: string) {
+  const trimmed = value.trim();
+  const withoutPrefix = trimmed.replace(/^CIS-STUDENT[:\s-]*/i, "");
+  return withoutPrefix.trim().toUpperCase();
+}
+
 function invoiceNumber(prefix = "INV") {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 }
 
 function paymentReference() {
   return `MANUAL-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+}
+
+function dailyFeeReference(studentNumber: string, paymentDate: string) {
+  return `DAILY-${paymentDate.replaceAll("-", "")}-${studentNumber.replace(/[^A-Za-z0-9]/g, "").toUpperCase()}-${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+}
+
+function studentDisplayName(student: StudentLookupResult) {
+  const profile = one(student.profiles);
+  return profile ? `${profile.first_name} ${profile.last_name}` : student.student_number;
+}
+
+async function findStudentByLookup(admin: ReturnType<typeof createAdminClient>, lookupValue: string) {
+  const rawLookup = lookupValue.trim();
+  const normalizedLookup = normalizeStudentLookup(rawLookup);
+  const { data: cardData } = await admin
+    .from("student_id_cards")
+    .select("student_id,student_number")
+    .eq("qr_payload", rawLookup)
+    .is("deleted_at", null)
+    .maybeSingle();
+  const card = cardData as { student_id: string; student_number: string } | null;
+
+  let query = admin
+    .from("students")
+    .select("id,student_number,classroom_id,status,classrooms(id,name,grade_level,academic_year_id),profiles!students_profile_id_fkey(first_name,last_name)")
+    .is("deleted_at", null);
+  query = card?.student_id ? query.eq("id", card.student_id) : query.eq("student_number", normalizedLookup);
+
+  const { data } = await query.maybeSingle();
+  return data as unknown as StudentLookupResult | null;
 }
 
 async function notifyInvoiceGuardians({
@@ -61,6 +135,30 @@ async function notifyInvoiceGuardians({
   })));
 }
 
+async function notifyDailyFeeGuardians({
+  studentId,
+  paymentId,
+  title,
+  body
+}: {
+  studentId: string;
+  paymentId: string;
+  title: string;
+  body: string;
+}) {
+  const admin = createAdminClient();
+  const { data: parents } = await admin.from("parent_students").select("parent_profile_id").eq("student_id", studentId).is("deleted_at", null);
+  const recipients = Array.from(new Set(((parents ?? []) as Array<{ parent_profile_id: string }>).map((row) => row.parent_profile_id)));
+  if (!recipients.length) return;
+  await admin.from("notifications").insert(recipients.map((recipientId) => ({
+    recipient_id: recipientId,
+    title,
+    body,
+    type: "finance",
+    metadata: { daily_fee_payment_id: paymentId, student_id: studentId } satisfies Json
+  })));
+}
+
 async function closeBatchIfSettled(batchId: string | null) {
   if (!batchId) return;
   const admin = createAdminClient();
@@ -78,6 +176,163 @@ async function closeBatchIfSettled(batchId: string | null) {
       relatedRecordId: batchId
     });
   }
+}
+
+export async function configureDailyFeePlanAction(formData: FormData) {
+  const result = dailyFeePlanSchema.safeParse({
+    classroomId: String(formData.get("classroomId") ?? ""),
+    name: String(formData.get("name") ?? "Daily attendance fee"),
+    amount: String(formData.get("amount") ?? ""),
+    currency: String(formData.get("currency") ?? "GHS"),
+    effectiveFrom: String(formData.get("effectiveFrom") ?? ""),
+    effectiveTo: String(formData.get("effectiveTo") ?? "") || undefined,
+    notes: String(formData.get("notes") ?? "") || undefined
+  });
+  if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the daily fee setup." };
+
+  const { user } = await requireRoles(["super_admin", "school_admin", "finance_officer"]);
+  const admin = createAdminClient();
+  const { data: classroomData } = await admin
+    .from("classrooms")
+    .select("id,name,academic_year_id")
+    .eq("id", result.data.classroomId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  const classroom = classroomData as { id: string; name: string; academic_year_id: string | null } | null;
+  if (!classroom) return { ok: false, message: "The selected class could not be found." };
+
+  await admin
+    .from("daily_fee_plans")
+    .update({
+      is_active: false
+    })
+    .eq("classroom_id", classroom.id)
+    .eq("is_active", true)
+    .is("deleted_at", null);
+
+  const { error } = await admin.from("daily_fee_plans").insert({
+    classroom_id: classroom.id,
+    academic_year_id: classroom.academic_year_id,
+    name: result.data.name,
+    amount: result.data.amount,
+    currency: result.data.currency.toUpperCase(),
+    effective_from: result.data.effectiveFrom,
+    effective_to: result.data.effectiveTo ?? null,
+    is_active: true,
+    created_by: user.id,
+    notes: result.data.notes || null,
+    metadata: {
+      source: "finance_daily_fee_plan_form"
+    } satisfies Json
+  });
+
+  revalidatePath("/admin/fees");
+  revalidatePath("/finance");
+  revalidatePath("/parent/fees");
+  revalidatePath("/parent");
+  return error
+    ? { ok: false, message: "The daily fee plan could not be saved." }
+    : { ok: true, message: `${classroom.name} daily fee set to ${result.data.currency.toUpperCase()} ${Number(result.data.amount).toLocaleString("en-GH")}.` };
+}
+
+export async function recordDailyFeePaymentAction(formData: FormData) {
+  const result = dailyFeePaymentSchema.safeParse({
+    studentLookup: String(formData.get("studentLookup") ?? ""),
+    paymentDate: String(formData.get("paymentDate") ?? ""),
+    amount: String(formData.get("amount") ?? ""),
+    currency: String(formData.get("currency") ?? "") || undefined,
+    method: String(formData.get("method") ?? "cash"),
+    status: String(formData.get("status") ?? "paid"),
+    reference: String(formData.get("reference") ?? "") || undefined,
+    notes: String(formData.get("notes") ?? "") || undefined
+  });
+  if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the daily fee payment details." };
+
+  const { user } = await requireRoles(["super_admin", "school_admin", "finance_officer"]);
+  const admin = createAdminClient();
+  const student = await findStudentByLookup(admin, result.data.studentLookup);
+  if (!student) return { ok: false, message: "No active student matched that ID or QR code." };
+  if (student.status !== "active") return { ok: false, message: "Daily fees can only be recorded for active students." };
+  if (!student.classroom_id) return { ok: false, message: "Assign the student to a class before recording daily fees." };
+
+  const classroom = one(student.classrooms);
+  const { data: existingData } = await admin
+    .from("daily_fee_payments")
+    .select("id,status,amount,currency")
+    .eq("student_id", student.id)
+    .eq("payment_date", result.data.paymentDate)
+    .in("status", ["paid", "waived"])
+    .is("deleted_at", null)
+    .maybeSingle();
+  const existing = existingData as { id: string; status: string; amount: number; currency: string } | null;
+  if (existing) {
+    return {
+      ok: true,
+      message: `${studentDisplayName(student)} already has a ${existing.status} daily fee record for ${result.data.paymentDate}.`
+    };
+  }
+
+  const { data: planData } = await admin
+    .from("daily_fee_plans")
+    .select("id,name,amount,currency")
+    .eq("classroom_id", student.classroom_id)
+    .eq("is_active", true)
+    .lte("effective_from", result.data.paymentDate)
+    .or(`effective_to.is.null,effective_to.gte.${result.data.paymentDate}`)
+    .is("deleted_at", null)
+    .order("effective_from", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const plan = planData as { id: string; name: string; amount: number; currency: string } | null;
+  const currency = (result.data.currency ?? plan?.currency ?? "GHS").toUpperCase();
+  const amount = result.data.status === "waived"
+    ? Number(result.data.amount ?? 0)
+    : Number(result.data.amount ?? plan?.amount);
+  if (!Number.isFinite(amount)) return { ok: false, message: "Set a daily fee plan for this class or enter an amount override." };
+  if (result.data.status === "paid" && amount <= 0) return { ok: false, message: "Paid daily fees must have an amount above zero." };
+
+  const reference = result.data.reference?.trim() || dailyFeeReference(student.student_number, result.data.paymentDate);
+  const qrPayload = `CIS-STUDENT:${student.student_number.toUpperCase()}`;
+  const { data: paymentData, error } = await admin.from("daily_fee_payments").insert({
+    student_id: student.id,
+    classroom_id: student.classroom_id,
+    academic_year_id: classroom?.academic_year_id ?? null,
+    fee_plan_id: plan?.id ?? null,
+    payment_date: result.data.paymentDate,
+    student_number: student.student_number,
+    qr_payload: qrPayload,
+    amount,
+    currency,
+    method: result.data.method,
+    status: result.data.status,
+    reference,
+    recorded_by: user.id,
+    notes: result.data.notes || null,
+    metadata: {
+      source: "daily_fee_qr_or_id_capture",
+      lookup: result.data.studentLookup.trim(),
+      plan_name: plan?.name ?? null
+    } satisfies Json
+  }).select("id").single();
+  const payment = paymentData as { id: string } | null;
+  if (error || !payment) return { ok: false, message: "The daily fee payment could not be recorded. Check for duplicate reference numbers." };
+
+  await notifyDailyFeeGuardians({
+    studentId: student.id,
+    paymentId: payment.id,
+    title: "Daily fee recorded",
+    body: `${studentDisplayName(student)}'s ${result.data.paymentDate} daily fee was recorded as ${currency} ${amount.toLocaleString("en-GH")}.`
+  });
+  await admin.from("automation_rules").update({ last_triggered_at: new Date().toISOString() }).eq("event_key", "invoice.class_batch_created");
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/fees");
+  revalidatePath("/finance");
+  revalidatePath("/parent");
+  revalidatePath("/parent/fees");
+  revalidatePath("/admin/student-360");
+  revalidatePath(`/admin/student-360/${student.id}`);
+  return { ok: true, message: `${result.data.status === "waived" ? "Waiver" : "Payment"} recorded for ${studentDisplayName(student)} (${student.student_number}).` };
 }
 
 export async function createInvoiceAction(formData: FormData) {

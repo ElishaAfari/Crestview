@@ -46,9 +46,9 @@ export const navigationItems: NavItem[] = [
   { title: "Payroll", href: "/hr/payroll", icon: CreditCard, roles: ["hr_staff"], section: "Operations" },
 
   { title: "Dashboard", href: "/finance", icon: LayoutDashboard, roles: ["finance_officer"], section: "Main" },
-  { title: "Invoices", href: "/finance/invoices", icon: FileText, roles: ["finance_officer"], section: "Finance" },
-  { title: "Class Billing", href: "/finance/billing-batches", icon: ClipboardCheck, roles: ["finance_officer"], section: "Finance" },
-  { title: "Payments", href: "/finance/payments", icon: CreditCard, roles: ["finance_officer"], section: "Finance" },
+  { title: "Daily Payments", href: "/finance/payments", icon: CreditCard, roles: ["finance_officer"], section: "Finance" },
+  { title: "Daily Fee Plans", href: "/finance/billing-batches", icon: ClipboardCheck, roles: ["finance_officer"], section: "Finance" },
+  { title: "Special Invoices", href: "/finance/invoices", icon: FileText, roles: ["finance_officer"], section: "Finance" },
   { title: "Expenses", href: "/finance/expenses", icon: BarChart3, roles: ["finance_officer"], section: "Finance" },
   { title: "Collections", href: "/finance/collections", icon: GitBranch, roles: ["finance_officer"], section: "Finance" },
   { title: "Payroll", href: "/finance/payroll", icon: Users, roles: ["finance_officer"], section: "Finance" },

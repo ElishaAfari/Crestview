@@ -8,6 +8,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { studentSchema } from "@/lib/validations/student.schema";
 import type { Json } from "@/types/database.types";
 
+function generatedStudentNumber() {
+  return `CIS-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
+}
+
 export async function createStudentAction(formData: FormData) {
   const result = studentSchema.safeParse({
     firstName: String(formData.get("firstName") ?? ""),
@@ -22,6 +26,8 @@ export async function createStudentAction(formData: FormData) {
   await requireRoles(["super_admin", "school_admin"]);
   const admin = createAdminClient();
   const email = result.data.email.trim().toLowerCase();
+  const studentNumber = result.data.studentNumber?.trim() || generatedStudentNumber();
+  if (studentNumber.length < 4) return { ok: false, message: "Enter a valid student number or leave it blank for automatic generation." };
   const { data: studentRole } = await admin.from("roles").select("id").eq("name", "student").single();
   if (!studentRole) return { ok: false, message: "The student role is not configured." };
 
@@ -45,7 +51,7 @@ export async function createStudentAction(formData: FormData) {
   });
   const { error: studentError } = profileError ? { error: profileError } : await admin.from("students").insert({
     profile_id: invite.user.id,
-    student_number: result.data.studentNumber.trim(),
+    student_number: studentNumber,
     classroom_id: result.data.classroomId,
     enrollment_date: result.data.enrollmentDate
   });
@@ -56,7 +62,7 @@ export async function createStudentAction(formData: FormData) {
   }
 
   const delivery = invite.delivery === "crestview" ? "Crestview-branded access email" : "Supabase Auth access email";
-  return { ok: true, message: `Student invited and enrolled. ${delivery} sent to ${invite.deliveredTo}.` };
+  return { ok: true, message: `Student invited and enrolled as ${studentNumber}. QR ID card generated. ${delivery} sent to ${invite.deliveredTo}.` };
 }
 
 export async function withdrawStudentAction(formData: FormData) {

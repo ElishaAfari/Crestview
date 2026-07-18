@@ -43,6 +43,18 @@ export type AttendanceRegisterRow = {
   excused: number;
   total: number;
 };
+export type DailyFeePaymentRow = {
+  id: string;
+  student: string;
+  studentNumber: string;
+  classroom: string;
+  paymentDate: string;
+  amount: string;
+  method: string;
+  status: string;
+  reference: string;
+  notes: string;
+};
 
 function one<T>(value: Relation<T> | undefined) {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
@@ -584,6 +596,94 @@ export async function listFamilyInvoices() {
       dueDate: invoice.due_date
     };
   });
+}
+
+export async function listFamilyDailyFeePayments(): Promise<DailyFeePaymentRow[]> {
+  const { user } = await requireRoles(["parent"]);
+  const admin = createAdminClient();
+  const { data: links } = await admin.from("parent_students").select("student_id").eq("parent_profile_id", user.id).is("deleted_at", null);
+  const studentIds = ((links ?? []) as Array<{ student_id: string }>).map((link) => link.student_id);
+  if (!studentIds.length) return [];
+  const { data } = await admin
+    .from("daily_fee_payments")
+    .select("id,payment_date,student_number,amount,currency,method,status,reference,notes,students(profiles!students_profile_id_fkey(first_name,last_name),classrooms(name,grade_level))")
+    .in("student_id", studentIds)
+    .is("deleted_at", null)
+    .order("payment_date", { ascending: false })
+    .limit(100);
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    payment_date: string;
+    student_number: string;
+    amount: number;
+    currency: string;
+    method: string;
+    status: string;
+    reference: string;
+    notes: string | null;
+    students: Relation<{ profiles: Relation<ProfileJoin>; classrooms: Relation<{ name: string; grade_level: string }> }>;
+  }>).map((payment) => {
+    const student = one(payment.students);
+    const profile = one(student?.profiles);
+    const classroom = one(student?.classrooms);
+    return {
+      id: payment.id,
+      student: profile ? `${profile.first_name} ${profile.last_name}` : payment.student_number,
+      studentNumber: payment.student_number,
+      classroom: classroom ? `${classroom.grade_level} - ${classroom.name}` : "Unassigned",
+      paymentDate: payment.payment_date,
+      amount: `${payment.currency} ${Number(payment.amount).toLocaleString("en-GH")}`,
+      method: payment.method.replaceAll("_", " "),
+      status: payment.status,
+      reference: payment.reference,
+      notes: payment.notes ?? ""
+    };
+  });
+}
+
+export async function listCurrentStudentDailyFeePayments(): Promise<DailyFeePaymentRow[]> {
+  const { user } = await requireRoles(["student"]);
+  const admin = createAdminClient();
+  const { data: studentRecord } = await admin.from("students").select("id,student_number,classrooms(name,grade_level),profiles!students_profile_id_fkey(first_name,last_name)").eq("profile_id", user.id).is("deleted_at", null).maybeSingle();
+  const student = studentRecord as unknown as {
+    id: string;
+    student_number: string;
+    classrooms: Relation<{ name: string; grade_level: string }>;
+    profiles: Relation<ProfileJoin>;
+  } | null;
+  if (!student) return [];
+  const { data } = await admin
+    .from("daily_fee_payments")
+    .select("id,payment_date,student_number,amount,currency,method,status,reference,notes")
+    .eq("student_id", student.id)
+    .is("deleted_at", null)
+    .order("payment_date", { ascending: false })
+    .limit(80);
+  const profile = one(student.profiles);
+  const classroom = one(student.classrooms);
+  return ((data ?? []) as Array<{
+    id: string;
+    payment_date: string;
+    student_number: string;
+    amount: number;
+    currency: string;
+    method: string;
+    status: string;
+    reference: string;
+    notes: string | null;
+  }>).map((payment) => ({
+    id: payment.id,
+    student: profile ? `${profile.first_name} ${profile.last_name}` : student.student_number,
+    studentNumber: payment.student_number,
+    classroom: classroom ? `${classroom.grade_level} - ${classroom.name}` : "Unassigned",
+    paymentDate: payment.payment_date,
+    amount: `${payment.currency} ${Number(payment.amount).toLocaleString("en-GH")}`,
+    method: payment.method.replaceAll("_", " "),
+    status: payment.status,
+    reference: payment.reference,
+    notes: payment.notes ?? ""
+  }));
 }
 
 export async function listAssignmentsForCurrentRole() {

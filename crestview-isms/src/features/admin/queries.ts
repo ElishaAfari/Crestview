@@ -59,6 +59,41 @@ export type AdminDashboardData = {
   activity: string[];
   activityItems: Array<{ label: string; table: string; createdAt: string | null }>;
 };
+export type DailyFeePlanRow = {
+  id: string;
+  className: string;
+  amount: string;
+  rawAmount: number;
+  currency: string;
+  effectiveFrom: string;
+  effectiveTo: string;
+  status: string;
+  notes: string;
+};
+export type DailyFeePaymentRow = {
+  id: string;
+  student: string;
+  studentNumber: string;
+  classroom: string;
+  paymentDate: string;
+  amount: string;
+  method: string;
+  status: string;
+  reference: string;
+  recordedBy: string;
+  notes: string;
+};
+export type StudentIdCardRow = {
+  id: string;
+  studentId: string;
+  student: string;
+  studentNumber: string;
+  classroom: string;
+  cardNumber: string;
+  qrPayload: string;
+  status: string;
+  issuedAt: string;
+};
 
 export async function listAdminFormOptions() {
   await requireRoles(["super_admin", "school_admin"]);
@@ -142,6 +177,26 @@ export async function listAdminFormOptions() {
   };
 }
 
+export async function listFinanceFormOptions() {
+  await requireRoles(["super_admin", "school_admin", "finance_officer"]);
+  const admin = createAdminClient();
+  const [classrooms, students] = await Promise.all([
+    admin.from("classrooms").select("id,name,grade_level").is("deleted_at", null).order("grade_level"),
+    admin.from("students").select("id,student_number,profiles!students_profile_id_fkey(first_name,last_name)").eq("status", "active").is("deleted_at", null).order("student_number")
+  ]);
+
+  return {
+    classrooms: ((classrooms.data ?? []) as unknown as Array<{ id: string; name: string; grade_level: string }>).map((item) => ({
+      id: item.id,
+      label: `${item.grade_level} - ${item.name}`
+    })),
+    students: ((students.data ?? []) as unknown as Array<{ id: string; student_number: string; profiles: Relation<{ first_name: string; last_name: string }> }>).map((item) => {
+      const profile = one(item.profiles);
+      return { id: item.id, label: `${profile ? `${profile.first_name} ${profile.last_name}` : "Student"} (${item.student_number})` };
+    })
+  };
+}
+
 function dateKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -164,11 +219,12 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const today = new Date().toISOString().slice(0, 10);
   const weekStart = new Date();
   weekStart.setDate(weekStart.getDate() - 6);
-  const [students, staff, classrooms, invoicesAll, attendance, admissions, recruitment, events, audit, tasks, student360] = await Promise.all([
+  const [students, staff, classrooms, invoicesAll, dailyFeesAll, attendance, admissions, recruitment, events, audit, tasks, student360] = await Promise.all([
     admin.from("students").select("id,classroom_id,status").eq("status", "active").is("deleted_at", null),
     admin.from("profiles").select("roles(name)").is("deleted_at", null),
     admin.from("classrooms").select("id,name,grade_level,capacity").is("deleted_at", null).order("grade_level"),
     admin.from("invoices").select("amount,status,created_at").is("deleted_at", null),
+    admin.from("daily_fee_payments").select("amount,status,payment_date,created_at").is("deleted_at", null),
     admin.from("attendance_records").select("status,attendance_date").gte("attendance_date", dateKey(weekStart)).is("deleted_at", null),
     admin.from("admission_applications").select("status").is("deleted_at", null),
     admin.from("job_applications").select("status").is("deleted_at", null),
@@ -187,10 +243,15 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const present = todayRows.filter((row) => row.status === "present" || row.status === "late").length;
   const attendanceRate = todayRows.length ? Math.round((present / todayRows.length) * 100) : 0;
   const invoiceRows = (invoicesAll.data ?? []) as Array<{ amount: number | null; status: string; created_at: string | null }>;
+  const dailyFeeRows = (dailyFeesAll.data ?? []) as Array<{ amount: number | null; status: string; payment_date: string; created_at: string | null }>;
+  const dailyFeeCollectedTotal = dailyFeeRows
+    .filter((payment) => payment.status === "paid" || payment.status === "waived")
+    .reduce((sum, payment) => sum + money(payment.amount), 0);
   const invoiceTotal = invoiceRows.reduce((sum, invoice) => sum + money(invoice.amount), 0);
   const paidTotal = invoiceRows.filter((invoice) => invoice.status === "paid").reduce((sum, invoice) => sum + money(invoice.amount), 0);
   const openAmount = invoiceRows.filter((invoice) => ["draft", "open", "overdue"].includes(invoice.status)).reduce((sum, invoice) => sum + money(invoice.amount), 0);
-  const collectionRate = invoiceTotal ? Math.round((paidTotal / invoiceTotal) * 100) : 0;
+  const financeTotal = invoiceTotal + dailyFeeCollectedTotal;
+  const collectionRate = financeTotal ? Math.round(((paidTotal + dailyFeeCollectedTotal) / financeTotal) * 100) : 0;
   const admissionRows = (admissions.data ?? []) as Array<{ status: string }>;
   const recruitmentRows = (recruitment.data ?? []) as Array<{ status: string }>;
   const taskRows = (tasks.data ?? []) as Array<{ status: string }>;
@@ -237,6 +298,13 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     if (invoice.status === "paid") bucket.collected += money(invoice.amount);
     else bucket.pending += money(invoice.amount);
   }
+  for (const payment of dailyFeeRows) {
+    const created = new Date(payment.payment_date);
+    const key = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, "0")}`;
+    const bucket = financeByMonth.get(key);
+    if (!bucket) continue;
+    if (payment.status === "paid" || payment.status === "waived") bucket.collected += money(payment.amount);
+  }
 
   const classCounts = new Map<string, number>();
   for (const student of studentRows) {
@@ -252,9 +320,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       collectionRate,
       openAdmissions: admissionRows.filter((row) => openAdmissionStatuses.has(row.status)).length,
       openRecruitment: recruitmentRows.filter((row) => openRecruitmentStatuses.has(row.status)).length,
-      paidAmount: paidTotal,
+      paidAmount: paidTotal + dailyFeeCollectedTotal,
       openAmount,
-      invoiceTotal,
+      invoiceTotal: financeTotal,
       openTasks: taskRows.filter((task) => ["open", "in_progress", "blocked"].includes(task.status)).length,
       atRiskStudents: student360Rows.filter((student) => student.risk_level !== "green").length
     },
@@ -315,6 +383,128 @@ export async function listInvoices() {
       amount: `${invoice.currency} ${Number(invoice.amount).toLocaleString("en-GH")}`,
       status: invoice.status,
       dueDate: invoice.due_date
+    };
+  });
+}
+
+export async function listDailyFeePlans(): Promise<DailyFeePlanRow[]> {
+  await requireRoles(["super_admin", "school_admin", "finance_officer"]);
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("daily_fee_plans")
+    .select("id,name,amount,currency,effective_from,effective_to,is_active,notes,classrooms(name,grade_level)")
+    .is("deleted_at", null)
+    .order("effective_from", { ascending: false })
+    .limit(100);
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    name: string;
+    amount: number;
+    currency: string;
+    effective_from: string;
+    effective_to: string | null;
+    is_active: boolean | null;
+    notes: string | null;
+    classrooms: Relation<{ name: string; grade_level: string }>;
+  }>).map((plan) => {
+    const classroom = one(plan.classrooms);
+    return {
+      id: plan.id,
+      className: classroom ? `${classroom.grade_level} - ${classroom.name}` : "Class",
+      amount: `${plan.currency} ${Number(plan.amount).toLocaleString("en-GH")}`,
+      rawAmount: Number(plan.amount),
+      currency: plan.currency,
+      effectiveFrom: plan.effective_from,
+      effectiveTo: plan.effective_to ?? "Until changed",
+      status: plan.is_active ? "active" : "inactive",
+      notes: plan.notes ?? plan.name
+    };
+  });
+}
+
+export async function listDailyFeePayments(): Promise<DailyFeePaymentRow[]> {
+  await requireRoles(["super_admin", "school_admin", "finance_officer"]);
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("daily_fee_payments")
+    .select("id,payment_date,student_number,amount,currency,method,status,reference,notes,students(profiles!students_profile_id_fkey(first_name,last_name)),classrooms(name,grade_level),profiles!daily_fee_payments_recorded_by_fkey(first_name,last_name)")
+    .is("deleted_at", null)
+    .order("payment_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(150);
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    payment_date: string;
+    student_number: string;
+    amount: number;
+    currency: string;
+    method: string;
+    status: string;
+    reference: string;
+    notes: string | null;
+    students: Relation<{ profiles: Relation<{ first_name: string; last_name: string }> }>;
+    classrooms: Relation<{ name: string; grade_level: string }>;
+    profiles: Relation<{ first_name: string; last_name: string }>;
+  }>).map((payment) => {
+    const profile = one(one(payment.students)?.profiles);
+    const classroom = one(payment.classrooms);
+    const recorder = one(payment.profiles);
+    return {
+      id: payment.id,
+      student: profile ? `${profile.first_name} ${profile.last_name}` : payment.student_number,
+      studentNumber: payment.student_number,
+      classroom: classroom ? `${classroom.grade_level} - ${classroom.name}` : "Unassigned",
+      paymentDate: payment.payment_date,
+      amount: `${payment.currency} ${Number(payment.amount).toLocaleString("en-GH")}`,
+      method: payment.method.replaceAll("_", " "),
+      status: payment.status,
+      reference: payment.reference,
+      recordedBy: recorder ? `${recorder.first_name} ${recorder.last_name}` : "Finance desk",
+      notes: payment.notes ?? ""
+    };
+  });
+}
+
+export async function listStudentIdCards(): Promise<StudentIdCardRow[]> {
+  await requireRoles(["super_admin", "school_admin", "finance_officer"]);
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("student_id_cards")
+    .select("id,card_number,student_number,qr_payload,status,issued_at,students(id,status,classrooms(name,grade_level),profiles!students_profile_id_fkey(first_name,last_name))")
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .order("student_number")
+    .limit(200);
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    card_number: string;
+    student_number: string;
+    qr_payload: string;
+    status: string;
+    issued_at: string;
+    students: Relation<{
+      id: string;
+      status: string;
+      classrooms: Relation<{ name: string; grade_level: string }>;
+      profiles: Relation<{ first_name: string; last_name: string }>;
+    }>;
+  }>).map((card) => {
+    const student = one(card.students);
+    const profile = one(student?.profiles);
+    const classroom = one(student?.classrooms);
+    return {
+      id: card.id,
+      studentId: student?.id ?? card.id,
+      student: profile ? `${profile.first_name} ${profile.last_name}` : card.student_number,
+      studentNumber: card.student_number,
+      classroom: classroom ? `${classroom.grade_level} - ${classroom.name}` : "Unassigned",
+      cardNumber: card.card_number,
+      qrPayload: card.qr_payload,
+      status: card.status,
+      issuedAt: card.issued_at
     };
   });
 }
