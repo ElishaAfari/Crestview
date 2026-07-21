@@ -6,13 +6,10 @@ import { requireRoles } from "@/features/auth/guards";
 import { createWorkflowTask } from "@/features/automation/actions";
 import { APP_URL } from "@/lib/constants";
 import { createPortalInvitation } from "@/lib/email/portal-access";
+import { generateStudentNumber } from "@/lib/students/student-number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { admissionSchema } from "@/lib/validations/admission.schema";
 import type { Json } from "@/types/database.types";
-
-function studentNumberFor(applicationId: string) {
-  return `CIS-${new Date().getFullYear()}-${applicationId.slice(0, 6).toUpperCase()}`;
-}
 
 function internalPlaceholderPassword() {
   return `${randomBytes(24).toString("base64url")}Aa1!`;
@@ -340,7 +337,7 @@ async function acceptAdmission(applicationId: string, actorId: string) {
     .maybeSingle();
   const classroomRecord = classroom as { id: string } | null;
 
-  const studentNumber = studentNumberFor(application.id);
+  const studentNumber = await generateStudentNumber(admin);
   const studentEmail = `${studentNumber.toLowerCase()}@students.crestview.local`;
   const { data: account, error: accountError } = await admin.auth.admin.createUser({
     email: studentEmail,
@@ -351,6 +348,7 @@ async function acceptAdmission(applicationId: string, actorId: string) {
       middle_name: application.applicant_middle_name,
       last_name: application.applicant_last_name,
       role: "student",
+      student_number: studentNumber,
       admission_application_id: application.id
     }
   });

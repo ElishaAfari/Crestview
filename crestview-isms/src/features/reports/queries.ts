@@ -44,7 +44,24 @@ export type ReportDetail = {
   downloadUrl: string;
   attendance: { total: number; present: number; late: number; absent: number; excused: number; rate: number };
   analysis: { average: number; strengths: string[]; concerns: string[]; recommendations: string[]; attitude: string; punctuality: string; nextSteps: string };
-  gradeRows: Array<{ subject: string; classAssessment: number; exam: number; total: number; gradeCode: string; remark: string; comments: string }>;
+  totalMarks: number;
+  classPosition: number | null;
+  positionLabel: string;
+  classSize: number;
+  rankedSubjects: number;
+  rankingBasis: string;
+  gradeRows: Array<{
+    subject: string;
+    assignment: number;
+    quiz: number;
+    midterm: number;
+    classAssessment: number;
+    exam: number;
+    total: number;
+    gradeCode: string;
+    remark: string;
+    comments: string;
+  }>;
 };
 
 async function canReadReport(userId: string, roleName: string, report: { student_id: string | null; classroom_id: string | null; students: Relation<{ profile_id: string | null }> }) {
@@ -148,10 +165,19 @@ export async function getReportDetail(reportId: string): Promise<ReportDetail | 
       punctuality: report.punctuality ?? text(analysis.punctuality, "Not recorded"),
       nextSteps: report.next_steps ?? text(analysis.nextSteps, "Review progress with the class teacher.")
     },
+    totalMarks: numeric(gradeSummary.total_marks, numeric(analysis.totalMarks)),
+    classPosition: numeric(gradeSummary.position, numeric(analysis.classPosition)) || null,
+    positionLabel: text(gradeSummary.position_label, text(analysis.positionLabel, "Not ranked")),
+    classSize: numeric(gradeSummary.class_size, numeric(analysis.classSize)),
+    rankedSubjects: numeric(gradeSummary.ranked_subjects, numeric(analysis.rankedSubjects, asArray(gradeSummary.rows).length)),
+    rankingBasis: text(gradeSummary.ranking_basis, "Sum of total /100 marks across all recorded subjects in this class for the selected term."),
     gradeRows: asArray(gradeSummary.rows).map((item) => {
       const row = asRecord(item);
       return {
         subject: text(row.subject, "Subject"),
+        assignment: numeric(row.assignment),
+        quiz: numeric(row.quiz),
+        midterm: numeric(row.midterm),
         classAssessment: numeric(row.classAssessment),
         exam: numeric(row.exam),
         total: numeric(row.total),

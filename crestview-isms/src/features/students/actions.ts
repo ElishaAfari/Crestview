@@ -4,13 +4,10 @@ import { revalidatePath } from "next/cache";
 import { APP_URL } from "@/lib/constants";
 import { requireRoles } from "@/features/auth/guards";
 import { createPortalInvitation } from "@/lib/email/portal-access";
+import { generateStudentNumber, isSupportedStudentNumber, normalizeStudentNumber } from "@/lib/students/student-number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { studentSchema } from "@/lib/validations/student.schema";
 import type { Json } from "@/types/database.types";
-
-function generatedStudentNumber() {
-  return `CIS-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
-}
 
 export async function createStudentAction(formData: FormData) {
   const result = studentSchema.safeParse({
@@ -26,8 +23,9 @@ export async function createStudentAction(formData: FormData) {
   await requireRoles(["super_admin", "school_admin"]);
   const admin = createAdminClient();
   const email = result.data.email.trim().toLowerCase();
-  const studentNumber = result.data.studentNumber?.trim() || generatedStudentNumber();
-  if (studentNumber.length < 4) return { ok: false, message: "Enter a valid student number or leave it blank for automatic generation." };
+  const providedStudentNumber = normalizeStudentNumber(result.data.studentNumber ?? "");
+  const studentNumber = providedStudentNumber || await generateStudentNumber(admin);
+  if (!isSupportedStudentNumber(studentNumber)) return { ok: false, message: "Use an 8-digit student ID or leave it blank for automatic generation." };
   const { data: studentRole } = await admin.from("roles").select("id").eq("name", "student").single();
   if (!studentRole) return { ok: false, message: "The student role is not configured." };
 

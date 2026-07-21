@@ -30,7 +30,7 @@ export function StudentForm({ classrooms = [] }: { classrooms?: SelectOption[] }
       <div><Label>First name</Label><Input {...form.register("firstName")} /></div>
       <div><Label>Last name</Label><Input {...form.register("lastName")} /></div>
       <div><Label>Email</Label><Input type="email" {...form.register("email")} /></div>
-      <div><Label>Student number</Label><Input placeholder="Leave blank to auto-generate" {...form.register("studentNumber")} /></div>
+      <div><Label>Student number</Label><Input placeholder="26000001 or leave blank" inputMode="numeric" {...form.register("studentNumber")} /></div>
       <div>
         <Label>Classroom</Label>
         <Select {...form.register("classroomId")}>

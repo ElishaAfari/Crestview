@@ -8,7 +8,7 @@ export default function LoginPage() {
   return (
     <main className="grid min-h-screen bg-white text-slate-950 lg:grid-cols-[1.05fr_0.95fr]">
       <section className="relative hidden overflow-hidden bg-[#06165b] lg:block">
-        <Image src="/landing/programmes/robotics-lab.png" alt="Crestview students learning robotics" fill sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover" priority />
+        <Image src="/landing/real/crestview-checkered-portrait.jpg" alt="Crestview student in school uniform" fill sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover object-[48%_42%]" priority />
         <div className="absolute inset-0 bg-gradient-to-t from-[#06165b] via-[#06165b]/45 to-[#06165b]/10" />
         <div className="absolute inset-x-0 bottom-0 p-12 text-white">
           <p className="text-xs font-black uppercase text-[#ffd83d]">{siteConfig.motto}</p>

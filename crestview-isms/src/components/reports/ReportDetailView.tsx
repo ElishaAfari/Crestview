@@ -44,23 +44,33 @@ export function ReportDetailView({ report, backHref }: { report: ReportDetail; b
         </CardContent>
       </Card>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="portal-metric-card portal-accent-blue">
+          <CardContent className="p-5">
+            <p className="text-sm font-black text-[var(--portal-muted)]">Class Position</p>
+            <p className="mt-2 font-heading text-4xl font-black text-[var(--portal-text)]">{report.positionLabel}</p>
+            <p className="mt-1 text-xs font-black uppercase tracking-wide text-[var(--portal-muted)]">
+              {report.classSize ? `Out of ${report.classSize}` : "Class rank pending"}
+            </p>
+          </CardContent>
+        </Card>
         <Card className="portal-metric-card portal-accent-green">
           <CardContent className="p-5">
             <p className="text-sm font-black text-[var(--portal-muted)]">Average</p>
             <p className="mt-2 font-heading text-4xl font-black text-[var(--portal-text)]">{Math.round(report.analysis.average)}%</p>
           </CardContent>
         </Card>
-        <Card className="portal-metric-card portal-accent-blue">
+        <Card className="portal-metric-card portal-accent-amber">
+          <CardContent className="p-5">
+            <p className="text-sm font-black text-[var(--portal-muted)]">Total Marks</p>
+            <p className="mt-2 font-heading text-4xl font-black text-[var(--portal-text)]">{report.totalMarks.toFixed(1)}</p>
+            <p className="mt-1 text-xs font-black uppercase tracking-wide text-[var(--portal-muted)]">{report.rankedSubjects} ranked subjects</p>
+          </CardContent>
+        </Card>
+        <Card className="portal-metric-card portal-accent-red">
           <CardContent className="p-5">
             <p className="text-sm font-black text-[var(--portal-muted)]">Attendance</p>
             <p className="mt-2 font-heading text-4xl font-black text-[var(--portal-text)]">{Math.round(report.attendance.rate)}%</p>
-          </CardContent>
-        </Card>
-        <Card className="portal-metric-card portal-accent-amber">
-          <CardContent className="p-5">
-            <p className="text-sm font-black text-[var(--portal-muted)]">Subjects</p>
-            <p className="mt-2 font-heading text-4xl font-black text-[var(--portal-text)]">{report.gradeRows.length}</p>
           </CardContent>
         </Card>
       </section>
@@ -85,17 +95,21 @@ export function ReportDetailView({ report, backHref }: { report: ReportDetail; b
           </div>
         </CardHeader>
         <CardContent>
+          <p className="mb-3 text-xs font-black uppercase tracking-wide text-[var(--portal-muted)]">{report.rankingBasis}</p>
           <div className="portal-table-wrap portal-table-compact">
             <table className="w-full text-left text-sm">
               <thead className="portal-table-head text-xs uppercase">
                 <tr>
-                  {["Subject", "CA /30", "Exam /70", "Total /100", "Grade", "Remark", "Teacher comment"].map((header) => <th key={header} className="px-4 py-3 font-black">{header}</th>)}
+                  {["Subject", "Assignment /10", "Quiz /10", "Midterm /10", "CA /30", "Exam /70", "Total /100", "Grade", "Remark", "Teacher comment"].map((header) => <th key={header} className="px-4 py-3 font-black">{header}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {report.gradeRows.map((row) => (
                   <tr key={`${row.subject}-${row.total}`} className="portal-table-row">
                     <td className="px-4 py-3 font-black text-[var(--portal-text)]">{row.subject}</td>
+                    <td className="px-4 py-3 font-bold text-[var(--portal-text)]">{row.assignment.toFixed(1)}</td>
+                    <td className="px-4 py-3 font-bold text-[var(--portal-text)]">{row.quiz.toFixed(1)}</td>
+                    <td className="px-4 py-3 font-bold text-[var(--portal-text)]">{row.midterm.toFixed(1)}</td>
                     <td className="px-4 py-3 font-bold text-[var(--portal-text)]">{row.classAssessment.toFixed(1)}</td>
                     <td className="px-4 py-3 font-bold text-[var(--portal-text)]">{row.exam.toFixed(1)}</td>
                     <td className="px-4 py-3 font-black text-[var(--portal-text)]">{row.total.toFixed(1)}</td>

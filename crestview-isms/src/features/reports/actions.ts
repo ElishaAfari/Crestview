@@ -32,6 +32,116 @@ function asPercent(value: number) {
   return `${Math.round(value)}%`;
 }
 
+function ordinal(value: number | null) {
+  if (!value) return "Not ranked";
+  const mod100 = value % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${value}th`;
+  switch (value % 10) {
+    case 1:
+      return `${value}st`;
+    case 2:
+      return `${value}nd`;
+    case 3:
+      return `${value}rd`;
+    default:
+      return `${value}th`;
+  }
+}
+
+async function calculateClassRanking({
+  admin,
+  studentId,
+  classroomId,
+  academicYearId,
+  term,
+  currentRows
+}: {
+  admin: ReturnType<typeof createAdminClient>;
+  studentId: string;
+  classroomId: string | null;
+  academicYearId: string;
+  term: string;
+  currentRows: Array<{ total: number }>;
+}) {
+  const currentTotal = currentRows.reduce((sum, row) => sum + row.total, 0);
+  const currentSubjectCount = currentRows.length;
+  if (!classroomId) {
+    return {
+      position: null,
+      positionLabel: "Not ranked",
+      classSize: 0,
+      totalMarks: Number(currentTotal.toFixed(1)),
+      average: currentSubjectCount ? Number((currentTotal / currentSubjectCount).toFixed(1)) : 0,
+      subjectCount: currentSubjectCount
+    };
+  }
+
+  const { data: classStudentsData } = await admin
+    .from("students")
+    .select("id")
+    .eq("classroom_id", classroomId)
+    .eq("status", "active")
+    .is("deleted_at", null);
+  const classStudentIds = ((classStudentsData ?? []) as Array<{ id: string }>).map((student) => student.id);
+  if (!classStudentIds.length) {
+    return {
+      position: null,
+      positionLabel: "Not ranked",
+      classSize: 0,
+      totalMarks: Number(currentTotal.toFixed(1)),
+      average: currentSubjectCount ? Number((currentTotal / currentSubjectCount).toFixed(1)) : 0,
+      subjectCount: currentSubjectCount
+    };
+  }
+
+  const { data: classGradesData } = await admin
+    .from("grades")
+    .select("student_id,score,percentage,total_score,term_label,grade_items(courses(term,academic_year_id,classroom_id))")
+    .in("student_id", classStudentIds)
+    .is("deleted_at", null);
+  const classGrades = (classGradesData ?? []) as unknown as Array<{
+    student_id: string;
+    score: number;
+    percentage: number | null;
+    total_score: number | null;
+    term_label: string | null;
+    grade_items: Relation<{ courses: Relation<{ term: string | null; academic_year_id: string | null; classroom_id: string | null }> }>;
+  }>;
+  const requestedTerm = normalize(term);
+  const totals = new Map<string, { studentId: string; total: number; subjectCount: number; average: number }>();
+  for (const row of classGrades) {
+    const course = one(one(row.grade_items)?.courses);
+    if (course?.academic_year_id !== academicYearId || course?.classroom_id !== classroomId) continue;
+    if (normalize(row.term_label ?? course.term ?? "") !== requestedTerm) continue;
+    const current = totals.get(row.student_id) ?? { studentId: row.student_id, total: 0, subjectCount: 0, average: 0 };
+    current.total += gradeTotal(row);
+    current.subjectCount += 1;
+    current.average = current.subjectCount ? current.total / current.subjectCount : 0;
+    totals.set(row.student_id, current);
+  }
+  if (!totals.has(studentId) && currentSubjectCount) {
+    totals.set(studentId, {
+      studentId,
+      total: currentTotal,
+      subjectCount: currentSubjectCount,
+      average: currentTotal / currentSubjectCount
+    });
+  }
+  const ranked = Array.from(totals.values()).sort((a, b) => b.total - a.total || b.average - a.average || a.studentId.localeCompare(b.studentId));
+  const targetIndex = ranked.findIndex((row) => row.studentId === studentId);
+  const position = targetIndex >= 0 ? targetIndex + 1 : null;
+  const target = targetIndex >= 0 ? ranked[targetIndex] : totals.get(studentId);
+
+  return {
+    position,
+    positionLabel: ordinal(position),
+    classSize: classStudentIds.length,
+    totalMarks: Number((target?.total ?? currentTotal).toFixed(1)),
+    average: Number((target?.average ?? (currentSubjectCount ? currentTotal / currentSubjectCount : 0)).toFixed(1)),
+    subjectCount: target?.subjectCount ?? currentSubjectCount
+  };
+}
+
 function buildAcademicAnalysis({
   grades,
   attendance
@@ -100,7 +210,7 @@ export async function generateReportAction(formData: FormData) {
     admin.from("academic_years").select("id,name,start_date,end_date").eq("id", result.data.academicYearId).maybeSingle(),
     admin
       .from("grades")
-      .select("id,score,percentage,total_score,grade_code,remark,comments,assignment_score,quiz_score,midterm_score,class_assessment_score,exam_score,subject_name,term_label,grade_items(title,courses(term,subjects(name)))")
+      .select("id,score,percentage,total_score,grade_code,remark,comments,assignment_score,quiz_score,midterm_score,class_assessment_score,exam_score,subject_name,term_label,grade_items(title,courses(term,academic_year_id,classroom_id,subjects(name)))")
       .eq("student_id", result.data.studentId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false }),
@@ -123,12 +233,15 @@ export async function generateReportAction(formData: FormData) {
     exam_score: number | null;
     subject_name: string | null;
     term_label: string | null;
-    grade_items: Relation<{ title: string; courses: Relation<{ term: string; subjects: Relation<{ name: string }> }> }>;
+    grade_items: Relation<{ title: string; courses: Relation<{ term: string; academic_year_id: string | null; classroom_id: string | null; subjects: Relation<{ name: string }> }> }>;
   }>;
   const requestedTerm = normalize(result.data.term);
   const matchingGrades = gradeRowsRaw.filter((row) => {
     const course = one(one(row.grade_items)?.courses);
-    return normalize(row.term_label ?? course?.term ?? "") === requestedTerm;
+    const sameTerm = normalize(row.term_label ?? course?.term ?? "") === requestedTerm;
+    const sameAcademicYear = !course?.academic_year_id || course.academic_year_id === result.data.academicYearId;
+    const sameClassroom = !course?.classroom_id || !student.classroom_id || course.classroom_id === student.classroom_id;
+    return sameTerm && sameAcademicYear && sameClassroom;
   });
   const gradeRows = (matchingGrades.length ? matchingGrades : gradeRowsRaw).map((row) => {
     const course = one(one(row.grade_items)?.courses);
@@ -165,6 +278,14 @@ export async function generateReportAction(formData: FormData) {
     grades: gradeRows.map((row) => ({ subject: row.subject, total: row.total, gradeCode: row.gradeCode, remark: row.remark, comments: row.comments })),
     attendance
   });
+  const ranking = await calculateClassRanking({
+    admin,
+    studentId: student.id,
+    classroomId: student.classroom_id,
+    academicYearId: result.data.academicYearId,
+    term: result.data.term.trim(),
+    currentRows: gradeRows
+  });
   const classroom = one(student.classrooms);
   const profile = one(student.profiles);
   const studentName = profile ? `${profile.first_name} ${profile.last_name}` : student.student_number;
@@ -184,17 +305,33 @@ export async function generateReportAction(formData: FormData) {
       classroom: classroom ? `${classroom.grade_level} - ${classroom.name}` : "Unassigned",
       academic_year: academicYear?.name ?? "Academic year",
       term: result.data.term.trim(),
+      average: analysis.average,
+      total_marks: ranking.totalMarks,
+      position: ranking.position,
+      position_label: ranking.positionLabel,
+      class_size: ranking.classSize,
+      ranked_subjects: ranking.subjectCount,
+      ranking_basis: "Sum of total /100 marks across all recorded subjects in the class for this term.",
       rows: gradeRows
     } satisfies Json,
     attendance_summary: attendance satisfies Json,
-    analysis: analysis satisfies Json,
+    analysis: {
+      ...analysis,
+      totalMarks: ranking.totalMarks,
+      classPosition: ranking.position,
+      positionLabel: ranking.positionLabel,
+      classSize: ranking.classSize,
+      rankedSubjects: ranking.subjectCount
+    } satisfies Json,
     attitude: analysis.attitude,
     punctuality: analysis.punctuality,
     next_steps: analysis.nextSteps,
     metadata: {
       generated_from: "report_suite",
       report_standard: "crestview_30_70",
-      grade_count: gradeRows.length
+      grade_count: gradeRows.length,
+      class_position: ranking.position,
+      class_size: ranking.classSize
     } satisfies Json
   }).select("id").single();
 

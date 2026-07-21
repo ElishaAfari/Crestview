@@ -61,7 +61,7 @@ export function DailyFeePaymentForm() {
       <StudentQrCapture
         value={studentLookup}
         onValue={(value) => form.setValue("studentLookup", value, { shouldDirty: true, shouldValidate: true })}
-        placeholder="CIS-2026-000001 or scanned QR payload"
+        placeholder="26000001 or scanned QR payload"
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div>

@@ -6,11 +6,12 @@ import { z } from "zod";
 import { requireRoles } from "@/features/auth/guards";
 import { createWorkflowTask } from "@/features/automation/actions";
 import { sendPortalAccessEmail } from "@/lib/email/portal-access";
+import { generateStudentNumber, isSupportedStudentNumber, normalizeStudentNumber } from "@/lib/students/student-number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.types";
 
 const rosterStudentSchema = z.object({
-  studentNumber: z.string().trim().min(2).max(64),
+  studentNumber: z.string().trim().max(64).optional().or(z.literal("")),
   firstName: z.string().trim().min(2).max(80),
   lastName: z.string().trim().min(2).max(80)
 });
@@ -78,7 +79,11 @@ async function canManageClassroom(userId: string, role: string, classroomId: str
 
 async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema>, classroomId: string, studentRoleId: string) {
   const admin = createAdminClient();
-  const studentNumber = input.studentNumber.trim().toUpperCase();
+  const providedStudentNumber = normalizeStudentNumber(input.studentNumber ?? "");
+  const studentNumber = providedStudentNumber || await generateStudentNumber(admin);
+  if (!isSupportedStudentNumber(studentNumber)) {
+    throw new Error(`${input.firstName.trim()} ${input.lastName.trim()} needs an 8-digit student ID or a blank ID for automatic generation.`);
+  }
   const { data: existingStudent } = await admin
     .from("students")
     .select("id,profile_id")
@@ -154,7 +159,7 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
         roster_updated_at: new Date().toISOString()
       } satisfies Json
     }).eq("id", existing.id);
-    return { created: false, accessPrepared: wasPending && Boolean(profile?.email), accessSent, accessMessage };
+    return { studentNumber, created: false, accessPrepared: wasPending && Boolean(profile?.email), accessSent, accessMessage };
   }
 
   const email = studentEmailFor(studentNumber);
@@ -211,7 +216,7 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
     reason: "Student portal account created from class roster",
     snapshot: { student_number: studentNumber, classroom_id: classroomId, access_method: "secure_access_required" }
   });
-  return { created: true, accessPrepared: true, accessSent: false, accessMessage: undefined };
+  return { studentNumber, created: true, accessPrepared: true, accessSent: false, accessMessage: undefined };
 }
 
 export async function saveClassRosterAction(formData: FormData) {
@@ -229,7 +234,7 @@ export async function saveClassRosterAction(formData: FormData) {
   const result = rosterSchema.safeParse(parsed);
   if (!result.success) return { ok: false, message: "Add student IDs, first names, and last names before saving." };
 
-  const deduped = Array.from(new Map(result.data.map((student) => [student.studentNumber.trim().toUpperCase(), student])).values());
+  const deduped = Array.from(new Map(result.data.map((student, index) => [normalizeStudentNumber(student.studentNumber ?? "") || `__AUTO_${index}`, student])).values());
   const { user, role } = await requireRoles(["super_admin", "school_admin", "teacher"]);
   const allowed = await canManageClassroom(user.id, role, classroomId);
   if (!allowed) return { ok: false, message: "You can only manage rosters for classes assigned to you." };
@@ -246,9 +251,11 @@ export async function saveClassRosterAction(formData: FormData) {
   let accessSent = 0;
   let accessBlocked = 0;
   const accessWarnings = new Set<string>();
+  const savedStudentNumbers: string[] = [];
   try {
     for (const student of deduped) {
       const outcome = await createStudentFromRoster(student, classroomId, String(studentRole.id));
+      savedStudentNumbers.push(outcome.studentNumber);
       if (outcome.created) created += 1;
       else updated += 1;
       if (outcome.accessPrepared) accessPrepared += 1;
@@ -262,7 +269,7 @@ export async function saveClassRosterAction(formData: FormData) {
     return { ok: false, message: error instanceof Error ? error.message : "The class roster could not be saved." };
   }
 
-  const incomingNumbers = deduped.map((student) => student.studentNumber.trim().toUpperCase());
+  const incomingNumbers = savedStudentNumbers.map((studentNumber) => normalizeStudentNumber(studentNumber));
   const { data: currentStudents } = await admin
     .from("students")
     .select("id,student_number,metadata")
@@ -282,8 +289,8 @@ export async function saveClassRosterAction(formData: FormData) {
     captured_by: user.id,
     snapshot_type: "manual",
     student_count: deduped.length,
-    roster: deduped.map((student) => ({
-      student_number: student.studentNumber.trim().toUpperCase(),
+    roster: deduped.map((student, index) => ({
+      student_number: normalizeStudentNumber(student.studentNumber ?? "") || savedStudentNumbers[index] || "",
       first_name: student.firstName.trim(),
       last_name: student.lastName.trim()
     })) satisfies Json,

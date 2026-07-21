@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -25,6 +25,15 @@ function numberText(value: unknown, fallback = "0") {
   return typeof value === "number" && Number.isFinite(value) ? String(value) : fallback;
 }
 
+function numberValue(value: unknown, fallback = 0) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function scoreText(value: unknown) {
+  const score = numberValue(value);
+  return Number.isInteger(score) ? String(score) : score.toFixed(1);
+}
+
 function wrap(value: string, max = 92) {
   const words = value.split(/\s+/);
   const lines: string[] = [];
@@ -39,6 +48,23 @@ function wrap(value: string, max = 92) {
   }
   if (line) lines.push(line);
   return lines;
+}
+
+function wrapPdfText(value: string, font: PDFFont, size: number, maxWidth: number) {
+  const words = value.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const candidate = `${line} ${word}`.trim();
+    if (line && font.widthOfTextAtSize(candidate, size) > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [""];
 }
 
 async function canReadReport(userId: string, roleName: string, report: { student_id: string | null; classroom_id: string | null; students: Relation<{ profile_id: string | null }> }) {
@@ -117,11 +143,29 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const attendance = asRecord(report.attendance_summary);
   const rows = asArray(gradeSummary.rows);
   const studentName = text(gradeSummary.student, studentProfile ? `${studentProfile.first_name} ${studentProfile.last_name}` : "Student");
+  const tableRows = rows.map((item) => {
+    const row = asRecord(item);
+    return {
+      subject: text(row.subject, "Subject"),
+      assignment: numberValue(row.assignment),
+      quiz: numberValue(row.quiz),
+      midterm: numberValue(row.midterm),
+      classAssessment: numberValue(row.classAssessment),
+      exam: numberValue(row.exam),
+      total: numberValue(row.total),
+      gradeCode: text(row.gradeCode, "-"),
+      remark: text(row.remark, "-")
+    };
+  });
 
   const pdf = await PDFDocument.create();
   let page = pdf.addPage([595, 842]);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const navy = rgb(0.02, 0.11, 0.28);
+  const blue = rgb(0.02, 0.22, 0.62);
+  const borderBlue = rgb(0.42, 0.62, 0.88);
+  const paleBlue = rgb(0.9, 0.95, 1);
   let y = 800;
 
   function ensure(space: number) {
@@ -136,38 +180,93 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const indent = options.indent ?? 42;
     for (const line of wrap(value, size > 12 ? 58 : 94)) {
       ensure(size + 10);
-      page.drawText(line, { x: indent, y, size, font, color: options.color ?? rgb(0.02, 0.11, 0.28) });
+      page.drawText(line, { x: indent, y, size, font, color: options.color ?? navy });
       y -= size + 6;
     }
   }
 
-  page.drawText("CRESTVIEW INTERNATIONAL SCHOOL", { x: 42, y, size: 17, font: bold, color: rgb(0.02, 0.15, 0.45) });
+  function drawResultsHeader(columns: ReadonlyArray<{ label: string; width: number }>, left: number, rowHeight: number) {
+    page.drawRectangle({ x: left, y: y - rowHeight + 6, width: columns.reduce((sum, column) => sum + column.width, 0), height: rowHeight, color: paleBlue, borderColor: borderBlue, borderWidth: 0.8 });
+    let x = left;
+    for (const column of columns) {
+      page.drawRectangle({ x, y: y - rowHeight + 6, width: column.width, height: rowHeight, borderColor: borderBlue, borderWidth: 0.6 });
+      const lines = wrapPdfText(column.label, bold, 7.2, column.width - 8).slice(0, 2);
+      lines.forEach((line, index) => page.drawText(line, { x: x + 4, y: y - 9 - (index * 9), size: 7.2, font: bold, color: blue }));
+      x += column.width;
+    }
+    y -= rowHeight;
+  }
+
+  function drawResultsTable(dataRows: typeof tableRows) {
+    const left = 36;
+    const columns = [
+      { key: "subject", label: "Subject", width: 126 },
+      { key: "assignment", label: "Assignment /10", width: 50 },
+      { key: "quiz", label: "Quiz /10", width: 45 },
+      { key: "midterm", label: "Midterm /10", width: 54 },
+      { key: "classAssessment", label: "CA /30", width: 48 },
+      { key: "exam", label: "Exam /70", width: 50 },
+      { key: "total", label: "Total /100", width: 54 },
+      { key: "gradeCode", label: "Grade", width: 42 },
+      { key: "remark", label: "Remark", width: 54 }
+    ] as const;
+    const headerHeight = 32;
+    drawResultsHeader(columns, left, headerHeight);
+
+    for (const row of dataRows) {
+      const subjectLines = wrapPdfText(row.subject, bold, 8.2, columns[0].width - 8).slice(0, 2);
+      const remarkLines = wrapPdfText(row.remark, regular, 7.8, columns[8].width - 8).slice(0, 2);
+      const rowHeight = Math.max(34, Math.max(subjectLines.length, remarkLines.length) * 9 + 16);
+      if (y - rowHeight < 52) {
+        page = pdf.addPage([595, 842]);
+        y = 800;
+        page.drawText("Subject Performance Continued", { x: left, y, size: 11, font: bold, color: blue });
+        y -= 18;
+        drawResultsHeader(columns, left, headerHeight);
+      }
+
+      let x = left;
+      page.drawRectangle({ x: left, y: y - rowHeight + 6, width: columns.reduce((sum, column) => sum + column.width, 0), height: rowHeight, borderColor: borderBlue, borderWidth: 0.6 });
+      for (const column of columns) {
+        page.drawRectangle({ x, y: y - rowHeight + 6, width: column.width, height: rowHeight, borderColor: borderBlue, borderWidth: 0.35 });
+        const rawValue = row[column.key];
+        const value = typeof rawValue === "number" ? scoreText(rawValue) : String(rawValue);
+        const font = column.key === "subject" || column.key === "total" || column.key === "gradeCode" ? bold : regular;
+        const size = column.key === "subject" ? 8.2 : 7.8;
+        const cellLines = (column.key === "subject" ? subjectLines : column.key === "remark" ? remarkLines : wrapPdfText(value, font, size, column.width - 8)).slice(0, 2);
+        cellLines.forEach((line, index) => page.drawText(line, { x: x + 4, y: y - 9 - (index * 9), size, font, color: navy }));
+        x += column.width;
+      }
+      y -= rowHeight;
+    }
+  }
+
+  page.drawText("CRESTVIEW INTERNATIONAL SCHOOL", { x: 42, y, size: 17, font: bold, color: blue });
   y -= 24;
   page.drawText("End of Term Academic Report", { x: 42, y, size: 14, font: bold, color: rgb(0.86, 0.04, 0.12) });
   y -= 26;
   draw(`Student: ${studentName}    ID: ${student?.student_number ?? text(gradeSummary.student_number, "N/A")}`, { strong: true });
   draw(`Class: ${text(gradeSummary.classroom, "Unassigned")}    Academic year: ${text(one(report.academic_years)?.name, text(gradeSummary.academic_year, "Academic year"))}    Term: ${report.term}`, { strong: true });
+  draw(`Position: ${text(gradeSummary.position_label, text(analysis.positionLabel, "Not ranked"))}${numberValue(gradeSummary.class_size, numberValue(analysis.classSize)) ? ` of ${scoreText(numberValue(gradeSummary.class_size, numberValue(analysis.classSize)))}` : ""}    Total marks: ${scoreText(gradeSummary.total_marks)}    Average: ${scoreText(analysis.average)}%`, { strong: true });
   y -= 8;
 
-  draw("Teacher Summary", { size: 12, strong: true, color: rgb(0.02, 0.15, 0.45) });
+  draw("Teacher Summary", { size: 12, strong: true, color: blue });
   draw(report.summary ?? "No teacher summary was recorded.");
   y -= 8;
 
-  draw("Subject Performance", { size: 12, strong: true, color: rgb(0.02, 0.15, 0.45) });
-  draw("Subject | CA /30 | Exam /70 | Total /100 | Grade | Remark", { strong: true });
-  for (const item of rows) {
-    const row = asRecord(item);
-    draw(`${text(row.subject, "Subject")} | ${numberText(row.classAssessment)} | ${numberText(row.exam)} | ${numberText(row.total)} | ${text(row.gradeCode, "-")} | ${text(row.remark, "-")}`);
-  }
+  draw("Subject Performance", { size: 12, strong: true, color: blue });
+  draw(`Ranking basis: ${text(gradeSummary.ranking_basis, "Sum of total /100 marks across all recorded subjects in this class for the selected term.")}`, { size: 8.5 });
+  y -= 4;
+  drawResultsTable(tableRows);
   y -= 8;
 
-  draw("Attendance and Conduct", { size: 12, strong: true, color: rgb(0.02, 0.15, 0.45) });
+  draw("Attendance and Conduct", { size: 12, strong: true, color: blue });
   draw(`Attendance rate: ${numberText(attendance.rate)}% | Present: ${numberText(attendance.present)} | Late: ${numberText(attendance.late)} | Absent: ${numberText(attendance.absent)} | Excused: ${numberText(attendance.excused)}`);
   draw(`Attitude: ${report.attitude ?? text(analysis.attitude, "Not recorded")}`);
   draw(`Punctuality: ${report.punctuality ?? text(analysis.punctuality, "Not recorded")}`);
   y -= 8;
 
-  draw("Automated Analysis", { size: 12, strong: true, color: rgb(0.02, 0.15, 0.45) });
+  draw("Automated Analysis", { size: 12, strong: true, color: blue });
   draw(`Strengths: ${asArray(analysis.strengths).map((item) => text(item)).filter(Boolean).join("; ") || "No strengths recorded."}`);
   draw(`Areas for improvement: ${asArray(analysis.concerns).map((item) => text(item)).filter(Boolean).join("; ") || "No major concern recorded."}`);
   draw(`Recommendations: ${asArray(analysis.recommendations).map((item) => text(item)).filter(Boolean).join("; ") || "Continue the current learning plan."}`);

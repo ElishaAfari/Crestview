@@ -42,14 +42,14 @@ export function StudentIdCardGrid({ cards = [] }: { cards?: StudentIdCardRow[] }
   }
 
   return (
-    <div className="space-y-4">
-      <Button type="button" variant="secondary" onClick={() => window.print()}>
+    <div className="student-id-print-area space-y-4">
+      <Button type="button" variant="secondary" onClick={() => window.print()} className="student-id-print-controls">
         <Printer className="size-4" aria-hidden />
         Print ID cards
       </Button>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="student-id-card-sheet grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => (
-          <div key={card.id} className="overflow-hidden rounded-lg border-2 border-blue-300 bg-white shadow-[0_18px_44px_-28px_rgba(7,55,127,0.72)] dark:border-white/10 dark:bg-slate-950">
+          <div key={card.id} className="student-id-card overflow-hidden rounded-lg border-2 border-blue-300 bg-white shadow-[0_18px_44px_-28px_rgba(7,55,127,0.72)] dark:border-white/10 dark:bg-slate-950">
             <div className="flex items-center gap-3 bg-[#07377f] px-4 py-3 text-white">
               <span className="relative size-11 overflow-hidden rounded-lg bg-white">
                 <Image src="/crestview-logo.png" alt="Crestview logo" fill className="object-contain p-1" />

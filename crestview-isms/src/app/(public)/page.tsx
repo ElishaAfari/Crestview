@@ -24,7 +24,7 @@ const programmes = [
     title: "Hybrid Curriculum",
     kicker: "Cambridge and GES",
     description: "A thoughtful blend of global learning standards and strong Ghanaian foundations.",
-    image: "/landing/programmes/hybrid-curriculum.png",
+    image: "/landing/real/crestview-pair-reading.jpg",
     icon: BookOpenCheck,
     accent: "bg-[#42d6d0] text-[#06165b]",
   },
@@ -32,7 +32,7 @@ const programmes = [
     title: "Robotics",
     kicker: "Build, code, explore",
     description: "Hands-on challenges that turn bright ideas into practical problem-solving skills.",
-    image: "/landing/programmes/robotics-lab.png",
+    image: "/landing/real/crestview-board-learning.jpg",
     icon: Bot,
     accent: "bg-[#ffd83d] text-[#06165b]",
   },
@@ -40,7 +40,7 @@ const programmes = [
     title: "STEM Education",
     kicker: "Curiosity in action",
     description: "Experiments, projects, and discovery that help learners understand their world.",
-    image: "/landing/programmes/stem-lab.png",
+    image: "/landing/real/crestview-writing-red.jpg",
     icon: FlaskConical,
     accent: "bg-[#cf1017] text-white",
   },
@@ -48,7 +48,7 @@ const programmes = [
     title: "Music",
     kicker: "Creativity and confidence",
     description: "A lively creative outlet that strengthens expression, discipline, and collaboration.",
-    image: "/landing/programmes/music-class.png",
+    image: "/landing/real/crestview-blue-portrait.jpg",
     icon: Music2,
     accent: "bg-[#082b91] text-white",
   },
@@ -205,7 +205,7 @@ export default function LandingPage() {
       <section className="bg-[#eaf8f7] px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl overflow-hidden rounded-lg bg-white shadow-sm lg:grid-cols-2">
           <div className="relative min-h-72">
-            <Image src="/landing/programmes/hybrid-curriculum.png" alt="Students learning together" fill className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
+            <Image src="/landing/real/crestview-orange-reading.jpg" alt="Crestview student reading in class" fill className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
           </div>
           <Reveal className="p-7 sm:p-10 lg:p-14">
             <p className="text-xs font-black uppercase text-[#cf1017]">Hybrid curriculum</p>

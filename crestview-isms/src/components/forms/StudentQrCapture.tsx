@@ -16,7 +16,7 @@ export function StudentQrCapture({
   onValue,
   name = "studentLookup",
   label = "Student ID or QR code",
-  placeholder = "Scan or type CIS student ID"
+  placeholder = "Scan QR or type 8-digit student ID"
 }: {
   value: string;
   onValue: (value: string) => void;

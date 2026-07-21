@@ -143,7 +143,17 @@ async function seedAcademicSkeleton() {
     ["DLIT", "Digital Literacy", "ENRICH"],
     ["GLANG", "Ghanaian Language", "ACA"],
     ["FRE", "French", "ACA"],
-    ["HIST", "History", "ACA"]
+    ["HIST", "History", "ACA"],
+    ["JHS-ENG", "English Language", "ACA"],
+    ["JHS-MAT", "Mathematics", "ACA"],
+    ["JHS-SCI", "Integrated Science", "ACA"],
+    ["JHS-SOS", "Social Studies", "ACA"],
+    ["JHS-ICT", "Computing / ICT", "ENRICH"],
+    ["JHS-RME", "Religious and Moral Education (RME)", "ACA"],
+    ["JHS-CTE", "Career Technology", "ENRICH"],
+    ["JHS-CAD", "Creative Arts and Design", "ENRICH"],
+    ["JHS-GLC", "Ghanaian Language and Culture", "ACA"],
+    ["JHS-FRE", "French", "ACA"]
   ].map(([code, name, departmentCode]) => ({ code, name, department_id: departmentsByCode.get(departmentCode) ?? null, credit_hours: 1 }));
   const { data: subjectRows, error: subjectError } = await supabase.from("subjects").upsert(subjects, { onConflict: "code" }).select("id,code");
   if (subjectError) throw new Error(`subjects: ${subjectError.message}`);
@@ -192,6 +202,7 @@ async function seedAcademicSkeleton() {
   const nurserySubjects = ["LIT", "NUM", "CART"];
   const kgSubjects = ["LIT", "NUM", "CART", "OWOP", "WRIT"];
   const primarySubjects = ["MATH", "ENG", "RME", "CART", "DLIT", "GLANG", "FRE", "HIST"];
+  const jhsSubjects = ["JHS-ENG", "JHS-MAT", "JHS-SCI", "JHS-SOS", "JHS-ICT", "JHS-RME", "JHS-CTE", "JHS-CAD", "JHS-GLC", "JHS-FRE"];
   const courseRows = [];
   for (const classroom of classroomRows ?? []) {
     const codes = classroom.name.startsWith("Nursery")
@@ -200,7 +211,9 @@ async function seedAcademicSkeleton() {
         ? kgSubjects
         : classroom.name.startsWith("Primary")
           ? primarySubjects
-          : [];
+          : classroom.name.startsWith("JHS")
+            ? jhsSubjects
+            : [];
     for (const code of codes) {
       const subjectId = subjectsByCode.get(code);
       if (!subjectId) continue;
@@ -247,6 +260,8 @@ const operationalDeletePlan = [
   ["admission_documents"],
   ["admission_guardians"],
   ["admission_status_history"],
+  ["daily_fee_payments"],
+  ["student_id_cards"],
   ["students"],
   ["library_fines"],
   ["library_loans"],
@@ -268,6 +283,7 @@ const operationalDeletePlan = [
   ["invoice_items"],
   ["invoices"],
   ["billing_batches"],
+  ["daily_fee_plans"],
   ["fee_plan_items"],
   ["fee_plans"],
   ["fee_categories"],
