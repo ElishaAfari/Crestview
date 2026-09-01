@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { ArrowUpRight, BookOpen, CreditCard, Database, ShieldCheck, Settings, Users } from "lucide-react";
+import { ArrowUpRight, BookOpen, Boxes, Bus, ClipboardList, CreditCard, Database, HeartPulse, Megaphone, School, ShieldCheck, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import type { OperationsModule, OperationsWorkspace } from "@/config/operations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,104 @@ import { ANIMATIONS, cn } from "@/lib/utils";
 type WorkspaceWithCounts = Omit<OperationsWorkspace, "modules"> & { modules: Array<OperationsModule & { count: number }> };
 
 const workspaceMeta = {
+  "front-office": {
+    icon: School,
+    title: "Reception control",
+    insight: "Enquiries, visitors, parent complaints and public-facing requests are consolidated for front desk follow-up.",
+    accent: "portal-accent-blue",
+    tone: "portal-tone-blue"
+  },
+  "id-cards": {
+    icon: CreditCard,
+    title: "Identity assurance",
+    insight: "Student cards, staff cards and QR verification logs keep attendance, payments and access checks aligned.",
+    accent: "portal-accent-blue",
+    tone: "portal-tone-blue"
+  },
+  preschool: {
+    icon: School,
+    title: "Early years care",
+    insight: "Daily logs, observations, pickups and incidents help preschool staff send parent-ready care updates.",
+    accent: "portal-accent-green",
+    tone: "portal-tone-green"
+  },
+  "academics-office": {
+    icon: BookOpen,
+    title: "Academic planning",
+    insight: "Schemes of work, curriculum units, lesson plans, resources and timetables stay connected to classroom delivery.",
+    accent: "portal-accent-green",
+    tone: "portal-tone-green"
+  },
+  exams: {
+    icon: ClipboardList,
+    title: "Exam readiness",
+    insight: "Exam windows, sessions, assessment items and published reports are visible from one assessment control point.",
+    accent: "portal-accent-amber",
+    tone: "portal-tone-amber"
+  },
+  communication: {
+    icon: Megaphone,
+    title: "Communication flow",
+    insight: "Notices, campaigns, email queues, SMS queues and conversations are monitored for role-specific communication.",
+    accent: "portal-accent-red",
+    tone: "portal-tone-red"
+  },
+  bursary: {
+    icon: CreditCard,
+    title: "Cashier control",
+    insight: "Cashier sessions, receipts and daily fee payment records support clean shift closure and reconciliation.",
+    accent: "portal-accent-amber",
+    tone: "portal-tone-amber"
+  },
+  accounting: {
+    icon: Database,
+    title: "Ledger readiness",
+    insight: "Chart of accounts, fiscal years, journals, supplier bills and bank accounts prepare finance for double-entry reporting.",
+    accent: "portal-accent-green",
+    tone: "portal-tone-green"
+  },
+  feeding: {
+    icon: CreditCard,
+    title: "Feeding collections",
+    insight: "Daily feeding enrollment, payments, exemptions and adjustments stay traceable for finance and parents.",
+    accent: "portal-accent-amber",
+    tone: "portal-tone-amber"
+  },
+  "extra-classes": {
+    icon: BookOpen,
+    title: "Extra class collections",
+    insight: "Extra class enrollment, daily payments and adjustments are separated from core school fees for clearer reporting.",
+    accent: "portal-accent-blue",
+    tone: "portal-tone-blue"
+  },
+  boarding: {
+    icon: Users,
+    title: "Boarding operations",
+    insight: "Houses, dormitories, assignments, roll calls, exeats, visitors and incidents are tracked in one facilities workspace.",
+    accent: "portal-accent-red",
+    tone: "portal-tone-red"
+  },
+  transport: {
+    icon: Bus,
+    title: "Transport pulse",
+    insight: "Routes, vehicles, stops, trip logs and student transport assignments are grouped for operational visibility.",
+    accent: "portal-accent-blue",
+    tone: "portal-tone-blue"
+  },
+  inventory: {
+    icon: Boxes,
+    title: "Inventory control",
+    insight: "Stock items, movements, technology assets and procurement expenses are tracked for reorder and audit readiness.",
+    accent: "portal-accent-green",
+    tone: "portal-tone-green"
+  },
+  "learner-care": {
+    icon: HeartPulse,
+    title: "Learner care",
+    insight: "Wellbeing, behaviour, medical notes and Student 360 follow-up records are gathered for protected support work.",
+    accent: "portal-accent-red",
+    tone: "portal-tone-red"
+  },
   hr: {
     icon: Users,
     title: "People pulse",
@@ -49,7 +147,7 @@ const workspaceMeta = {
     accent: "portal-accent-red",
     tone: "portal-tone-red"
   }
-} as const;
+} satisfies Record<OperationsWorkspace["key"], { icon: typeof Users; title: string; insight: string; accent: string; tone: string }>;
 
 const accents = ["portal-accent-blue", "portal-accent-green", "portal-accent-amber", "portal-accent-red"] as const;
 const tones = ["portal-tone-blue", "portal-tone-green", "portal-tone-amber", "portal-tone-red"] as const;

@@ -34,18 +34,38 @@ export function TopNav() {
 
     if (role === "super_admin" || role === "school_admin") {
       if (/(admission|applicant|enrol|enroll)/.test(normalized)) return "/admin/admissions";
+      if (/(front desk|visitor|walk.?in|enquiry|inquiry|complaint|reception)/.test(normalized)) return "/front-office";
+      if (/(notice|announcement|communication|email|sms|message|campaign)/.test(normalized)) return "/communication";
       if (/(staff|teacher|employee)/.test(normalized)) return "/admin/staff";
       if (/(recruit|candidate|job)/.test(normalized)) return "/admin/recruitment";
+      if (/(id card|card|qr|badge|verify)/.test(normalized)) return "/id-cards";
+      if (/(cashier|receipt|bursary|cash shift)/.test(normalized)) return "/bursary";
+      if (/(ledger|accounting|journal|chart of account|bank|supplier|vendor|fiscal)/.test(normalized)) return "/accounting";
+      if (/(feeding|meal|canteen|lunch)/.test(normalized)) return "/feeding";
+      if (/(extra class|extra lesson|after school|remedial)/.test(normalized)) return "/extra-classes";
+      if (/(boarding|dorm|house|roll call|exeat|sick bay)/.test(normalized)) return "/boarding";
       if (/(fee|invoice|bill|payment)/.test(normalized)) return "/admin/fees";
       if (/(grade|score|report card|assessment|subject)/.test(normalized)) return "/admin/grades";
       if (/(attendance|present|absent|late)/.test(normalized)) return "/admin/attendance";
       if (/(report|summary|pdf)/.test(normalized)) return "/admin/reports";
+      if (/(preschool|kg|kindergarten|pickup|observation|daily log)/.test(normalized)) return "/preschool";
+      if (/(scheme|lesson|curriculum|syllabus|material|timetable)/.test(normalized)) return "/academics-office";
+      if (/(exam|examination|window|invigilat)/.test(normalized)) return "/exams";
+      if (/(care|wellbeing|wellness|behavio|discipline|medical|safeguard)/.test(normalized)) return "/learner-care";
+      if (/(transport|route|bus|vehicle|trip|stop)/.test(normalized)) return "/transport";
+      if (/(inventory|stock|asset|supply|procurement)/.test(normalized)) return "/inventory";
       return "/admin/students";
     }
     if (role === "teacher") {
       if (/(attendance|present|absent|late)/.test(normalized)) return "/teacher/attendance";
       if (/(grade|score|assessment|subject|report)/.test(normalized)) return "/teacher/grades";
       if (/(assignment|homework)/.test(normalized)) return "/teacher/assignments";
+      if (/(scheme|lesson|curriculum|syllabus|material|timetable)/.test(normalized)) return "/academics-office";
+      if (/(exam|examination|window|invigilat)/.test(normalized)) return "/exams";
+      if (/(care|wellbeing|wellness|behavio|discipline|medical|safeguard)/.test(normalized)) return "/learner-care";
+      if (/(preschool|kg|kindergarten|pickup|observation|daily log)/.test(normalized)) return "/preschool";
+      if (/(extra class|extra lesson|after school|remedial)/.test(normalized)) return "/extra-classes";
+      if (/(boarding|dorm|house|roll call|exeat|sick bay)/.test(normalized)) return "/boarding";
       return "/teacher/classes";
     }
     if (role === "student") {

@@ -5,6 +5,8 @@ import { PageWrapper } from "@/components/layout/PageWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SupportTicketRegister } from "@/components/operations/SupportTicketRegister";
 import { PayrollProcessForm } from "@/components/operations/PayrollProcessForm";
+import { OperationsGenericTable } from "@/components/operations/OperationsGenericTable";
+import { OperationsRecordForm } from "@/components/operations/OperationsRecordForm";
 import { InvoiceTable, type InvoiceRow } from "@/components/tables/InvoiceTable";
 import { WorkflowTaskTable } from "@/components/tables/WorkflowTaskTable";
 import type { WorkflowTaskRow } from "@/features/automation/queries";
@@ -50,7 +52,10 @@ export function OperationsRegister({ workspace, module, records, count }: { work
       <Link href={`/${workspace.key}`} className="inline-flex items-center gap-1 text-sm font-black text-blue-700 hover:text-blue-900 dark:text-blue-200"><ArrowLeft className="size-4" aria-hidden />Back to {workspace.title}</Link>
       <Card>
         <CardHeader><CardTitle>{count} records</CardTitle></CardHeader>
-        <CardContent>
+        <CardContent className="space-y-5">
+          {module.createFields?.length ? (
+            <OperationsRecordForm workspaceKey={workspace.key} moduleKey={module.key} moduleLabel={module.label} fields={module.createFields} />
+          ) : null}
           {module.table === "payroll_periods" ? <PayrollProcessForm /> : null}
           {module.table === "support_tickets" ? (
             <SupportTicketRegister records={records} />
@@ -59,14 +64,7 @@ export function OperationsRegister({ workspace, module, records, count }: { work
           ) : module.table === "workflow_tasks" ? (
             <WorkflowTaskTable data={workflowRows(records)} />
           ) : records.length ? (
-            <div className="portal-table-wrap">
-              <table className="w-full text-left text-sm">
-                <thead className="portal-table-head text-xs uppercase"><tr>{module.fields.map((field) => <th key={field.key} className="px-4 py-3 font-black">{field.label}</th>)}</tr></thead>
-                <tbody>
-                  {records.map((record, index) => <tr key={String(record.id ?? index)} className="portal-table-row">{module.fields.map((field) => <td key={field.key} className="max-w-72 truncate px-4 py-3 font-semibold text-[var(--portal-text)]">{displayValue(record[field.key])}</td>)}</tr>)}
-                </tbody>
-              </table>
-            </div>
+            <OperationsGenericTable records={records} fields={module.fields} searchFields={module.searchFields} />
           ) : (
             <div className="portal-subtle-card grid min-h-44 place-items-center rounded-lg border-dashed text-center">
               <div><Database className="portal-icon-tile portal-tone-blue mx-auto size-10 rounded-lg" aria-hidden /><p className="mt-3 text-sm font-bold text-[var(--portal-muted)]">No records have been added yet.</p></div>
