@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/forms/SearchableSelect";
 import { createInvoiceAction } from "@/features/fees/actions";
 import type { SelectOption } from "@/features/admin/queries";
 
@@ -27,17 +27,11 @@ export function FeeForm({ students = [] }: { students?: SelectOption[] }) {
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2">
-      <div>
-        <Label>Student</Label>
-        <Select {...form.register("studentId")}>
-          <option value="">Choose student</option>
-          {students.map((student) => <option key={student.id} value={student.id}>{student.label}</option>)}
-        </Select>
-      </div>
+      <SearchableSelect label="Student" options={students} placeholder="Choose student" searchPlaceholder="Search student, ID, or class..." {...form.register("studentId")} />
       <div><Label>Amount</Label><Input type="number" {...form.register("amount", { valueAsNumber: true })} /></div>
       <div><Label>Currency</Label><Input {...form.register("currency")} /></div>
       <div><Label>Due date</Label><Input type="date" {...form.register("dueDate")} /></div>
-      <div className="sm:col-span-2 flex flex-col items-start gap-3"><Button type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? "Creating..." : "Create invoice"}</Button>{message ? <p className={`text-sm ${submitted ? "text-emerald-300" : "text-red-300"}`}>{message}</p> : null}</div>
+      <div className="sm:col-span-2 flex flex-col items-start gap-3"><Button type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? "Creating..." : "Create invoice"}</Button>{message ? <p className={`text-sm font-black ${submitted ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>{message}</p> : null}</div>
     </form>
   );
 }

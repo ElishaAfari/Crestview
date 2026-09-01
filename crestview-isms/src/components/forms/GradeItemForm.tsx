@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/forms/SearchableSelect";
 import { Select } from "@/components/ui/select";
 import { createGradeItemAction } from "@/features/grades/actions";
 import type { SelectOption } from "@/features/admin/queries";
@@ -54,13 +55,14 @@ export function GradeItemForm({ courses = [] }: { courses?: SelectOption[] }) {
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 lg:grid-cols-2">
-      <div className="lg:col-span-2">
-        <Label>Class subject and term</Label>
-        <Select {...form.register("courseId")}>
-          <option value="">Choose class subject</option>
-          {courses.map((course) => <option key={course.id} value={course.id}>{course.label}</option>)}
-        </Select>
-      </div>
+      <SearchableSelect
+        className="lg:col-span-2"
+        label="Class subject and term"
+        options={courses}
+        placeholder="Choose class subject"
+        searchPlaceholder="Search class, subject, or term..."
+        {...form.register("courseId")}
+      />
       <div>
         <Label>Assessment title</Label>
         <Input {...form.register("title")} placeholder="Class Assessment" />

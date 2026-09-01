@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Download, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/forms/SearchableSelect";
 import { importGradesCsvAction } from "@/features/grades/actions";
 import type { GradeImportContext } from "@/features/admin/queries";
 
@@ -16,6 +16,11 @@ export function GradeImportForm({ contexts = [] }: { contexts?: GradeImportConte
   const selectedContext = useMemo(() => contexts.find((context) => context.gradeItemId === gradeItemId) ?? contexts[0], [contexts, gradeItemId]);
 
   const templateHref = selectedContext ? `/api/grades/templates/${selectedContext.gradeItemId}` : "#";
+  const contextOptions = contexts.map((context) => ({
+    id: context.gradeItemId,
+    label: context.label,
+    meta: `${context.classroomName} ${context.subjectName} ${context.term} ${context.assessmentTitle}`
+  }));
 
   async function importCsv() {
     if (!file) {
@@ -35,14 +40,15 @@ export function GradeImportForm({ contexts = [] }: { contexts?: GradeImportConte
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label>Class subject report</Label>
-          <Select value={gradeItemId} onChange={(event) => setGradeItemId(event.target.value)}>
-            <option value="">Choose class subject</option>
-            {contexts.map((item) => <option key={item.gradeItemId} value={item.gradeItemId}>{item.label}</option>)}
-          </Select>
-          {selectedContext ? <p className="mt-2 text-xs font-black text-[var(--portal-muted)]">{selectedContext.students.length} active student{selectedContext.students.length === 1 ? "" : "s"} in {selectedContext.classroomName}</p> : null}
-        </div>
+        <SearchableSelect
+          label="Class subject report"
+          value={gradeItemId}
+          onChange={(event) => setGradeItemId(event.target.value)}
+          options={contextOptions}
+          placeholder="Choose class subject"
+          searchPlaceholder="Search class, subject, term, assessment..."
+          helper={selectedContext ? `${selectedContext.students.length} active student${selectedContext.students.length === 1 ? "" : "s"} in ${selectedContext.classroomName}` : null}
+        />
         <div>
           <Label>Completed grade file</Label>
           <input

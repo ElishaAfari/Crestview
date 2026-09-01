@@ -6,7 +6,7 @@ import { Plus, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/forms/SearchableSelect";
 import { Textarea } from "@/components/ui/textarea";
 import { createClassInvoiceBatchAction } from "@/features/fees/actions";
 import type { SelectOption } from "@/features/admin/queries";
@@ -71,13 +71,7 @@ export function ClassInvoiceBatchForm({ classrooms = [] }: { classrooms?: Select
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 xl:grid-cols-2">
-      <div>
-        <Label>Class or level</Label>
-        <Select {...form.register("classroomId")}>
-          <option value="">Choose class</option>
-          {classrooms.map((classroom) => <option key={classroom.id} value={classroom.id}>{classroom.label}</option>)}
-        </Select>
-      </div>
+      <SearchableSelect label="Class or level" options={classrooms} placeholder="Choose class" searchPlaceholder="Search class or level..." {...form.register("classroomId")} />
       <div>
         <Label>Invoice title</Label>
         <Input placeholder="Primary 1 Term 1 fees" {...form.register("title")} />

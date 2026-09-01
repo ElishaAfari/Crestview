@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, QrCode, StopCircle } from "lucide-react";
+import { Camera, Keyboard, QrCode, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,21 @@ type BarcodeResult = { rawValue: string };
 type BarcodeDetectorInstance = { detect(source: CanvasImageSource): Promise<BarcodeResult[]> };
 type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => BarcodeDetectorInstance;
 type WindowWithBarcodeDetector = Window & { BarcodeDetector?: BarcodeDetectorConstructor };
+
+function normalizeQrCapture(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = new URL(trimmed);
+    const fromQuery = parsed.searchParams.get("student") ?? parsed.searchParams.get("studentNumber") ?? parsed.searchParams.get("id");
+    if (fromQuery) return normalizeQrCapture(fromQuery);
+  } catch {
+    // Plain QR payloads are expected; URLs are only an optional convenience.
+  }
+  const withoutPrefix = trimmed.replace(/^CIS-STUDENT[:\s-]*/i, "");
+  const compact = withoutPrefix.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  return compact || trimmed.toUpperCase();
+}
 
 export function StudentQrCapture({
   value,
@@ -45,7 +60,7 @@ export function StudentQrCapture({
   async function startScan() {
     const BarcodeDetector = (window as WindowWithBarcodeDetector).BarcodeDetector;
     if (!BarcodeDetector) {
-      setMessage("Camera QR scanning is not supported in this browser. Type the student ID instead.");
+      setMessage("Camera QR scanning is not supported in this browser. Use Chrome/Edge with camera permission, or type/paste the 8-digit student ID.");
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -71,7 +86,7 @@ export function StudentQrCapture({
           const codes = await detector.detect(videoRef.current);
           const firstCode = codes[0]?.rawValue;
           if (firstCode) {
-            onValue(firstCode);
+            onValue(normalizeQrCapture(firstCode));
             setMessage("QR code captured.");
             stopScan();
             return;
@@ -99,6 +114,7 @@ export function StudentQrCapture({
             name={name}
             value={value}
             onChange={(event) => onValue(event.target.value)}
+            onBlur={(event) => onValue(normalizeQrCapture(event.target.value))}
             placeholder={placeholder}
             className="pl-9"
             autoComplete="off"
@@ -117,6 +133,10 @@ export function StudentQrCapture({
         )}
       </div>
       <video ref={videoRef} muted playsInline className={scanning ? "aspect-video w-full rounded-lg border border-[var(--portal-border)] bg-black object-cover" : "hidden"} />
+      <div className="portal-subtle-card flex items-start gap-2 rounded-lg p-3 text-xs font-extrabold text-[var(--portal-muted)]">
+        <Keyboard className="mt-0.5 size-4 shrink-0 text-blue-700 dark:text-blue-200" aria-hidden />
+        <span>Manual fallback accepts the student&apos;s 8-digit ID, the QR payload, or a copied QR URL containing the student ID.</span>
+      </div>
       {message ? <p className="text-sm font-bold text-[var(--portal-muted)]">{message}</p> : null}
     </div>
   );
