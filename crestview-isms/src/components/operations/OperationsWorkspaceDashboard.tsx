@@ -21,6 +21,69 @@ import { ANIMATIONS, cn } from "@/lib/utils";
 type WorkspaceWithCounts = Omit<OperationsWorkspace, "modules"> & { modules: Array<OperationsModule & { count: number }> };
 
 const workspaceMeta = {
+  students: {
+    icon: Users,
+    title: "Learner roll",
+    insight: "Student records, guardian links, attendance context and reports are pulled together for a SIMS-style learner office.",
+    accent: "portal-accent-blue",
+    tone: "portal-tone-blue"
+  },
+  staff: {
+    icon: Users,
+    title: "People office",
+    insight: "Staff profiles, assignments, leave and payroll readiness sit together for HR and school leadership.",
+    accent: "portal-accent-green",
+    tone: "portal-tone-green"
+  },
+  classes: {
+    icon: School,
+    title: "Classes and sections",
+    insight: "Class structures, course coverage, timetables and schemes are grouped for academic planning.",
+    accent: "portal-accent-blue",
+    tone: "portal-tone-blue"
+  },
+  attendance: {
+    icon: ClipboardList,
+    title: "Attendance control",
+    insight: "Daily registers, student records and automated follow-up tasks support the school day rhythm.",
+    accent: "portal-accent-green",
+    tone: "portal-tone-green"
+  },
+  assessment: {
+    icon: ClipboardList,
+    title: "Assessment control",
+    insight: "Assessment items, imports, marks and report cards are connected to the 30/70 grading workflow.",
+    accent: "portal-accent-amber",
+    tone: "portal-tone-amber"
+  },
+  "admissions-office": {
+    icon: School,
+    title: "Admissions desk",
+    insight: "Applications, inquiries and onboarding tasks are traceable from inquiry to accepted learner handoff.",
+    accent: "portal-accent-red",
+    tone: "portal-tone-red"
+  },
+  messages: {
+    icon: Megaphone,
+    title: "Communication hub",
+    insight: "Announcements, campaigns, email, SMS and conversation threads are monitored from one message centre.",
+    accent: "portal-accent-red",
+    tone: "portal-tone-red"
+  },
+  calendar: {
+    icon: School,
+    title: "School calendar",
+    insight: "Events, academic years and exam windows keep school planning visible across roles.",
+    accent: "portal-accent-blue",
+    tone: "portal-tone-blue"
+  },
+  reports: {
+    icon: Database,
+    title: "Reports centre",
+    insight: "Academic, attendance, finance and automation records are arranged for review and export.",
+    accent: "portal-accent-green",
+    tone: "portal-tone-green"
+  },
   "front-office": {
     icon: School,
     title: "Reception control",
@@ -170,6 +233,14 @@ export function OperationsWorkspaceDashboard({ workspace }: { workspace: Workspa
     activity: item.records + index + 1,
     readiness: item.readiness
   }));
+  const attentionItems = workspace.modules
+    .filter((module) => module.count === 0 || /task|queue|incident|arrears|follow|application|request|register|report/i.test(module.label))
+    .slice(0, 4);
+  const quickActions = workspace.quickActions ?? workspace.modules.slice(0, 4).map((module) => ({
+    label: module.createFields?.length ? `New ${module.label.toLowerCase()}` : module.label,
+    description: module.description,
+    href: `/${workspace.key}/${module.key}`
+  }));
 
   return (
     <div className="space-y-6">
@@ -204,6 +275,48 @@ export function OperationsWorkspaceDashboard({ workspace }: { workspace: Workspa
                   <div className={cn("h-full rounded-full", tones[index % tones.length])} style={{ width: `${progressValue(module.count, index)}%` }} />
                 </div>
               </div>
+            ))}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Needs Attention</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {attentionItems.length ? attentionItems.map((module, index) => (
+              <Link key={module.key} href={`/${workspace.key}/${module.key}`} className="portal-subtle-card flex items-center justify-between gap-4 rounded-lg p-3 transition hover:border-[#174ea6]">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-[var(--portal-text)]">{module.label}</p>
+                  <p className="truncate text-xs font-semibold text-[var(--portal-muted)]">{module.count ? `${module.count} records need routine review` : "Setup or first record still needed"}</p>
+                </div>
+                <span className={cn("portal-icon-tile size-9 rounded-lg", tones[index % tones.length])}>
+                  <ArrowUpRight className="size-4" aria-hidden />
+                </span>
+              </Link>
+            )) : (
+              <div className="portal-subtle-card rounded-lg p-4 text-sm font-bold text-[var(--portal-muted)]">All connected registers are active.</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            {quickActions.map((action, index) => (
+              <Link key={`${action.href}-${action.label}`} href={action.href} className={cn("portal-action-tile group", accents[index % accents.length])}>
+                <span className={cn("portal-icon-tile size-11 rounded-lg", tones[index % tones.length])}>
+                  <ArrowUpRight className="size-5 stroke-[2.5]" aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-black text-[var(--portal-text)]">{action.label}</span>
+                  <span className="mt-1 block truncate text-xs font-semibold text-[var(--portal-muted)]">{action.description}</span>
+                </span>
+              </Link>
             ))}
           </CardContent>
         </Card>

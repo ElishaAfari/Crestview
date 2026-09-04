@@ -1,6 +1,15 @@
 import type { RoleName } from "@/types/database.types";
 
 export type OperationsWorkspaceKey =
+  | "students"
+  | "staff"
+  | "classes"
+  | "attendance"
+  | "assessment"
+  | "admissions-office"
+  | "messages"
+  | "calendar"
+  | "reports"
   | "hr"
   | "finance"
   | "library"
@@ -40,12 +49,19 @@ export type OperationsModule = {
   createFields?: OperationsCreateField[];
 };
 
+export type OperationsQuickAction = {
+  label: string;
+  description: string;
+  href: string;
+};
+
 export type OperationsWorkspace = {
   key: OperationsWorkspaceKey;
   title: string;
   description: string;
   roles: RoleName[];
   modules: OperationsModule[];
+  quickActions?: OperationsQuickAction[];
 };
 
 const priorityOptions = [
@@ -66,6 +82,575 @@ const paymentMethodOptions = [
 ];
 
 export const operationsWorkspaces: OperationsWorkspace[] = [
+  {
+    key: "students",
+    title: "Students",
+    description: "Learner directory, guardian links, attendance context, reports, and Student 360 records.",
+    roles: [],
+    quickActions: [
+      { label: "Add student", description: "Open the enrolment form", href: "/admin/students#add-student" },
+      { label: "Student 360", description: "Connected learner view", href: "/admin/student-360" },
+      { label: "ID cards", description: "Print learner cards", href: "/id-cards" },
+      { label: "Export register", description: "Download student records", href: "/students/student-directory" }
+    ],
+    modules: [
+      {
+        key: "student-directory",
+        label: "Student directory",
+        description: "Searchable learner roll with student IDs, class placement, enrolment state, and lifecycle status.",
+        table: "students",
+        fields: [
+          { key: "student_number", label: "Student ID" },
+          { key: "classroom_id", label: "Class" },
+          { key: "enrollment_date", label: "Enrolled" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["student_number", "status"]
+      },
+      {
+        key: "guardian-links",
+        label: "Guardian links",
+        description: "Parent and guardian relationships used for billing, communication, reports, and account access.",
+        table: "parent_students",
+        fields: [
+          { key: "parent_profile_id", label: "Parent profile" },
+          { key: "student_id", label: "Student" },
+          { key: "relationship", label: "Relationship" }
+        ],
+        searchFields: ["relationship", "parent_profile_id", "student_id"]
+      },
+      {
+        key: "attendance-context",
+        label: "Attendance context",
+        description: "Recent attendance records connected to the learner roll.",
+        table: "attendance_records",
+        fields: [
+          { key: "attendance_date", label: "Date" },
+          { key: "student_id", label: "Student" },
+          { key: "classroom_id", label: "Class" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["status", "student_id", "classroom_id", "notes"]
+      },
+      {
+        key: "academic-reports",
+        label: "Academic reports",
+        description: "Generated report cards and publication status by learner.",
+        table: "reports",
+        fields: [
+          { key: "report_number", label: "Report" },
+          { key: "student_id", label: "Student" },
+          { key: "term", label: "Term" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["report_number", "title", "term", "status", "summary"]
+      }
+    ]
+  },
+  {
+    key: "staff",
+    title: "Staff",
+    description: "Staff directory, teaching assignments, leave requests, payroll windows, and recruitment context.",
+    roles: ["hr_staff"],
+    quickActions: [
+      { label: "Add staff", description: "Create a staff profile", href: "/admin/staff#add-staff" },
+      { label: "Recruitment", description: "Review applicants", href: "/admin/recruitment" },
+      { label: "Leave desk", description: "Manage leave", href: "/hr/leave" },
+      { label: "Staff cards", description: "Print staff IDs", href: "/id-cards/staff-cards" }
+    ],
+    modules: [
+      {
+        key: "staff-directory",
+        label: "Staff directory",
+        description: "Profiles for administrators, teachers, finance, HR, library, and IT staff.",
+        table: "profiles",
+        fields: [
+          { key: "first_name", label: "First name" },
+          { key: "last_name", label: "Last name" },
+          { key: "email", label: "Email" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["first_name", "last_name", "email", "phone", "status"]
+      },
+      {
+        key: "class-assignments",
+        label: "Class assignments",
+        description: "Teacher and staff class responsibilities for access control and reports.",
+        table: "staff_class_assignments",
+        fields: [
+          { key: "profile_id", label: "Staff" },
+          { key: "classroom_id", label: "Class" },
+          { key: "assignment_type", label: "Assignment" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["profile_id", "classroom_id", "assignment_type", "status", "notes"]
+      },
+      {
+        key: "leave-requests",
+        label: "Leave requests",
+        description: "Submitted, approved, rejected, and pending staff leave records.",
+        table: "leave_requests",
+        fields: [
+          { key: "staff_profile_id", label: "Staff" },
+          { key: "leave_type", label: "Leave type" },
+          { key: "starts_on", label: "Starts" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["leave_type", "status", "reason", "staff_profile_id"]
+      },
+      {
+        key: "payroll-periods",
+        label: "Payroll periods",
+        description: "Payroll windows and processing status for staff compensation.",
+        table: "payroll_periods",
+        fields: [
+          { key: "name", label: "Period" },
+          { key: "starts_on", label: "Starts" },
+          { key: "ends_on", label: "Ends" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["name", "status"]
+      }
+    ]
+  },
+  {
+    key: "classes",
+    title: "Classes & Sections",
+    description: "Class structures, subject assignments, timetable coverage, and teacher access boundaries.",
+    roles: [],
+    quickActions: [
+      { label: "Assign subjects", description: "Manage subject coverage", href: "/academics-office/curriculum-units" },
+      { label: "Timetable", description: "Review periods", href: "/academics-office/timetable" },
+      { label: "Class rosters", description: "Teacher roster tools", href: "/teacher/classes" },
+      { label: "Attendance", description: "Mark daily registers", href: "/attendance" }
+    ],
+    modules: [
+      {
+        key: "class-register",
+        label: "Class register",
+        description: "Classes, grade levels, capacity, rooms, and academic-year grouping.",
+        table: "classrooms",
+        fields: [
+          { key: "name", label: "Class" },
+          { key: "grade_level", label: "Level" },
+          { key: "capacity", label: "Capacity" },
+          { key: "room_number", label: "Room" }
+        ],
+        searchFields: ["name", "grade_level", "room_number"]
+      },
+      {
+        key: "subject-coverage",
+        label: "Subject coverage",
+        description: "Course records connecting subjects to classes, teachers, academic years, and terms.",
+        table: "courses",
+        fields: [
+          { key: "subject_id", label: "Subject" },
+          { key: "classroom_id", label: "Class" },
+          { key: "teacher_id", label: "Teacher" },
+          { key: "term", label: "Term" }
+        ],
+        searchFields: ["subject_id", "classroom_id", "teacher_id", "term"]
+      },
+      {
+        key: "timetable",
+        label: "Timetable",
+        description: "Class periods, subject timing, rooms, and teacher scheduling checks.",
+        table: "timetables",
+        fields: [
+          { key: "day_of_week", label: "Day" },
+          { key: "starts_at", label: "Starts" },
+          { key: "ends_at", label: "Ends" },
+          { key: "room_number", label: "Room" }
+        ],
+        searchFields: ["day_of_week", "room_number"]
+      },
+      {
+        key: "schemes",
+        label: "Schemes of learning",
+        description: "Weekly subject plans, topics, objectives, resources, and completion status.",
+        table: "class_subject_schemes",
+        fields: [
+          { key: "grade_level", label: "Level" },
+          { key: "subject_name", label: "Subject" },
+          { key: "term", label: "Term" },
+          { key: "week_number", label: "Week" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["grade_level", "subject_name", "term", "topic", "objectives", "resources", "status"]
+      }
+    ]
+  },
+  {
+    key: "attendance",
+    title: "Attendance",
+    description: "Daily class registers, QR scan records, class completion status, and attendance risk monitoring.",
+    roles: [],
+    quickActions: [
+      { label: "Mark attendance", description: "Open daily register", href: "/teacher/attendance" },
+      { label: "Admin monitor", description: "Whole-school overview", href: "/admin/attendance" },
+      { label: "Student 360", description: "Attendance risk view", href: "/admin/student-360" },
+      { label: "Reports", description: "Attendance exports", href: "/reports/attendance-trend" }
+    ],
+    modules: [
+      {
+        key: "daily-registers",
+        label: "Daily registers",
+        description: "Submitted class register headers, locking state, and completion notes.",
+        table: "attendance_registers",
+        fields: [
+          { key: "attendance_date", label: "Date" },
+          { key: "classroom_id", label: "Class" },
+          { key: "status", label: "Status" },
+          { key: "submitted_at", label: "Submitted" }
+        ],
+        searchFields: ["status", "classroom_id", "submitted_by", "notes"]
+      },
+      {
+        key: "student-records",
+        label: "Student records",
+        description: "Student-level present, absent, late, and excused records.",
+        table: "attendance_records",
+        fields: [
+          { key: "attendance_date", label: "Date" },
+          { key: "student_id", label: "Student" },
+          { key: "classroom_id", label: "Class" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["status", "student_id", "classroom_id", "notes"]
+      },
+      {
+        key: "follow-up",
+        label: "Follow-up tasks",
+        description: "Attendance automation tasks for unmarked registers, absences, and parent follow-up.",
+        table: "workflow_tasks",
+        filter: { key: "workflow_key", value: "attendance_follow_up" },
+        fields: [
+          { key: "task_number", label: "Task" },
+          { key: "title", label: "Title" },
+          { key: "priority", label: "Priority" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["task_number", "title", "priority", "status"]
+      }
+    ]
+  },
+  {
+    key: "assessment",
+    title: "Assessment",
+    description: "Exam setup, continuous assessment items, imports, moderation, report cards, and grading policy.",
+    roles: [],
+    quickActions: [
+      { label: "Create exam", description: "Set up an assessment item", href: "/teacher/grades#create-grade-item" },
+      { label: "Import scores", description: "Upload class template", href: "/teacher/grades#import-grades" },
+      { label: "Report cards", description: "Generate reports", href: "/admin/reports" },
+      { label: "Grading settings", description: "Edit grade scale", href: "/admin/settings" }
+    ],
+    modules: [
+      {
+        key: "assessment-items",
+        label: "Assessment items",
+        description: "Class score, quizzes, midterm, end-of-term exams, and weighted grade items.",
+        table: "grade_items",
+        fields: [
+          { key: "title", label: "Assessment" },
+          { key: "category", label: "Category" },
+          { key: "max_score", label: "Max" },
+          { key: "weight", label: "Weight" }
+        ],
+        searchFields: ["title", "category"]
+      },
+      {
+        key: "grade-imports",
+        label: "Grade imports",
+        description: "Teacher-uploaded class templates with validation, extraction, and publication state.",
+        table: "grade_import_batches",
+        fields: [
+          { key: "title", label: "Import" },
+          { key: "classroom_id", label: "Class" },
+          { key: "subject_id", label: "Subject" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["title", "classroom_id", "subject_id", "term", "status", "notes"]
+      },
+      {
+        key: "marks-register",
+        label: "Marks register",
+        description: "Student scores, comments, grading teacher, and published result data.",
+        table: "grades",
+        fields: [
+          { key: "grade_item_id", label: "Assessment" },
+          { key: "student_id", label: "Student" },
+          { key: "score", label: "Score" },
+          { key: "comments", label: "Comments" }
+        ],
+        searchFields: ["grade_item_id", "student_id", "score", "comments"]
+      },
+      {
+        key: "report-cards",
+        label: "Report cards",
+        description: "Generated end-of-term reports with analysis, rankings, publication, and download links.",
+        table: "reports",
+        fields: [
+          { key: "report_number", label: "Report" },
+          { key: "title", label: "Title" },
+          { key: "term", label: "Term" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["report_number", "title", "term", "status", "summary"]
+      }
+    ]
+  },
+  {
+    key: "admissions-office",
+    title: "Admissions",
+    description: "Admission applications, inquiry tracking, decisions, parent onboarding, and accepted-student handoff.",
+    roles: [],
+    quickActions: [
+      { label: "Review decisions", description: "Accept or deny applicants", href: "/admin/admissions" },
+      { label: "Public form", description: "Open application page", href: "/admissions" },
+      { label: "Add inquiry", description: "Record front desk lead", href: "/front-office/walk-in-enquiries" },
+      { label: "Create parent access", description: "Invite guardian account", href: "/admin/access" }
+    ],
+    modules: [
+      {
+        key: "applications",
+        label: "Applications",
+        description: "Submitted admission forms with guardian data, applied class, decision status, and notes.",
+        table: "admission_applications",
+        fields: [
+          { key: "applicant_first_name", label: "First name" },
+          { key: "applicant_last_name", label: "Last name" },
+          { key: "applying_grade", label: "Class" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["applicant_first_name", "applicant_last_name", "applying_grade", "guardian_email", "guardian_phone", "status", "notes"]
+      },
+      {
+        key: "inquiries",
+        label: "Inquiries",
+        description: "Walk-in, phone, referral, social, and website admission leads.",
+        table: "front_office_enquiries",
+        fields: [
+          { key: "enquiry_number", label: "Enquiry" },
+          { key: "full_name", label: "Name" },
+          { key: "phone", label: "Phone" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["enquiry_number", "full_name", "phone", "email", "interest_area", "status", "notes"]
+      },
+      {
+        key: "onboarding-tasks",
+        label: "Onboarding tasks",
+        description: "Accepted-applicant automation tasks for parent account, billing, class placement, and ID setup.",
+        table: "workflow_tasks",
+        filter: { key: "workflow_key", value: "admissions_onboarding" },
+        fields: [
+          { key: "task_number", label: "Task" },
+          { key: "title", label: "Title" },
+          { key: "priority", label: "Priority" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["task_number", "title", "priority", "status"]
+      }
+    ]
+  },
+  {
+    key: "messages",
+    title: "Communication Hub",
+    description: "Notices, announcements, SMS/email delivery, conversation threads, and guardian communication.",
+    roles: ["it_support"],
+    quickActions: [
+      { label: "Announcement", description: "Broadcast to roles", href: "/communication/announcements" },
+      { label: "Email queue", description: "Review delivery", href: "/communication/email-queue" },
+      { label: "SMS queue", description: "Review credits and sends", href: "/communication/sms-queue" },
+      { label: "Parent messages", description: "Open guardian inbox", href: "/parent/messages" }
+    ],
+    modules: [
+      {
+        key: "announcements",
+        label: "Announcements",
+        description: "Published notices targeted to classes, roles, parents, students, staff, or all users.",
+        table: "announcements",
+        fields: [
+          { key: "title", label: "Notice" },
+          { key: "priority", label: "Priority" },
+          { key: "audience_roles", label: "Audience" },
+          { key: "starts_at", label: "Starts" }
+        ],
+        searchFields: ["title", "body", "priority", "audience_roles"]
+      },
+      {
+        key: "campaigns",
+        label: "Campaigns",
+        description: "Email, SMS, push, in-app, and multi-channel campaign planning.",
+        table: "communication_campaigns",
+        fields: [
+          { key: "name", label: "Campaign" },
+          { key: "subject", label: "Subject" },
+          { key: "channel", label: "Channel" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["name", "subject", "channel", "status", "body", "audience_roles"]
+      },
+      {
+        key: "email",
+        label: "Email",
+        description: "Queued and delivered email notifications.",
+        table: "email_outbox",
+        fields: [
+          { key: "recipient_email", label: "Recipient" },
+          { key: "subject", label: "Subject" },
+          { key: "status", label: "Status" },
+          { key: "attempts", label: "Attempts" }
+        ],
+        searchFields: ["recipient_email", "subject", "status", "last_error"]
+      },
+      {
+        key: "sms",
+        label: "SMS",
+        description: "Queued and delivered SMS notifications.",
+        table: "sms_outbox",
+        fields: [
+          { key: "recipient_phone", label: "Phone" },
+          { key: "body", label: "Message" },
+          { key: "status", label: "Status" },
+          { key: "attempts", label: "Attempts" }
+        ],
+        searchFields: ["recipient_phone", "body", "status", "last_error"]
+      },
+      {
+        key: "threads",
+        label: "Messages",
+        description: "Parent, teacher, and staff conversation threads.",
+        table: "conversations",
+        fields: [
+          { key: "title", label: "Thread" },
+          { key: "created_by", label: "Created by" },
+          { key: "created_at", label: "Created" }
+        ],
+        searchFields: ["title"]
+      }
+    ]
+  },
+  {
+    key: "calendar",
+    title: "School Calendar",
+    description: "Academic years, terms, public events, examination windows, holidays, and school-day planning.",
+    roles: [],
+    quickActions: [
+      { label: "Add event", description: "Publish calendar item", href: "/events" },
+      { label: "Exam windows", description: "Manage assessment dates", href: "/exams/exam-windows" },
+      { label: "Public calendar", description: "View website events", href: "/events" },
+      { label: "Export", description: "Download events", href: "/calendar/events" }
+    ],
+    modules: [
+      {
+        key: "events",
+        label: "Events",
+        description: "School events visible to role dashboards and the public website.",
+        table: "events",
+        fields: [
+          { key: "title", label: "Event" },
+          { key: "location", label: "Location" },
+          { key: "starts_at", label: "Starts" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["title", "description", "location", "status"]
+      },
+      {
+        key: "academic-years",
+        label: "Academic years",
+        description: "Academic calendar structure and current-year state.",
+        table: "academic_years",
+        fields: [
+          { key: "name", label: "Year" },
+          { key: "starts_on", label: "Starts" },
+          { key: "ends_on", label: "Ends" },
+          { key: "is_current", label: "Current" }
+        ],
+        searchFields: ["name"]
+      },
+      {
+        key: "exam-windows",
+        label: "Exam windows",
+        description: "Term exam periods and publication status.",
+        table: "exam_windows",
+        fields: [
+          { key: "title", label: "Window" },
+          { key: "term", label: "Term" },
+          { key: "starts_on", label: "Starts" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["title", "term", "status", "notes"]
+      }
+    ]
+  },
+  {
+    key: "reports",
+    title: "Reports",
+    description: "Whole-school report centre for attendance, finance, academics, operations, and student report cards.",
+    roles: [],
+    quickActions: [
+      { label: "Generate report", description: "Create report card", href: "/admin/reports" },
+      { label: "Assessment", description: "Review marks", href: "/assessment" },
+      { label: "Attendance trend", description: "Open attendance reports", href: "/attendance" },
+      { label: "Finance", description: "Open finance reports", href: "/finance" }
+    ],
+    modules: [
+      {
+        key: "report-cards",
+        label: "Report cards",
+        description: "Generated student report cards, analysis, rankings, status, and download links.",
+        table: "reports",
+        fields: [
+          { key: "report_number", label: "Report" },
+          { key: "title", label: "Title" },
+          { key: "term", label: "Term" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["report_number", "title", "term", "status", "summary"]
+      },
+      {
+        key: "attendance-trend",
+        label: "Attendance trend",
+        description: "Recent attendance records for operational and learner-risk reporting.",
+        table: "attendance_records",
+        fields: [
+          { key: "attendance_date", label: "Date" },
+          { key: "student_id", label: "Student" },
+          { key: "classroom_id", label: "Class" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["status", "student_id", "classroom_id", "notes"]
+      },
+      {
+        key: "fee-collection",
+        label: "Fee collection",
+        description: "Daily fee payments and cashier collection visibility.",
+        table: "daily_fee_payments",
+        fields: [
+          { key: "student_number", label: "Student ID" },
+          { key: "payment_date", label: "Date" },
+          { key: "amount", label: "Amount" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["student_number", "receipt_number", "payer_name", "status", "payment_method"]
+      },
+      {
+        key: "workflow-audit",
+        label: "Workflow audit",
+        description: "Open, completed, and blocked automation tasks across the platform.",
+        table: "workflow_tasks",
+        fields: [
+          { key: "task_number", label: "Task" },
+          { key: "workflow_key", label: "Workflow" },
+          { key: "priority", label: "Priority" },
+          { key: "status", label: "Status" }
+        ],
+        searchFields: ["task_number", "workflow_key", "title", "priority", "status"]
+      }
+    ]
+  },
   {
     key: "front-office",
     title: "Front Office Workspace",

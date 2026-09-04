@@ -1,4 +1,4 @@
-import { ArrowLeft, Database } from "lucide-react";
+import { ArrowLeft, Database, Settings, Upload } from "lucide-react";
 import Link from "next/link";
 import type { OperationsModule, OperationsWorkspace } from "@/config/operations";
 import { PageWrapper } from "@/components/layout/PageWrapper";
@@ -10,6 +10,8 @@ import { OperationsRecordForm } from "@/components/operations/OperationsRecordFo
 import { InvoiceTable, type InvoiceRow } from "@/components/tables/InvoiceTable";
 import { WorkflowTaskTable } from "@/components/tables/WorkflowTaskTable";
 import type { WorkflowTaskRow } from "@/features/automation/queries";
+import { CsvDownloadLink } from "@/components/shared/CsvDownloadLink";
+import { PrintButton } from "@/components/shared/PrintButton";
 
 function displayValue(value: unknown) {
   if (value === null || value === undefined || value === "") return "-";
@@ -51,10 +53,31 @@ export function OperationsRegister({ workspace, module, records, count }: { work
     <PageWrapper title={module.label} description={module.description}>
       <Link href={`/${workspace.key}`} className="inline-flex items-center gap-1 text-sm font-black text-blue-700 hover:text-blue-900 dark:text-blue-200"><ArrowLeft className="size-4" aria-hidden />Back to {workspace.title}</Link>
       <Card>
-        <CardHeader><CardTitle>{count} records</CardTitle></CardHeader>
+        <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>{count} records</CardTitle>
+            <p className="mt-1 text-sm font-semibold text-[var(--portal-muted)]">Search, review, export, print, and add operational records from this register.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <CsvDownloadLink rows={records} filename={`crestview-${workspace.key}-${module.key}.csv`} label="Export" />
+            <PrintButton label="Print" />
+            {module.createFields?.length ? (
+              <a className="portal-register-link h-10 px-4 text-sm" href="#create-record">
+                <Upload className="size-4" aria-hidden />
+                Add record
+              </a>
+            ) : null}
+            <Link className="portal-register-link h-10 px-4 text-sm" href="/admin/settings">
+              <Settings className="size-4" aria-hidden />
+              Settings
+            </Link>
+          </div>
+        </CardHeader>
         <CardContent className="space-y-5">
           {module.createFields?.length ? (
-            <OperationsRecordForm workspaceKey={workspace.key} moduleKey={module.key} moduleLabel={module.label} fields={module.createFields} />
+            <div id="create-record">
+              <OperationsRecordForm workspaceKey={workspace.key} moduleKey={module.key} moduleLabel={module.label} fields={module.createFields} />
+            </div>
           ) : null}
           {module.table === "payroll_periods" ? <PayrollProcessForm /> : null}
           {module.table === "support_tickets" ? (

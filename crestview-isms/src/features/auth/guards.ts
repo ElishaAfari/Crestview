@@ -1,5 +1,6 @@
 import "server-only";
 
+import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { RoleName } from "@/types/database.types";
@@ -12,7 +13,7 @@ export async function requireUser() {
   } = await supabase.auth.getUser();
 
   if (error || !user) {
-    throw new Error("Authentication required.");
+    redirect("/login");
   }
 
   return { supabase, user };

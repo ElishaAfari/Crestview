@@ -30,20 +30,22 @@ import type { NavItem } from "@/types/ui.types";
 
 export const navigationItems: NavItem[] = [
   { title: "Dashboard", href: "/admin", icon: LayoutDashboard, roles: ["super_admin", "school_admin"], section: "Main" },
-  { title: "Admissions", href: "/admin/admissions", icon: UserCheck, roles: ["super_admin", "school_admin"], section: "Front Office" },
-  { title: "Recruitment", href: "/admin/recruitment", icon: BriefcaseBusiness, roles: ["super_admin", "school_admin"], section: "Front Office" },
+  { title: "Calendar", href: "/calendar", icon: CalendarDays, roles: ["super_admin", "school_admin"], section: "Main" },
+  { title: "Students", href: "/students", icon: GraduationCap, roles: ["super_admin", "school_admin"], section: "People" },
+  { title: "Staff", href: "/staff", icon: Users, roles: ["super_admin", "school_admin"], section: "People" },
+  { title: "ID Cards", href: "/id-cards", icon: IdCard, roles: ["super_admin", "school_admin"], section: "People" },
+  { title: "Admissions", href: "/admin/admissions", icon: UserCheck, roles: ["super_admin", "school_admin"], section: "Admissions" },
+  { title: "Admissions Desk", href: "/admissions-office", icon: ClipboardList, roles: ["super_admin", "school_admin"], section: "Admissions" },
+  { title: "Recruitment", href: "/admin/recruitment", icon: BriefcaseBusiness, roles: ["super_admin", "school_admin"], section: "Admissions" },
   { title: "Front Desk", href: "/front-office", icon: ClipboardList, roles: ["super_admin", "school_admin"], section: "Front Office" },
-  { title: "Communication", href: "/communication", icon: Megaphone, roles: ["super_admin", "school_admin"], section: "Front Office" },
-  { title: "Students", href: "/admin/students", icon: GraduationCap, roles: ["super_admin", "school_admin"], section: "Front Office" },
+  { title: "Messages", href: "/messages", icon: MessageSquare, roles: ["super_admin", "school_admin"], section: "Front Office" },
   { title: "Student 360", href: "/admin/student-360", icon: Sparkles, roles: ["super_admin", "school_admin"], section: "Front Office" },
-  { title: "Staff", href: "/admin/staff", icon: Users, roles: ["super_admin", "school_admin"], section: "Front Office" },
-  { title: "ID Cards", href: "/id-cards", icon: IdCard, roles: ["super_admin", "school_admin"], section: "Front Office" },
   { title: "User Management", href: "/admin/access", icon: UserRoundCog, roles: ["super_admin", "school_admin"], section: "Front Office" },
   { title: "Automation", href: "/admin/automation", icon: GitBranch, roles: ["super_admin", "school_admin"], section: "Front Office" },
-  { title: "Attendance", href: "/admin/attendance", icon: ClipboardCheck, roles: ["super_admin", "school_admin"], section: "Academics" },
-  { title: "Grades", href: "/admin/grades", icon: BarChart3, roles: ["super_admin", "school_admin"], section: "Academics" },
-  { title: "Reports", href: "/admin/reports", icon: FileText, roles: ["super_admin", "school_admin"], section: "Academics" },
-  { title: "Learning Plans", href: "/academics-office", icon: BookOpen, roles: ["super_admin", "school_admin"], section: "Academics" },
+  { title: "Classes", href: "/classes", icon: BookOpen, roles: ["super_admin", "school_admin"], section: "Academics" },
+  { title: "Attendance", href: "/attendance", icon: ClipboardCheck, roles: ["super_admin", "school_admin"], section: "Academics" },
+  { title: "Assessment", href: "/assessment", icon: BarChart3, roles: ["super_admin", "school_admin"], section: "Academics" },
+  { title: "Schemes of Learning", href: "/academics-office/schemes", icon: BookOpen, roles: ["super_admin", "school_admin"], section: "Academics" },
   { title: "Examinations", href: "/exams", icon: ClipboardList, roles: ["super_admin", "school_admin"], section: "Academics" },
   { title: "Learner Care", href: "/learner-care", icon: HeartPulse, roles: ["super_admin", "school_admin"], section: "Academics" },
   { title: "Preschool", href: "/preschool", icon: Baby, roles: ["super_admin", "school_admin"], section: "Academics" },
@@ -59,6 +61,7 @@ export const navigationItems: NavItem[] = [
   { title: "Boarding", href: "/boarding", icon: Bed, roles: ["super_admin", "school_admin"], section: "Operations" },
   { title: "Transport", href: "/transport", icon: Bus, roles: ["super_admin", "school_admin", "finance_officer", "it_support"], section: "Operations" },
   { title: "Inventory", href: "/inventory", icon: Boxes, roles: ["super_admin", "school_admin", "finance_officer", "it_support"], section: "Operations" },
+  { title: "Reports", href: "/reports", icon: FileText, roles: ["super_admin", "school_admin"], section: "Reports" },
   { title: "Settings", href: "/admin/settings", icon: Settings, roles: ["super_admin", "school_admin"], section: "Settings & Support" },
 
   { title: "Dashboard", href: "/hr", icon: LayoutDashboard, roles: ["hr_staff"], section: "Main" },
@@ -134,5 +137,5 @@ export const navigationItems: NavItem[] = [
   { title: "Fees", href: "/parent/fees", icon: CreditCard, roles: ["parent"], section: "Family" },
   { title: "Messages", href: "/parent/messages", icon: MessageSquare, roles: ["parent"], section: "Family" },
 
-  { title: "Calendar", href: "/events", icon: CalendarDays, roles: ["super_admin", "school_admin", "teacher", "student", "parent", "hr_staff", "finance_officer", "it_support", "librarian"], section: "Settings & Support" }
+  { title: "Events", href: "/events", icon: CalendarDays, roles: ["teacher", "student", "parent", "hr_staff", "finance_officer", "it_support", "librarian"], section: "Settings & Support" }
 ];
