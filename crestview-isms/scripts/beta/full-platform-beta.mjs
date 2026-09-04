@@ -40,12 +40,14 @@ function readDotEnv(filePath) {
 const env = { ...readDotEnv(path.join(cwd, ".env.local")), ...process.env };
 const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL || env.SUPABASE_URL;
 const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY;
+const requestedAccountTotal = Number.parseInt(env.BETA_ACCOUNT_TOTAL || "200", 10);
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY/SUPABASE_SECRET_KEY for beta testing.");
 }
 
 report.target.projectUrl = new URL(supabaseUrl).host;
+report.target.accountTotal = requestedAccountTotal;
 
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -299,7 +301,7 @@ const rolesToCreate = [
   ["it_support", "IT Support", "Technical support and system health"],
 ];
 
-const rolePlan = {
+const baseRolePlan = {
   super_admin: 1,
   school_admin: 2,
   teacher: 18,
@@ -310,6 +312,51 @@ const rolePlan = {
   parent: 55,
   student: 110,
 };
+
+function makeRolePlan(accountTotal) {
+  const safeTotal = Number.isFinite(accountTotal) && accountTotal >= 50 ? accountTotal : 200;
+  const fixed = { super_admin: 1 };
+  const flexibleRoles = Object.keys(baseRolePlan).filter((role) => !(role in fixed));
+  const flexibleBaseTotal = flexibleRoles.reduce((sum, role) => sum + baseRolePlan[role], 0);
+  const flexibleTarget = safeTotal - fixed.super_admin;
+  const scaled = {};
+  let assigned = fixed.super_admin;
+
+  for (const role of flexibleRoles) {
+    const raw = (baseRolePlan[role] / flexibleBaseTotal) * flexibleTarget;
+    const minimum = role === "school_admin" ? 2 : role === "teacher" ? baseRolePlan.teacher : role === "parent" ? 1 : baseRolePlan[role] > 3 ? 3 : 1;
+    scaled[role] = Math.max(minimum, Math.floor(raw));
+    assigned += scaled[role];
+  }
+
+  const remainders = flexibleRoles
+    .map((role) => ({ role, remainder: (baseRolePlan[role] / flexibleBaseTotal) * flexibleTarget - Math.floor((baseRolePlan[role] / flexibleBaseTotal) * flexibleTarget) }))
+    .sort((a, b) => b.remainder - a.remainder);
+
+  while (assigned < safeTotal) {
+    for (const item of remainders) {
+      if (assigned >= safeTotal) break;
+      scaled[item.role] += 1;
+      assigned += 1;
+    }
+  }
+
+  while (assigned > safeTotal) {
+    const candidates = flexibleRoles
+      .filter((role) => scaled[role] > (role === "teacher" ? baseRolePlan.teacher : role === "school_admin" ? 2 : role === "parent" ? 1 : 1))
+      .sort((a, b) => scaled[b] - scaled[a]);
+    const role = candidates[0];
+    if (!role) break;
+    scaled[role] -= 1;
+    assigned -= 1;
+  }
+
+  return { ...fixed, ...scaled };
+}
+
+const rolePlan = makeRolePlan(requestedAccountTotal);
+const expectedAccountTotal = Object.values(rolePlan).reduce((sum, count) => sum + count, 0);
+report.target.rolePlan = rolePlan;
 
 const cleanupRunArg =
   process.argv.find((argument) => argument.startsWith("--cleanup-run="))?.split("=")[1] || process.env.BETA_CLEANUP_RUN_ID;
@@ -492,7 +539,7 @@ const { departments, subjects, classrooms } = await step("create school structur
   return { departments: createdDepartments, subjects: createdSubjects, classrooms: createdClassrooms };
 });
 
-const people = await step("create 200 auth users and profiles", async () => {
+const people = await step(`create ${expectedAccountTotal} auth users and profiles`, async () => {
   const planned = makePeople();
   for (let index = 0; index < planned.length; index += 1) {
     const person = planned[index];
@@ -620,7 +667,7 @@ const courses = await step("create courses and teacher assignments", async () =>
   return createdCourses;
 });
 
-const { students, parentLinks } = await step("enroll 110 students and link 55 parents", async () => {
+const { students, parentLinks } = await step(`enroll ${rolePlan.student} students and link ${rolePlan.parent} parents`, async () => {
   const studentPeople = peopleByRole.student ?? [];
   const parentPeople = peopleByRole.parent ?? [];
   const studentsByPerson = await dbInsert(
@@ -1437,13 +1484,14 @@ await step("audit beta platform readiness", async () => {
   };
   report.accounts = Object.fromEntries(Object.entries(rolePlan).map(([role, expected]) => [role, { expected, actual: peopleByRole[role]?.length ?? 0 }]));
   report.counts = counts;
-  assertCheck("created exactly 200 portal profiles", counts.profiles === 200, { expected: 200, actual: counts.profiles });
+  const expectedStaffProfiles = people.filter((person) => !["student", "parent"].includes(person.role)).length;
+  assertCheck(`created exactly ${expectedAccountTotal} portal profiles`, counts.profiles === expectedAccountTotal, { expected: expectedAccountTotal, actual: counts.profiles });
   for (const [role, expected] of Object.entries(rolePlan)) {
     assertCheck(`role count: ${role}`, (peopleByRole[role]?.length ?? 0) === expected, { expected, actual: peopleByRole[role]?.length ?? 0 });
   }
-  assertCheck("created 110 students", counts.students === 110, { expected: 110, actual: counts.students });
+  assertCheck(`created ${rolePlan.student} students`, counts.students === rolePlan.student, { expected: rolePlan.student, actual: counts.students });
   assertCheck("linked every student to a guardian", parentLinks.length === students.length, { expected: students.length, actual: parentLinks.length });
-  assertCheck("created staff profiles for every operational account", counts.staffProfiles === 35, { expected: 35, actual: counts.staffProfiles });
+  assertCheck("created staff profiles for every operational account", counts.staffProfiles === expectedStaffProfiles, { expected: expectedStaffProfiles, actual: counts.staffProfiles });
   assertCheck("class curriculum has courses for all required subjects including JHS", courses.length === expectedCourseCount, { expected: expectedCourseCount, actual: courses.length });
   assertCheck("JHS 1-3 curriculum includes the ten required junior high subjects", courses.filter((course) => classrooms.find((classroom) => classroom.id === course.classroom_id)?.grade_level?.startsWith("Junior High")).length === 30, { expected: 30, actual: courses.filter((course) => classrooms.find((classroom) => classroom.id === course.classroom_id)?.grade_level?.startsWith("Junior High")).length });
   assertCheck("admissions workflow generated review records", counts.admissions === 24, { expected: 24, actual: counts.admissions });
@@ -1457,11 +1505,11 @@ await step("audit beta platform readiness", async () => {
   assertCheck("attendance records cover every student for five days", counts.attendanceRecords === students.length * 5, { expected: students.length * 5, actual: counts.attendanceRecords });
   assertCheck("professional 30/70 gradebook covers every class subject", counts.grades === expectedGradeCount, { expected: expectedGradeCount, actual: counts.grades });
   assertCheck("published one report per student", counts.reports === students.length, { expected: students.length, actual: counts.reports });
-  assertCheck("notifications include all roles plus parent invoice alerts", counts.notifications >= 300, { expectedAtLeast: 300, actual: counts.notifications });
+  assertCheck("notifications include all roles plus parent invoice alerts", counts.notifications >= expectedAccountTotal, { expectedAtLeast: expectedAccountTotal, actual: counts.notifications });
   assertCheck("workflow automation tasks were created", counts.workflowTasks >= 30, { expectedAtLeast: 30, actual: counts.workflowTasks });
   assertCheck("IT help desk tickets were exercised", counts.supportTickets === 30, { expected: 30, actual: counts.supportTickets });
   assertCheck("device inventory was exercised", counts.devices === 30, { expected: 30, actual: counts.devices });
-  assertCheck("communication campaign reached all profiles", counts.campaignRecipients === 200, { expected: 200, actual: counts.campaignRecipients });
+  assertCheck("communication campaign reached all profiles", counts.campaignRecipients === expectedAccountTotal, { expected: expectedAccountTotal, actual: counts.campaignRecipients });
   const sampleParent = peopleByRole.parent[0];
   const sampleStudentLink = parentLinks.find((link) => link.parent_profile_id === sampleParent.id);
   const sampleInvoices = finance.invoices.filter((invoice) => invoice.student_id === sampleStudentLink?.student_id);
