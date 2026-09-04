@@ -182,6 +182,13 @@ const workspaceMeta = {
     accent: "portal-accent-red",
     tone: "portal-tone-red"
   },
+  "platform-audit": {
+    icon: ShieldCheck,
+    title: "Platform assurance",
+    insight: "Audit logs, integrations, work queues, invitations, report publication and delivery queues are consolidated for beta readiness review.",
+    accent: "portal-accent-blue",
+    tone: "portal-tone-blue"
+  },
   hr: {
     icon: Users,
     title: "People pulse",

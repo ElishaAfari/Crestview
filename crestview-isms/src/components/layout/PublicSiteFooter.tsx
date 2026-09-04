@@ -2,6 +2,7 @@ import { MapPin, Phone } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { siteConfig } from "@/config/site";
+import { AuraFlowSignature } from "@/components/shared/AuraFlowSignature";
 
 export function PublicSiteFooter() {
   return (
@@ -40,8 +41,11 @@ export function PublicSiteFooter() {
           </div>
         </div>
       </div>
-      <div className="border-t border-white/10 px-4 py-4 text-center text-xs text-blue-200">
-        &copy; {new Date().getFullYear()} Crestview International School. {siteConfig.motto}.
+      <div className="border-t border-white/10 px-4 py-4">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 text-xs text-blue-200 sm:flex-row">
+          <p>&copy; {new Date().getFullYear()} Crestview International School. {siteConfig.motto}.</p>
+          <AuraFlowSignature compact className="rounded-lg border border-white/10 bg-white/5 px-3 py-2" />
+        </div>
       </div>
     </footer>
   );

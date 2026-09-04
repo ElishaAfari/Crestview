@@ -499,6 +499,33 @@ body {
   color: #ffffff !important;
 }
 
+.auraflow-signature {
+  color: #ffffff;
+}
+
+.auraflow-mark {
+  display: grid;
+  height: 1.9rem;
+  width: 1.9rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid rgba(125, 211, 252, 0.42);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.92), rgba(14, 165, 233, 0.92));
+  color: #f8fafc;
+  font-size: 0.62rem;
+  font-weight: 950;
+  letter-spacing: 0;
+  box-shadow: 0 16px 30px -18px rgba(14, 165, 233, 0.85);
+}
+
+.auraflow-wordmark {
+  background: linear-gradient(90deg, #818cf8 0%, #38bdf8 52%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 .portal-accent-blue {
   --portal-card-accent: #174ea6;
 }

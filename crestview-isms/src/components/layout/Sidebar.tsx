@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { navigationItems } from "@/config/navigation";
 import { ROLES } from "@/config/roles";
+import { AuraFlowSignature } from "@/components/shared/AuraFlowSignature";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import type { NavItem } from "@/types/ui.types";
@@ -75,6 +76,7 @@ export function Sidebar() {
       <div className="m-4 rounded-lg border border-white/15 bg-white/10 p-4">
         <p className="text-xs font-bold uppercase tracking-normal text-cyan-100">Workspace</p>
         <p className="mt-1 text-sm font-semibold text-white">{role ? ROLES[role].label : "Loading"}</p>
+        <AuraFlowSignature compact className="mt-4 border-t border-white/10 pt-4" />
       </div>
     </aside>
   );

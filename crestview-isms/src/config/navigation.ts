@@ -20,6 +20,7 @@ import {
   Megaphone,
   MessageSquare,
   Settings,
+  ShieldCheck,
   Sparkles,
   Utensils,
   UserCheck,
@@ -62,6 +63,7 @@ export const navigationItems: NavItem[] = [
   { title: "Transport", href: "/transport", icon: Bus, roles: ["super_admin", "school_admin", "finance_officer", "it_support"], section: "Operations" },
   { title: "Inventory", href: "/inventory", icon: Boxes, roles: ["super_admin", "school_admin", "finance_officer", "it_support"], section: "Operations" },
   { title: "Reports", href: "/reports", icon: FileText, roles: ["super_admin", "school_admin"], section: "Reports" },
+  { title: "Platform Audit", href: "/platform-audit", icon: ShieldCheck, roles: ["super_admin", "school_admin"], section: "Reports" },
   { title: "Settings", href: "/admin/settings", icon: Settings, roles: ["super_admin", "school_admin"], section: "Settings & Support" },
 
   { title: "Dashboard", href: "/hr", icon: LayoutDashboard, roles: ["hr_staff"], section: "Main" },
@@ -107,6 +109,7 @@ export const navigationItems: NavItem[] = [
   { title: "Automation", href: "/it/automation", icon: GitBranch, roles: ["it_support"], section: "Technology" },
   { title: "Messages", href: "/it/messages", icon: MessageSquare, roles: ["it_support"], section: "Technology" },
   { title: "Audit Log", href: "/it/audit", icon: FileText, roles: ["it_support"], section: "Technology" },
+  { title: "Platform Audit", href: "/platform-audit", icon: ShieldCheck, roles: ["it_support"], section: "Technology" },
   { title: "ID Cards", href: "/id-cards", icon: IdCard, roles: ["it_support"], section: "Technology" },
   { title: "Communication", href: "/communication", icon: Megaphone, roles: ["it_support"], section: "Technology" },
   { title: "Transport", href: "/transport", icon: Bus, roles: ["it_support"], section: "Technology" },

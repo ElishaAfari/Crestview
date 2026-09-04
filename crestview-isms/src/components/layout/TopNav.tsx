@@ -36,6 +36,7 @@ export function TopNav() {
       if (/(admission|applicant|enrol|enroll)/.test(normalized)) return "/admin/admissions";
       if (/(front desk|visitor|walk.?in|enquiry|inquiry|complaint|reception)/.test(normalized)) return "/front-office";
       if (/(notice|announcement|communication|email|sms|message|campaign)/.test(normalized)) return "/communication";
+      if (/(audit|approval|queue|readiness|integration|system job|platform health|log)/.test(normalized)) return "/platform-audit";
       if (/(staff|teacher|employee)/.test(normalized)) return "/admin/staff";
       if (/(recruit|candidate|job)/.test(normalized)) return "/admin/recruitment";
       if (/(id card|card|qr|badge|verify)/.test(normalized)) return "/id-cards";
