@@ -837,6 +837,32 @@ body {
   padding: 1.25rem;
 }
 
+.portal-empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 13rem;
+  padding: 2rem;
+  border: 1px dashed var(--portal-border-strong, var(--portal-border));
+  border-radius: 0.65rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--portal-surface) 78%, var(--portal-accent-blue) 22%);
+}
+
+.portal-empty-state h3 {
+  margin: 0;
+  color: var(--portal-text);
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.portal-empty-state p {
+  max-width: 34rem;
+  margin: 0.45rem 0 0;
+  color: var(--portal-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .ref-panel > .ref-section-title {
   margin-bottom: 1rem;
 }
