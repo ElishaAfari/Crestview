@@ -48,7 +48,6 @@ export const referenceRouteAliases: Record<string, string> = {
   "/preschool/timeline": "/preschool/daily-logs",
   "/preschool/reports": "/preschool/daily-logs",
   "/settings/preschool": "/admin/settings",
-  "/finance/fee-structures": "/finance/billing-batches",
   "/finance/scholarships": "/finance/invoices",
   "/finance/credit-notes": "/finance/invoices",
   "/finance/fee-types": "/finance/billing-batches",
