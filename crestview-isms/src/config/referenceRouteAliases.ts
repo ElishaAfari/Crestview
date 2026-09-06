@@ -55,8 +55,6 @@ export const referenceRouteAliases: Record<string, string> = {
   "/finance/audit": "/platform-audit/protected-changes",
   "/finance/approvals": "/finance/collections",
   "/finance/opening-balances": "/accounting/bank-accounts",
-  "/bursary/desk": "/bursary/cashier-sessions",
-  "/bursary/sessions": "/bursary/cashier-sessions",
   "/bursary/reports": "/reports/fee-collection",
   "/accounting/accounts": "/accounting/chart-of-accounts",
   "/accounting/revenue-overrides": "/accounting/journals",
