@@ -2,7 +2,6 @@ import "server-only";
 
 import { findOperationsWorkspace } from "@/config/operations";
 import { requireRoles } from "@/features/auth/guards";
-import { createAdminClient } from "@/lib/supabase/admin";
 import type { RoleName } from "@/types/database.types";
 
 function permittedRoles(roles: RoleName[]) {
@@ -12,10 +11,9 @@ function permittedRoles(roles: RoleName[]) {
 export async function loadOperationsWorkspace(key: string) {
   const workspace = findOperationsWorkspace(key);
   if (!workspace) return null;
-  await requireRoles(permittedRoles(workspace.roles));
-  const admin = createAdminClient();
+  const context = await requireRoles(permittedRoles(workspace.roles));
   const modules = await Promise.all(workspace.modules.map(async (workspaceModule) => {
-    let query = admin.from(workspaceModule.table).select("*", { count: "exact", head: true });
+    let query = context.supabase.from(workspaceModule.table).select("*", { count: "exact", head: true });
     if (workspaceModule.softDelete !== false) query = query.is("deleted_at", null);
     if (workspaceModule.filter) query = query.eq(workspaceModule.filter.key, workspaceModule.filter.value);
     const { count } = await query;
@@ -28,9 +26,8 @@ export async function loadOperationsModule(workspaceKey: string, moduleKey: stri
   const workspace = findOperationsWorkspace(workspaceKey);
   const workspaceModule = workspace?.modules.find((item) => item.key === moduleKey);
   if (!workspace || !workspaceModule) return null;
-  await requireRoles(permittedRoles(workspace.roles));
-  const admin = createAdminClient();
-  let query = admin.from(workspaceModule.table).select("*", { count: "exact" });
+  const context = await requireRoles(permittedRoles(workspace.roles));
+  let query = context.supabase.from(workspaceModule.table).select("*", { count: "exact" });
   if (workspaceModule.softDelete !== false) query = query.is("deleted_at", null);
   query = query.order("created_at", { ascending: false }).limit(250);
   if (workspaceModule.filter) query = query.eq(workspaceModule.filter.key, workspaceModule.filter.value);

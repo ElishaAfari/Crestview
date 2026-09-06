@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { findOperationsWorkspace, type OperationsCreateField } from "@/config/operations";
 import { requireRoles } from "@/features/auth/guards";
-import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json, RoleName } from "@/types/database.types";
 
 type ActionState = { ok: boolean; message: string };
@@ -166,7 +165,8 @@ export async function createOperationsRecordAction(workspaceKey: string, moduleK
   const requiredError = validateRequired(workspaceModule.createFields, formData);
   if (requiredError) return { ok: false, message: requiredError };
 
-  const { user } = await requireRoles(permittedRoles(workspace.roles));
+  const context = await requireRoles(permittedRoles(workspace.roles));
+  const { user } = context;
   const record: Record<string, unknown> = {};
   for (const field of workspaceModule.createFields) {
     const value = parseField(field, formData.get(field.key));
@@ -177,8 +177,7 @@ export async function createOperationsRecordAction(workspaceKey: string, moduleK
   }
   addComputedValues(workspaceModule.table, record, user.id);
 
-  const admin = createAdminClient();
-  const { error } = await admin.from(workspaceModule.table).insert(record);
+  const { error } = await context.supabase.from(workspaceModule.table).insert(record);
   if (error) return { ok: false, message: `Could not create ${workspaceModule.label.toLowerCase()} record. Check required fields and try again.` };
 
   revalidatePath(`/${workspace.key}`);
