@@ -1,10 +1,10 @@
-import { FinanceFeesWorkspace } from "@/components/finance/FinanceFeesWorkspace";
+import { FinanceInvoicesWorkspace } from "@/components/finance/FinanceInvoicesWorkspace";
 import { PageWrapper } from "@/components/layout/PageWrapper";
 
 export default async function FinanceInvoicesPage() {
   return (
-    <PageWrapper title="Special Invoices" description="Create and manage exceptional invoices that are outside the daily fee collection workflow.">
-      <FinanceFeesWorkspace focus="invoices" />
+    <PageWrapper title="Invoices" description="Manage student fee invoices, issue charges, and record payments.">
+      <FinanceInvoicesWorkspace />
     </PageWrapper>
   );
 }
