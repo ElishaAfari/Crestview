@@ -63,7 +63,6 @@ export const referenceRouteAliases: Record<string, string> = {
   "/accounting/depreciation": "/accounting/journals",
   "/accounting/ledger-health": "/platform-audit/protected-changes",
   "/accounting/reports": "/reports/fee-collection",
-  "/feeding/monitor": "/feeding/enrollments",
   "/feeding/collections": "/feeding/payments",
   "/feeding/remittances": "/feeding/adjustments",
   "/feeding/exemptions": "/feeding/adjustments",
