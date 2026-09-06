@@ -184,6 +184,30 @@ export async function listAttendanceRegisters(): Promise<AttendanceRegisterRow[]
   });
 }
 
+export async function listAdminAttendanceMarkRoster(): Promise<TeacherAttendanceCourse[]> {
+  await requireRoles(["super_admin", "school_admin"]);
+  const admin = createAdminClient();
+  const [{ data: classroomRows }, { data: studentRows }] = await Promise.all([
+    admin.from("classrooms").select("id,name,grade_level").is("deleted_at", null).order("grade_level").order("name"),
+    admin.from("students").select("id,student_number,classroom_id,profiles!students_profile_id_fkey(first_name,last_name)").eq("status", "active").is("deleted_at", null).order("student_number")
+  ]);
+  const studentsByClassroom = new Map<string, TeacherAttendanceStudent[]>();
+  for (const student of (studentRows ?? []) as unknown as Array<{ id: string; student_number: string; classroom_id: string | null; profiles: Relation<ProfileJoin> }>) {
+    if (!student.classroom_id) continue;
+    const profile = one(student.profiles);
+    const roster = studentsByClassroom.get(student.classroom_id) ?? [];
+    roster.push({ id: student.id, studentNumber: student.student_number, name: profile ? `${profile.first_name} ${profile.last_name}` : student.student_number });
+    studentsByClassroom.set(student.classroom_id, roster);
+  }
+  return ((classroomRows ?? []) as Array<{ id: string; name: string; grade_level: string }>).map((classroom) => ({
+    id: classroom.id,
+    label: `${classroom.grade_level} - ${classroom.name}`,
+    classroomId: classroom.id,
+    classroomLabel: `${classroom.grade_level} - ${classroom.name}`,
+    students: studentsByClassroom.get(classroom.id) ?? []
+  }));
+}
+
 export async function listGrades() {
   const { supabase } = await requireUser();
   const { data } = await supabase.from("grades").select("id,score,percentage,grade_code,remark,comments,assignment_score,quiz_score,midterm_score,class_assessment_score,exam_score,total_score,subject_name,term_label,grade_items(title,max_score,courses(subjects(name),classrooms(name))),students(student_number,profiles!students_profile_id_fkey(first_name,last_name))").order("created_at", { ascending: false }).limit(50);
