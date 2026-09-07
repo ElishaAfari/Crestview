@@ -8,6 +8,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ROLES } from "@/config/roles";
 import { getSuiteNavigation } from "@/config/suiteNavigation";
+import { getSuiteNavigationTone } from "@/config/suiteNavigationTones";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
@@ -130,6 +131,7 @@ export function MobileNav() {
             {suiteGroups.map((group) => {
               const expanded = openSuites.includes(group.title);
               const GroupIcon = group.icon;
+              const tone = getSuiteNavigationTone(group.title);
               return (
                 <div key={group.title}>
                   <button
@@ -144,7 +146,14 @@ export function MobileNav() {
                     className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-black uppercase tracking-normal text-cyan-100 transition hover:bg-white/10"
                   >
                     <span className="flex items-center gap-2">
-                      <GroupIcon className="size-3.5" aria-hidden />
+                      <span
+                        className={cn(
+                          "grid size-6 shrink-0 place-items-center rounded-lg ring-1",
+                          tone.sectionIcon,
+                        )}
+                      >
+                        <GroupIcon className="size-3.5" aria-hidden />
+                      </span>
                       {group.title}
                     </span>
                     <span aria-hidden>{expanded ? "−" : "+"}</span>
@@ -170,9 +179,8 @@ export function MobileNav() {
                           >
                             <span
                               className={cn(
-                                "grid size-8 shrink-0 place-items-center rounded-lg bg-white/16 text-white ring-1 ring-white/10",
-                                active &&
-                                  "bg-[#eef4ff] text-[#07377f] ring-[#bfd8fa]",
+                                "grid size-8 shrink-0 place-items-center rounded-lg ring-1",
+                                tone.itemIcon,
                               )}
                             >
                               <GroupIcon className="size-4" aria-hidden />

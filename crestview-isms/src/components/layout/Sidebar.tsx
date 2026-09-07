@@ -10,6 +10,7 @@ import { AuraFlowSignature } from "@/components/shared/AuraFlowSignature";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { getSuiteNavigation } from "@/config/suiteNavigation";
+import { getSuiteNavigationTone } from "@/config/suiteNavigationTones";
 
 function isActivePath(pathname: string, href: string, home: string) {
   if (href === home) return pathname === href;
@@ -70,6 +71,7 @@ export function Sidebar() {
         {suiteGroups.map((group) => {
           const expanded = openSuites.includes(group.title);
           const GroupIcon = group.icon;
+          const tone = getSuiteNavigationTone(group.title);
           return (
             <div key={group.title}>
               <button
@@ -84,7 +86,14 @@ export function Sidebar() {
                 className="flex w-full items-center justify-between px-3 text-[11px] font-black uppercase tracking-normal text-cyan-100"
               >
                 <span className="flex items-center gap-2">
-                  <GroupIcon className="size-3.5" aria-hidden />
+                  <span
+                    className={cn(
+                      "grid size-6 shrink-0 place-items-center rounded-lg ring-1",
+                      tone.sectionIcon,
+                    )}
+                  >
+                    <GroupIcon className="size-3.5" aria-hidden />
+                  </span>
                   {group.title}
                 </span>
                 <span aria-hidden>{expanded ? "−" : "+"}</span>
@@ -112,9 +121,8 @@ export function Sidebar() {
                       >
                         <span
                           className={cn(
-                            "grid size-8 shrink-0 place-items-center rounded-lg bg-white/16 text-white ring-1 ring-white/10",
-                            active &&
-                              "bg-[#eef4ff] text-[#07377f] ring-[#bfd8fa]",
+                            "grid size-8 shrink-0 place-items-center rounded-lg ring-1",
+                            tone.itemIcon,
                           )}
                         >
                           <Icon className="size-4" aria-hidden />

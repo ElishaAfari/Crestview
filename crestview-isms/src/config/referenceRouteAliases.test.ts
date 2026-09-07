@@ -230,4 +230,17 @@ describe("reference route parity", () => {
 
     expect(missingRoutes).toEqual([]);
   });
+
+  it("surfaces the reference package in the admin suite navigation", () => {
+    const adminRoutes = new Set(
+      getSuiteNavigation("super_admin").flatMap((group) =>
+        group.links.map((link) => withoutQuery(link.href)),
+      ),
+    );
+    const missingRoutes = referenceMenuRoutes
+      .map(withoutQuery)
+      .filter((route) => !adminRoutes.has(route));
+
+    expect([...new Set(missingRoutes)]).toEqual([]);
+  });
 });
