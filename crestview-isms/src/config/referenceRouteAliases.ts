@@ -4,6 +4,7 @@
  * workspaces until each register has its own dedicated screen.
  */
 export const referenceRouteAliases: Record<string, string> = {
+  "/help": "/it/tickets",
   "/students/enrollments": "/students/student-directory",
   "/students/import": "/admin/students",
   "/students/promotions/legacy": "/students/academic-reports",
@@ -56,15 +57,18 @@ export const referenceRouteAliases: Record<string, string> = {
   "/finance/approvals": "/finance/collections",
   "/finance/opening-balances": "/accounting/bank-accounts",
   "/bursary/reports": "/reports/fee-collection",
+  "/bursary/desk": "/bursary",
   "/accounting/accounts": "/accounting/chart-of-accounts",
   "/accounting/revenue-overrides": "/accounting/journals",
   "/accounting/journal-entries": "/accounting/journals",
+  "/accounting/expenses": "/finance/expenses",
   "/accounting/vendors": "/accounting/supplier-bills",
   "/accounting/depreciation": "/accounting/journals",
   "/accounting/ledger-health": "/platform-audit/protected-changes",
   "/accounting/reports": "/reports/fee-collection",
   "/feeding/collections": "/feeding/payments",
   "/feeding/remittances": "/feeding/adjustments",
+  "/feeding/students": "/feeding/enrollments",
   "/feeding/exemptions": "/feeding/adjustments",
   "/feeding/pause-requests": "/feeding/adjustments",
   "/feeding/refund-requests": "/feeding/adjustments",
@@ -74,6 +78,7 @@ export const referenceRouteAliases: Record<string, string> = {
   "/extra-classes/monitor-legacy": "/extra-classes/enrollments",
   "/extra-classes/collections": "/extra-classes/payments",
   "/extra-classes/remittances": "/extra-classes/adjustments",
+  "/extra-classes/students": "/extra-classes/enrollments",
   "/extra-classes/exemptions": "/extra-classes/adjustments",
   "/extra-classes/pause-requests": "/extra-classes/adjustments",
   "/extra-classes/refund-requests": "/extra-classes/adjustments",
@@ -113,5 +118,5 @@ export const referenceRouteAliases: Record<string, string> = {
   "/reports/boarding": "/boarding/incidents",
   "/reports/inventory": "/inventory/items",
   "/students/new": "/admin/students",
-  "/finance/payments/record": "/finance/payments"
+  "/finance/payments/record": "/finance/payments",
 };
