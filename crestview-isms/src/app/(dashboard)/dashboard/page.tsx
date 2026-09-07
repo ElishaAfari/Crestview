@@ -4,6 +4,7 @@ import { requireUser } from "@/features/auth/guards";
 
 const roleHome: Record<string, string> = {
   super_admin: "/admin",
+  school_owner: "/admin",
   school_admin: "/admin",
   teacher: "/teacher",
   student: "/student",

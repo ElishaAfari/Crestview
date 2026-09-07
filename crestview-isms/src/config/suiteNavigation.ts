@@ -267,7 +267,7 @@ const adminGroups: SuiteGroup[] = [
 ];
 
 const roleGroups: Record<
-  Exclude<RoleName, "super_admin" | "school_admin">,
+  Exclude<RoleName, "super_admin" | "school_owner" | "school_admin">,
   SuiteGroup[]
 > = {
   teacher: [
@@ -459,9 +459,18 @@ const roleGroups: Record<
 };
 
 export function getSuiteNavigation(role: RoleName | null) {
-  if (role === "super_admin" || role === "school_admin") return adminGroups;
+  if (
+    role === "super_admin" ||
+    role === "school_owner" ||
+    role === "school_admin"
+  )
+    return adminGroups;
   return role
-    ? (roleGroups[role as Exclude<RoleName, "super_admin" | "school_admin">] ??
-        [])
+    ? (roleGroups[
+        role as Exclude<
+          RoleName,
+          "super_admin" | "school_owner" | "school_admin"
+        >
+      ] ?? [])
     : [];
 }

@@ -211,6 +211,7 @@ describe("reference route parity", () => {
   it("keeps role suite navigation linked to real destinations", () => {
     const roles: RoleName[] = [
       "super_admin",
+      "school_owner",
       "school_admin",
       "teacher",
       "student",

@@ -13,20 +13,33 @@ const initialState = { ok: false, message: "" };
 
 export function PortalInviteForm() {
   const formRef = useRef<HTMLFormElement>(null);
-  const [state, action, pending] = useActionState(async (previousState: AccessActionState, formData: FormData) => {
-    const result = await invitePortalUserAction(previousState, formData);
-    if (result.ok) formRef.current?.reset();
-    return result;
-  }, initialState);
+  const [state, action, pending] = useActionState(
+    async (previousState: AccessActionState, formData: FormData) => {
+      const result = await invitePortalUserAction(previousState, formData);
+      if (result.ok) formRef.current?.reset();
+      return result;
+    },
+    initialState,
+  );
 
   return (
     <form ref={formRef} action={action} className="grid gap-4 sm:grid-cols-2">
-      <div><Label>First name</Label><Input required name="firstName" /></div>
-      <div><Label>Last name</Label><Input required name="lastName" /></div>
-      <div><Label>Email</Label><Input required name="email" type="email" /></div>
+      <div>
+        <Label>First name</Label>
+        <Input required name="firstName" />
+      </div>
+      <div>
+        <Label>Last name</Label>
+        <Input required name="lastName" />
+      </div>
+      <div>
+        <Label>Email</Label>
+        <Input required name="email" type="email" />
+      </div>
       <div>
         <Label>Portal role</Label>
         <Select name="role" defaultValue="teacher" className="mt-1">
+          <option value="school_owner">School owner / proprietor</option>
           <option value="school_admin">School administrator</option>
           <option value="teacher">Teacher</option>
           <option value="student">Student account</option>
@@ -39,9 +52,16 @@ export function PortalInviteForm() {
       </div>
       <div className="sm:col-span-2 flex flex-col items-start gap-3">
         <Button type="submit" disabled={pending}>
-          <Send className="size-4" aria-hidden />{pending ? "Creating account..." : "Create user and send access"}
+          <Send className="size-4" aria-hidden />
+          {pending ? "Creating account..." : "Create user and send access"}
         </Button>
-        {state.message ? <p className={`text-sm ${state.ok ? "text-emerald-600 dark:text-emerald-300" : "text-red-600 dark:text-red-300"}`}>{state.message}</p> : null}
+        {state.message ? (
+          <p
+            className={`text-sm ${state.ok ? "text-emerald-600 dark:text-emerald-300" : "text-red-600 dark:text-red-300"}`}
+          >
+            {state.message}
+          </p>
+        ) : null}
       </div>
     </form>
   );

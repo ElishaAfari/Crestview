@@ -1,36 +1,60 @@
 import "server-only";
 
 import { findOperationsWorkspace } from "@/config/operations";
+import { ADMIN_ROLES } from "@/config/roles";
 import { requireRoles } from "@/features/auth/guards";
 import type { RoleName } from "@/types/database.types";
 
 function permittedRoles(roles: RoleName[]) {
-  return Array.from(new Set<RoleName>(["super_admin", "school_admin", ...roles]));
+  return Array.from(new Set<RoleName>([...ADMIN_ROLES, ...roles]));
 }
 
 export async function loadOperationsWorkspace(key: string) {
   const workspace = findOperationsWorkspace(key);
   if (!workspace) return null;
   const context = await requireRoles(permittedRoles(workspace.roles));
-  const modules = await Promise.all(workspace.modules.map(async (workspaceModule) => {
-    let query = context.supabase.from(workspaceModule.table).select("*", { count: "exact", head: true });
-    if (workspaceModule.softDelete !== false) query = query.is("deleted_at", null);
-    if (workspaceModule.filter) query = query.eq(workspaceModule.filter.key, workspaceModule.filter.value);
-    const { count } = await query;
-    return { ...workspaceModule, count: count ?? 0 };
-  }));
+  const modules = await Promise.all(
+    workspace.modules.map(async (workspaceModule) => {
+      let query = context.supabase
+        .from(workspaceModule.table)
+        .select("*", { count: "exact", head: true });
+      if (workspaceModule.softDelete !== false)
+        query = query.is("deleted_at", null);
+      if (workspaceModule.filter)
+        query = query.eq(
+          workspaceModule.filter.key,
+          workspaceModule.filter.value,
+        );
+      const { count } = await query;
+      return { ...workspaceModule, count: count ?? 0 };
+    }),
+  );
   return { ...workspace, modules };
 }
 
-export async function loadOperationsModule(workspaceKey: string, moduleKey: string) {
+export async function loadOperationsModule(
+  workspaceKey: string,
+  moduleKey: string,
+) {
   const workspace = findOperationsWorkspace(workspaceKey);
-  const workspaceModule = workspace?.modules.find((item) => item.key === moduleKey);
+  const workspaceModule = workspace?.modules.find(
+    (item) => item.key === moduleKey,
+  );
   if (!workspace || !workspaceModule) return null;
   const context = await requireRoles(permittedRoles(workspace.roles));
-  let query = context.supabase.from(workspaceModule.table).select("*", { count: "exact" });
-  if (workspaceModule.softDelete !== false) query = query.is("deleted_at", null);
+  let query = context.supabase
+    .from(workspaceModule.table)
+    .select("*", { count: "exact" });
+  if (workspaceModule.softDelete !== false)
+    query = query.is("deleted_at", null);
   query = query.order("created_at", { ascending: false }).limit(250);
-  if (workspaceModule.filter) query = query.eq(workspaceModule.filter.key, workspaceModule.filter.value);
+  if (workspaceModule.filter)
+    query = query.eq(workspaceModule.filter.key, workspaceModule.filter.value);
   const { data, count } = await query;
-  return { workspace, module: workspaceModule, count: count ?? 0, records: (data ?? []) as Array<Record<string, unknown>> };
+  return {
+    workspace,
+    module: workspaceModule,
+    count: count ?? 0,
+    records: (data ?? []) as Array<Record<string, unknown>>,
+  };
 }

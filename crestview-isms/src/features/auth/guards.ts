@@ -5,11 +5,25 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { RoleName } from "@/types/database.types";
 
+const inheritedAdminRoles: RoleName[] = [
+  "super_admin",
+  "school_owner",
+  "school_admin",
+];
+
+function hasAllowedRole(currentRole: RoleName, allowedRoles: RoleName[]) {
+  if (allowedRoles.includes(currentRole)) return true;
+  return (
+    currentRole === "school_owner" &&
+    allowedRoles.some((role) => inheritedAdminRoles.includes(role))
+  );
+}
+
 export async function requireUser() {
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
-    error
+    error,
   } = await supabase.auth.getUser();
 
   if (error || !user) {
@@ -22,19 +36,35 @@ export async function requireUser() {
 export async function requireRoles(allowedRoles: RoleName[]) {
   const context = await requireUser();
   const admin = createAdminClient();
-  const { data: profileRecord } = await admin.from("profiles").select("role_id,is_active,deleted_at").eq("id", context.user.id).maybeSingle();
+  const { data: profileRecord } = await admin
+    .from("profiles")
+    .select("role_id,is_active,deleted_at")
+    .eq("id", context.user.id)
+    .maybeSingle();
   const profile = profileRecord as { role_id?: unknown } | null;
 
-  if (!profileRecord || profileRecord.is_active === false || profileRecord.deleted_at) {
+  if (
+    !profileRecord ||
+    profileRecord.is_active === false ||
+    profileRecord.deleted_at
+  ) {
     throw new Error("This portal account is not active.");
   }
 
-  if (typeof profile?.role_id !== "string") throw new Error("A school profile is required.");
+  if (typeof profile?.role_id !== "string")
+    throw new Error("A school profile is required.");
 
-  const { data: roleRecord } = await admin.from("roles").select("name").eq("id", profile.role_id).maybeSingle();
+  const { data: roleRecord } = await admin
+    .from("roles")
+    .select("name")
+    .eq("id", profile.role_id)
+    .maybeSingle();
   const role = roleRecord as { name?: unknown } | null;
 
-  if (typeof role?.name !== "string" || !allowedRoles.includes(role.name as RoleName)) {
+  if (
+    typeof role?.name !== "string" ||
+    !hasAllowedRole(role.name as RoleName, allowedRoles)
+  ) {
     throw new Error("You do not have permission to perform this action.");
   }
 

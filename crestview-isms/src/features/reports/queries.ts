@@ -1,16 +1,19 @@
 import "server-only";
 
+import { isAdminRole } from "@/config/roles";
 import { requireRoles } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type Relation<T> = T | T[] | null;
 
 function one<T>(value: Relation<T> | undefined) {
-  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }
 
 function asRecord(value: unknown) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function asArray(value: unknown) {
@@ -27,7 +30,10 @@ function numeric(value: unknown, fallback = 0) {
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "Not recorded";
-  return new Intl.DateTimeFormat("en-GH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en-GH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 export type ReportDetail = {
@@ -42,8 +48,23 @@ export type ReportDetail = {
   createdAt: string;
   publishedAt: string;
   downloadUrl: string;
-  attendance: { total: number; present: number; late: number; absent: number; excused: number; rate: number };
-  analysis: { average: number; strengths: string[]; concerns: string[]; recommendations: string[]; attitude: string; punctuality: string; nextSteps: string };
+  attendance: {
+    total: number;
+    present: number;
+    late: number;
+    absent: number;
+    excused: number;
+    rate: number;
+  };
+  analysis: {
+    average: number;
+    strengths: string[];
+    concerns: string[];
+    recommendations: string[];
+    attitude: string;
+    punctuality: string;
+    nextSteps: string;
+  };
   totalMarks: number;
   classPosition: number | null;
   positionLabel: string;
@@ -64,8 +85,16 @@ export type ReportDetail = {
   }>;
 };
 
-async function canReadReport(userId: string, roleName: string, report: { student_id: string | null; classroom_id: string | null; students: Relation<{ profile_id: string | null }> }) {
-  if (["super_admin", "school_admin"].includes(roleName)) return true;
+async function canReadReport(
+  userId: string,
+  roleName: string,
+  report: {
+    student_id: string | null;
+    classroom_id: string | null;
+    students: Relation<{ profile_id: string | null }>;
+  },
+) {
+  if (isAdminRole(roleName)) return true;
   const admin = createAdminClient();
   const student = one(report.students);
   if (roleName === "student" && student?.profile_id === userId) return true;
@@ -91,19 +120,29 @@ async function canReadReport(userId: string, roleName: string, report: { student
         .select("courses!inner(classroom_id)", { count: "exact", head: true })
         .eq("teacher_id", userId)
         .eq("courses.classroom_id", report.classroom_id)
-        .is("deleted_at", null)
+        .is("deleted_at", null),
     ]);
     return Boolean((leadCourses.count ?? 0) + (assignedCourses.count ?? 0));
   }
   return false;
 }
 
-export async function getReportDetail(reportId: string): Promise<ReportDetail | null> {
-  const { user, role } = await requireRoles(["super_admin", "school_admin", "teacher", "student", "parent"]);
+export async function getReportDetail(
+  reportId: string,
+): Promise<ReportDetail | null> {
+  const { user, role } = await requireRoles([
+    "super_admin",
+    "school_admin",
+    "teacher",
+    "student",
+    "parent",
+  ]);
   const admin = createAdminClient();
   const { data } = await admin
     .from("reports")
-    .select("id,term,summary,status,report_url,created_at,published_at,analysis,attendance_summary,grade_summary,attitude,punctuality,next_steps,student_id,classroom_id,students(profile_id,student_number,profiles!students_profile_id_fkey(first_name,last_name)),academic_years(name)")
+    .select(
+      "id,term,summary,status,report_url,created_at,published_at,analysis,attendance_summary,grade_summary,attitude,punctuality,next_steps,student_id,classroom_id,students(profile_id,student_number,profiles!students_profile_id_fkey(first_name,last_name)),academic_years(name)",
+    )
     .eq("id", reportId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -123,7 +162,11 @@ export async function getReportDetail(reportId: string): Promise<ReportDetail | 
     next_steps: string | null;
     student_id: string | null;
     classroom_id: string | null;
-    students: Relation<{ profile_id: string | null; student_number: string; profiles: Relation<{ first_name: string; last_name: string }> }>;
+    students: Relation<{
+      profile_id: string | null;
+      student_number: string;
+      profiles: Relation<{ first_name: string; last_name: string }>;
+    }>;
     academic_years: Relation<{ name: string }>;
   } | null;
 
@@ -138,10 +181,16 @@ export async function getReportDetail(reportId: string): Promise<ReportDetail | 
 
   return {
     id: report.id,
-    student: text(gradeSummary.student, profile ? `${profile.first_name} ${profile.last_name}` : "Student"),
-    studentNumber: student?.student_number ?? text(gradeSummary.student_number, "N/A"),
+    student: text(
+      gradeSummary.student,
+      profile ? `${profile.first_name} ${profile.last_name}` : "Student",
+    ),
+    studentNumber:
+      student?.student_number ?? text(gradeSummary.student_number, "N/A"),
     classroom: text(gradeSummary.classroom, "Unassigned"),
-    academicYear: one(report.academic_years)?.name ?? text(gradeSummary.academic_year, "Academic year"),
+    academicYear:
+      one(report.academic_years)?.name ??
+      text(gradeSummary.academic_year, "Academic year"),
     term: report.term,
     summary: report.summary ?? "No teacher summary recorded.",
     status: report.status ?? "draft",
@@ -154,23 +203,42 @@ export async function getReportDetail(reportId: string): Promise<ReportDetail | 
       late: numeric(attendance.late),
       absent: numeric(attendance.absent),
       excused: numeric(attendance.excused),
-      rate: numeric(attendance.rate)
+      rate: numeric(attendance.rate),
     },
     analysis: {
       average: numeric(analysis.average),
-      strengths: asArray(analysis.strengths).map((item) => text(item)).filter((item) => item !== "-"),
-      concerns: asArray(analysis.concerns).map((item) => text(item)).filter((item) => item !== "-"),
-      recommendations: asArray(analysis.recommendations).map((item) => text(item)).filter((item) => item !== "-"),
+      strengths: asArray(analysis.strengths)
+        .map((item) => text(item))
+        .filter((item) => item !== "-"),
+      concerns: asArray(analysis.concerns)
+        .map((item) => text(item))
+        .filter((item) => item !== "-"),
+      recommendations: asArray(analysis.recommendations)
+        .map((item) => text(item))
+        .filter((item) => item !== "-"),
       attitude: report.attitude ?? text(analysis.attitude, "Not recorded"),
-      punctuality: report.punctuality ?? text(analysis.punctuality, "Not recorded"),
-      nextSteps: report.next_steps ?? text(analysis.nextSteps, "Review progress with the class teacher.")
+      punctuality:
+        report.punctuality ?? text(analysis.punctuality, "Not recorded"),
+      nextSteps:
+        report.next_steps ??
+        text(analysis.nextSteps, "Review progress with the class teacher."),
     },
     totalMarks: numeric(gradeSummary.total_marks, numeric(analysis.totalMarks)),
-    classPosition: numeric(gradeSummary.position, numeric(analysis.classPosition)) || null,
-    positionLabel: text(gradeSummary.position_label, text(analysis.positionLabel, "Not ranked")),
+    classPosition:
+      numeric(gradeSummary.position, numeric(analysis.classPosition)) || null,
+    positionLabel: text(
+      gradeSummary.position_label,
+      text(analysis.positionLabel, "Not ranked"),
+    ),
     classSize: numeric(gradeSummary.class_size, numeric(analysis.classSize)),
-    rankedSubjects: numeric(gradeSummary.ranked_subjects, numeric(analysis.rankedSubjects, asArray(gradeSummary.rows).length)),
-    rankingBasis: text(gradeSummary.ranking_basis, "Sum of total /100 marks across all recorded subjects in this class for the selected term."),
+    rankedSubjects: numeric(
+      gradeSummary.ranked_subjects,
+      numeric(analysis.rankedSubjects, asArray(gradeSummary.rows).length),
+    ),
+    rankingBasis: text(
+      gradeSummary.ranking_basis,
+      "Sum of total /100 marks across all recorded subjects in this class for the selected term.",
+    ),
     gradeRows: asArray(gradeSummary.rows).map((item) => {
       const row = asRecord(item);
       return {
@@ -183,8 +251,8 @@ export async function getReportDetail(reportId: string): Promise<ReportDetail | 
         total: numeric(row.total),
         gradeCode: text(row.gradeCode),
         remark: text(row.remark),
-        comments: text(row.comments, "")
+        comments: text(row.comments, ""),
       };
-    })
+    }),
   };
 }

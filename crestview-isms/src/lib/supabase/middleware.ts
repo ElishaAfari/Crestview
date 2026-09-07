@@ -9,13 +9,14 @@ type CookieToSet = {
   options: CookieOptions;
 };
 
-const administratorRoles = ["super_admin", "school_admin"];
+const administratorRoles = ["super_admin", "school_owner", "school_admin"];
 
 const roleHome: Record<string, string> = {
   teacher: "/teacher",
   student: "/student",
   parent: "/parent",
   super_admin: "/admin",
+  school_owner: "/admin",
   school_admin: "/admin",
   hr_staff: "/hr",
   finance_officer: "/finance",
@@ -29,6 +30,7 @@ const operationalRouteRoles: Array<{ root: string; roles: string[] }> = [
     root: "/dashboard",
     roles: [
       "super_admin",
+      "school_owner",
       "school_admin",
       "teacher",
       "student",

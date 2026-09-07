@@ -3,23 +3,31 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { isAdminRole } from "@/config/roles";
 import { requireRoles } from "@/features/auth/guards";
 import { createWorkflowTask } from "@/features/automation/actions";
 import { sendPortalAccessEmail } from "@/lib/email/portal-access";
-import { generateStudentNumber, isSupportedStudentNumber, normalizeStudentNumber } from "@/lib/students/student-number";
+import {
+  generateStudentNumber,
+  isSupportedStudentNumber,
+  normalizeStudentNumber,
+} from "@/lib/students/student-number";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.types";
 
 const rosterStudentSchema = z.object({
   studentNumber: z.string().trim().max(64).optional().or(z.literal("")),
   firstName: z.string().trim().min(2).max(80),
-  lastName: z.string().trim().min(2).max(80)
+  lastName: z.string().trim().min(2).max(80),
 });
 
 const rosterSchema = z.array(rosterStudentSchema).min(1).max(120);
 
 function studentEmailFor(studentNumber: string) {
-  const slug = studentNumber.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const slug = studentNumber
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
   return `${slug || crypto.randomUUID()}@students.crestview.local`;
 }
 
@@ -27,29 +35,54 @@ function studentPasswordFor(studentNumber: string) {
   return `${studentNumber.replace(/[^a-z0-9]/gi, "").slice(-8)}${randomBytes(12).toString("base64url")}Aa1!`;
 }
 
-function metadataRecord(metadata: Json | null | undefined): Record<string, unknown> {
-  return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata as Record<string, unknown> : {};
+function metadataRecord(
+  metadata: Json | null | undefined,
+): Record<string, unknown> {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? (metadata as Record<string, unknown>)
+    : {};
 }
 
 function isDeliverableEmail(email: string | null | undefined) {
-  return Boolean(email && email.includes("@") && !email.toLowerCase().endsWith(".local"));
+  return Boolean(
+    email && email.includes("@") && !email.toLowerCase().endsWith(".local"),
+  );
 }
 
-async function guardianEmailForStudent(admin: ReturnType<typeof createAdminClient>, studentId: string, metadata: Json | null | undefined) {
+async function guardianEmailForStudent(
+  admin: ReturnType<typeof createAdminClient>,
+  studentId: string,
+  metadata: Json | null | undefined,
+) {
   const guardianEmail = metadataRecord(metadata).guardian_email;
-  if (typeof guardianEmail === "string" && isDeliverableEmail(guardianEmail)) return guardianEmail.toLowerCase();
+  if (typeof guardianEmail === "string" && isDeliverableEmail(guardianEmail))
+    return guardianEmail.toLowerCase();
 
-  const { data: link } = await admin.from("parent_students").select("parent_profile_id").eq("student_id", studentId).limit(1).maybeSingle();
-  const parentProfileId = (link as { parent_profile_id: string | null } | null)?.parent_profile_id;
+  const { data: link } = await admin
+    .from("parent_students")
+    .select("parent_profile_id")
+    .eq("student_id", studentId)
+    .limit(1)
+    .maybeSingle();
+  const parentProfileId = (link as { parent_profile_id: string | null } | null)
+    ?.parent_profile_id;
   if (!parentProfileId) return null;
 
-  const { data: parent } = await admin.from("profiles").select("email").eq("id", parentProfileId).maybeSingle();
+  const { data: parent } = await admin
+    .from("profiles")
+    .select("email")
+    .eq("id", parentProfileId)
+    .maybeSingle();
   const parentEmail = (parent as { email: string | null } | null)?.email;
   return isDeliverableEmail(parentEmail) ? parentEmail!.toLowerCase() : null;
 }
 
-async function canManageClassroom(userId: string, role: string, classroomId: string) {
-  if (role === "super_admin" || role === "school_admin") return true;
+async function canManageClassroom(
+  userId: string,
+  role: string,
+  classroomId: string,
+) {
+  if (isAdminRole(role)) return true;
   const admin = createAdminClient();
   const { data: leadCourses } = await admin
     .from("courses")
@@ -57,7 +90,9 @@ async function canManageClassroom(userId: string, role: string, classroomId: str
     .eq("classroom_id", classroomId)
     .eq("teacher_id", userId)
     .is("deleted_at", null);
-  const courseIds = ((leadCourses ?? []) as Array<{ id: string }>).map((course) => course.id);
+  const courseIds = ((leadCourses ?? []) as Array<{ id: string }>).map(
+    (course) => course.id,
+  );
   if (courseIds.length) return true;
 
   const { data: classroomCourses } = await admin
@@ -65,7 +100,9 @@ async function canManageClassroom(userId: string, role: string, classroomId: str
     .select("id")
     .eq("classroom_id", classroomId)
     .is("deleted_at", null);
-  const classroomCourseIds = ((classroomCourses ?? []) as Array<{ id: string }>).map((course) => course.id);
+  const classroomCourseIds = (
+    (classroomCourses ?? []) as Array<{ id: string }>
+  ).map((course) => course.id);
   if (!classroomCourseIds.length) return false;
 
   const { count } = await admin
@@ -77,12 +114,21 @@ async function canManageClassroom(userId: string, role: string, classroomId: str
   return Boolean(count);
 }
 
-async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema>, classroomId: string, studentRoleId: string) {
+async function createStudentFromRoster(
+  input: z.infer<typeof rosterStudentSchema>,
+  classroomId: string,
+  studentRoleId: string,
+) {
   const admin = createAdminClient();
-  const providedStudentNumber = normalizeStudentNumber(input.studentNumber ?? "");
-  const studentNumber = providedStudentNumber || await generateStudentNumber(admin);
+  const providedStudentNumber = normalizeStudentNumber(
+    input.studentNumber ?? "",
+  );
+  const studentNumber =
+    providedStudentNumber || (await generateStudentNumber(admin));
   if (!isSupportedStudentNumber(studentNumber)) {
-    throw new Error(`${input.firstName.trim()} ${input.lastName.trim()} needs an 8-digit student ID or a blank ID for automatic generation.`);
+    throw new Error(
+      `${input.firstName.trim()} ${input.lastName.trim()} needs an 8-digit student ID or a blank ID for automatic generation.`,
+    );
   }
   const { data: existingStudent } = await admin
     .from("students")
@@ -92,21 +138,39 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
   const existing = existingStudent as { id: string; profile_id: string } | null;
 
   if (existing) {
-    const { data: currentProfile } = await admin.from("profiles").select("email,is_active,metadata").eq("id", existing.profile_id).maybeSingle();
-    const profile = currentProfile as { email: string; is_active: boolean | null; metadata: Json | null } | null;
-    const wasPending = profile?.is_active === false || (typeof profile?.metadata === "object" && !Array.isArray(profile.metadata) && profile.metadata?.student_access_pending === true);
+    const { data: currentProfile } = await admin
+      .from("profiles")
+      .select("email,is_active,metadata")
+      .eq("id", existing.profile_id)
+      .maybeSingle();
+    const profile = currentProfile as {
+      email: string;
+      is_active: boolean | null;
+      metadata: Json | null;
+    } | null;
+    const wasPending =
+      profile?.is_active === false ||
+      (typeof profile?.metadata === "object" &&
+        !Array.isArray(profile.metadata) &&
+        profile.metadata?.student_access_pending === true);
     let accessSent = false;
     let accessMessage: string | undefined;
-    await admin.from("profiles").update({
-      first_name: input.firstName.trim(),
-      last_name: input.lastName.trim(),
-      is_active: true,
-      metadata: {
-        ...(typeof profile?.metadata === "object" && !Array.isArray(profile.metadata) ? profile.metadata : {}),
-        student_access_pending: false,
-        student_access_activated_at: new Date().toISOString()
-      } satisfies Json
-    }).eq("id", existing.profile_id);
+    await admin
+      .from("profiles")
+      .update({
+        first_name: input.firstName.trim(),
+        last_name: input.lastName.trim(),
+        is_active: true,
+        metadata: {
+          ...(typeof profile?.metadata === "object" &&
+          !Array.isArray(profile.metadata)
+            ? profile.metadata
+            : {}),
+          student_access_pending: false,
+          student_access_activated_at: new Date().toISOString(),
+        } satisfies Json,
+      })
+      .eq("id", existing.profile_id);
     if (wasPending) {
       await admin.auth.admin.updateUserById(existing.profile_id, {
         password: studentPasswordFor(studentNumber),
@@ -114,11 +178,15 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
           first_name: input.firstName.trim(),
           last_name: input.lastName.trim(),
           role: "student",
-          student_number: studentNumber
-        }
+          student_number: studentNumber,
+        },
       });
       if (profile?.email) {
-        const deliveryEmail = await guardianEmailForStudent(admin, existing.id, profile.metadata);
+        const deliveryEmail = await guardianEmailForStudent(
+          admin,
+          existing.id,
+          profile.metadata,
+        );
         const access = await sendPortalAccessEmail({
           admin,
           authEmail: profile.email,
@@ -129,17 +197,24 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
           subject: `${input.firstName.trim()}'s Crestview student portal access`,
           intro: `${input.firstName.trim()}'s Crestview student portal has been activated for class learning, attendance, reports, and academic updates. Use this secure link to choose the student account password.`,
           buttonLabel: "Choose student password",
-          accountEmailLabel: "Student sign-in email"
+          accountEmailLabel: "Student sign-in email",
         });
         accessSent = access.ok;
-        accessMessage = access.ok ? `Student access email sent to ${access.deliveredTo}.` : access.message;
+        accessMessage = access.ok
+          ? `Student access email sent to ${access.deliveredTo}.`
+          : access.message;
         if (access.ok) {
           await admin.from("account_lifecycle_records").insert({
             profile_id: existing.profile_id,
             student_id: existing.id,
             action: "password_issued",
             reason: "Student setup link sent after roster activation",
-            snapshot: { student_number: studentNumber, classroom_id: classroomId, delivery: access.delivery, delivered_to: access.deliveredTo }
+            snapshot: {
+              student_number: studentNumber,
+              classroom_id: classroomId,
+              delivery: access.delivery,
+              delivered_to: access.deliveredTo,
+            },
           });
         }
       }
@@ -148,34 +223,44 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
         student_id: existing.id,
         action: "activated",
         reason: "Student portal activated from class roster",
-        snapshot: { student_number: studentNumber, classroom_id: classroomId }
+        snapshot: { student_number: studentNumber, classroom_id: classroomId },
       });
     }
-    await admin.from("students").update({
-      classroom_id: classroomId,
-      status: "active",
-      metadata: {
-        account_source: "teacher_roster_import",
-        roster_updated_at: new Date().toISOString()
-      } satisfies Json
-    }).eq("id", existing.id);
-    return { studentNumber, created: false, accessPrepared: wasPending && Boolean(profile?.email), accessSent, accessMessage };
+    await admin
+      .from("students")
+      .update({
+        classroom_id: classroomId,
+        status: "active",
+        metadata: {
+          account_source: "teacher_roster_import",
+          roster_updated_at: new Date().toISOString(),
+        } satisfies Json,
+      })
+      .eq("id", existing.id);
+    return {
+      studentNumber,
+      created: false,
+      accessPrepared: wasPending && Boolean(profile?.email),
+      accessSent,
+      accessMessage,
+    };
   }
 
   const email = studentEmailFor(studentNumber);
   const password = studentPasswordFor(studentNumber);
-  const { data: account, error: accountError } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: {
-      first_name: input.firstName.trim(),
-      last_name: input.lastName.trim(),
-      role: "student",
-      student_number: studentNumber,
-      account_source: "teacher_roster_import"
-    }
-  });
+  const { data: account, error: accountError } =
+    await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        first_name: input.firstName.trim(),
+        last_name: input.lastName.trim(),
+        role: "student",
+        student_number: studentNumber,
+        account_source: "teacher_roster_import",
+      },
+    });
   if (accountError || !account.user) {
     throw new Error(`Could not create ${studentNumber}.`);
   }
@@ -188,41 +273,60 @@ async function createStudentFromRoster(input: z.infer<typeof rosterStudentSchema
     email,
     metadata: {
       account_source: "teacher_roster_import",
-      student_number: studentNumber
-    } satisfies Json
+      student_number: studentNumber,
+    } satisfies Json,
   });
-  const { error: studentError } = profileError ? { error: profileError } : await admin.from("students").insert({
-    profile_id: account.user.id,
-    student_number: studentNumber,
-    classroom_id: classroomId,
-    enrollment_date: new Date().toISOString().slice(0, 10),
-    status: "active",
-    metadata: {
-      account_source: "teacher_roster_import",
-      roster_created_at: new Date().toISOString()
-    } satisfies Json
-  });
+  const { error: studentError } = profileError
+    ? { error: profileError }
+    : await admin.from("students").insert({
+        profile_id: account.user.id,
+        student_number: studentNumber,
+        classroom_id: classroomId,
+        enrollment_date: new Date().toISOString().slice(0, 10),
+        status: "active",
+        metadata: {
+          account_source: "teacher_roster_import",
+          roster_created_at: new Date().toISOString(),
+        } satisfies Json,
+      });
 
   if (profileError || studentError) {
     await admin.auth.admin.deleteUser(account.user.id);
     throw new Error(`Could not save ${studentNumber}.`);
   }
 
-  const createdStudent = studentError ? null : await admin.from("students").select("id").eq("profile_id", account.user.id).maybeSingle();
+  const createdStudent = studentError
+    ? null
+    : await admin
+        .from("students")
+        .select("id")
+        .eq("profile_id", account.user.id)
+        .maybeSingle();
   await admin.from("account_lifecycle_records").insert({
     profile_id: account.user.id,
     student_id: (createdStudent?.data as { id: string } | null)?.id ?? null,
     action: "created",
     reason: "Student portal account created from class roster",
-    snapshot: { student_number: studentNumber, classroom_id: classroomId, access_method: "secure_access_required" }
+    snapshot: {
+      student_number: studentNumber,
+      classroom_id: classroomId,
+      access_method: "secure_access_required",
+    },
   });
-  return { studentNumber, created: true, accessPrepared: true, accessSent: false, accessMessage: undefined };
+  return {
+    studentNumber,
+    created: true,
+    accessPrepared: true,
+    accessSent: false,
+    accessMessage: undefined,
+  };
 }
 
 export async function saveClassRosterAction(formData: FormData) {
   const classroomId = String(formData.get("classroomId") ?? "");
   const rosterJson = String(formData.get("rosterJson") ?? "[]");
-  if (!z.string().uuid().safeParse(classroomId).success) return { ok: false, message: "Choose a valid class." };
+  if (!z.string().uuid().safeParse(classroomId).success)
+    return { ok: false, message: "Choose a valid class." };
 
   let parsed: unknown;
   try {
@@ -232,18 +336,51 @@ export async function saveClassRosterAction(formData: FormData) {
   }
 
   const result = rosterSchema.safeParse(parsed);
-  if (!result.success) return { ok: false, message: "Add student IDs, first names, and last names before saving." };
+  if (!result.success)
+    return {
+      ok: false,
+      message: "Add student IDs, first names, and last names before saving.",
+    };
 
-  const deduped = Array.from(new Map(result.data.map((student, index) => [normalizeStudentNumber(student.studentNumber ?? "") || `__AUTO_${index}`, student])).values());
-  const { user, role } = await requireRoles(["super_admin", "school_admin", "teacher"]);
+  const deduped = Array.from(
+    new Map(
+      result.data.map((student, index) => [
+        normalizeStudentNumber(student.studentNumber ?? "") ||
+          `__AUTO_${index}`,
+        student,
+      ]),
+    ).values(),
+  );
+  const { user, role } = await requireRoles([
+    "super_admin",
+    "school_admin",
+    "teacher",
+  ]);
   const allowed = await canManageClassroom(user.id, role, classroomId);
-  if (!allowed) return { ok: false, message: "You can only manage rosters for classes assigned to you." };
+  if (!allowed)
+    return {
+      ok: false,
+      message: "You can only manage rosters for classes assigned to you.",
+    };
 
   const admin = createAdminClient();
-  const { data: classroomData } = await admin.from("classrooms").select("academic_year_id,name,grade_level").eq("id", classroomId).maybeSingle();
-  const classroom = classroomData as { academic_year_id: string | null; name: string; grade_level: string } | null;
-  const { data: studentRole } = await admin.from("roles").select("id").eq("name", "student").maybeSingle();
-  if (!studentRole) return { ok: false, message: "The student role is not configured." };
+  const { data: classroomData } = await admin
+    .from("classrooms")
+    .select("academic_year_id,name,grade_level")
+    .eq("id", classroomId)
+    .maybeSingle();
+  const classroom = classroomData as {
+    academic_year_id: string | null;
+    name: string;
+    grade_level: string;
+  } | null;
+  const { data: studentRole } = await admin
+    .from("roles")
+    .select("id")
+    .eq("name", "student")
+    .maybeSingle();
+  if (!studentRole)
+    return { ok: false, message: "The student role is not configured." };
 
   let created = 0;
   let updated = 0;
@@ -254,52 +391,93 @@ export async function saveClassRosterAction(formData: FormData) {
   const savedStudentNumbers: string[] = [];
   try {
     for (const student of deduped) {
-      const outcome = await createStudentFromRoster(student, classroomId, String(studentRole.id));
+      const outcome = await createStudentFromRoster(
+        student,
+        classroomId,
+        String(studentRole.id),
+      );
       savedStudentNumbers.push(outcome.studentNumber);
       if (outcome.created) created += 1;
       else updated += 1;
       if (outcome.accessPrepared) accessPrepared += 1;
       if (outcome.accessSent) accessSent += 1;
-      if (outcome.accessPrepared && !outcome.accessSent && outcome.accessMessage) {
+      if (
+        outcome.accessPrepared &&
+        !outcome.accessSent &&
+        outcome.accessMessage
+      ) {
         accessBlocked += 1;
         accessWarnings.add(outcome.accessMessage);
       }
     }
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "The class roster could not be saved." };
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "The class roster could not be saved.",
+    };
   }
 
-  const incomingNumbers = savedStudentNumbers.map((studentNumber) => normalizeStudentNumber(studentNumber));
+  const incomingNumbers = savedStudentNumbers.map((studentNumber) =>
+    normalizeStudentNumber(studentNumber),
+  );
   const { data: currentStudents } = await admin
     .from("students")
     .select("id,student_number,metadata")
     .eq("classroom_id", classroomId)
     .eq("status", "active")
     .is("deleted_at", null);
-  const removableIds = ((currentStudents ?? []) as Array<{ id: string; student_number: string; metadata: Json | null }>)
-    .filter((student) => !incomingNumbers.includes(student.student_number) && typeof student.metadata === "object" && !Array.isArray(student.metadata) && student.metadata?.account_source === "teacher_roster_import")
+  const removableIds = (
+    (currentStudents ?? []) as Array<{
+      id: string;
+      student_number: string;
+      metadata: Json | null;
+    }>
+  )
+    .filter(
+      (student) =>
+        !incomingNumbers.includes(student.student_number) &&
+        typeof student.metadata === "object" &&
+        !Array.isArray(student.metadata) &&
+        student.metadata?.account_source === "teacher_roster_import",
+    )
     .map((student) => student.id);
   if (removableIds.length) {
-    await admin.from("students").update({ status: "withdrawn", classroom_id: null }).in("id", removableIds);
+    await admin
+      .from("students")
+      .update({ status: "withdrawn", classroom_id: null })
+      .in("id", removableIds);
   }
 
-  const { data: snapshotData } = await admin.from("class_roster_snapshots").insert({
-    classroom_id: classroomId,
-    academic_year_id: classroom?.academic_year_id ?? null,
-    captured_by: user.id,
-    snapshot_type: "manual",
-    student_count: deduped.length,
-    roster: deduped.map((student, index) => ({
-      student_number: normalizeStudentNumber(student.studentNumber ?? "") || savedStudentNumbers[index] || "",
-      first_name: student.firstName.trim(),
-      last_name: student.lastName.trim()
-    })) satisfies Json,
-    notes: classroom ? `${classroom.grade_level} - ${classroom.name} roster saved from portal.` : "Roster saved from portal."
-  }).select("id").single();
+  const { data: snapshotData } = await admin
+    .from("class_roster_snapshots")
+    .insert({
+      classroom_id: classroomId,
+      academic_year_id: classroom?.academic_year_id ?? null,
+      captured_by: user.id,
+      snapshot_type: "manual",
+      student_count: deduped.length,
+      roster: deduped.map((student, index) => ({
+        student_number:
+          normalizeStudentNumber(student.studentNumber ?? "") ||
+          savedStudentNumbers[index] ||
+          "",
+        first_name: student.firstName.trim(),
+        last_name: student.lastName.trim(),
+      })) satisfies Json,
+      notes: classroom
+        ? `${classroom.grade_level} - ${classroom.name} roster saved from portal.`
+        : "Roster saved from portal.",
+    })
+    .select("id")
+    .single();
   await createWorkflowTask({
     title: `Verify ${classroom?.name ?? "class"} roster and access`,
     workflowKey: "academic_follow_up",
-    description: "Confirm student accounts, parent links, attendance register readiness, and subject grading templates for this class.",
+    description:
+      "Confirm student accounts, parent links, attendance register readiness, and subject grading templates for this class.",
     priority: created > 0 ? "high" : "normal",
     dueAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
     assignedTo: user.id,
@@ -312,19 +490,24 @@ export async function saveClassRosterAction(formData: FormData) {
       created,
       updated,
       removed: removableIds.length,
-      source: "class_roster_save"
-    } satisfies Json
+      source: "class_roster_save",
+    } satisfies Json,
   });
 
   revalidatePath("/teacher/classes");
   revalidatePath("/teacher/attendance");
   revalidatePath("/admin/students");
   revalidatePath("/admin/attendance");
-  const warningText = accessBlocked ? ` ${accessBlocked} access email${accessBlocked === 1 ? "" : "s"} could not be delivered: ${Array.from(accessWarnings).slice(0, 2).join(" ")}` : "";
+  const warningText = accessBlocked
+    ? ` ${accessBlocked} access email${accessBlocked === 1 ? "" : "s"} could not be delivered: ${Array.from(accessWarnings).slice(0, 2).join(" ")}`
+    : "";
   const accessMessage = accessSent
     ? ` ${accessSent} student portal access email${accessSent === 1 ? "" : "s"} sent.`
     : accessPrepared
       ? ` ${accessPrepared} student portal record${accessPrepared === 1 ? "" : "s"} prepared; send secure access from User Management when ready.`
-    : "";
-  return { ok: true, message: `${deduped.length} students saved. ${created} new, ${updated} updated.${accessMessage}${warningText}` };
+      : "";
+  return {
+    ok: true,
+    message: `${deduped.length} students saved. ${created} new, ${updated} updated.${accessMessage}${warningText}`,
+  };
 }

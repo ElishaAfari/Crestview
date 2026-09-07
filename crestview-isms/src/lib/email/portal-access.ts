@@ -42,6 +42,7 @@ type AccessResult =
 
 const roleLabels: Record<string, string> = {
   super_admin: "Head Administrator",
+  school_owner: "School Owner / Proprietor",
   school_admin: "School Administrator",
   teacher: "Teacher",
   student: "Student",
@@ -49,7 +50,7 @@ const roleLabels: Record<string, string> = {
   hr_staff: "HR Staff",
   finance_officer: "Finance Officer",
   librarian: "Librarian",
-  it_support: "IT Support"
+  it_support: "IT Support",
 };
 
 function roleLabel(role: string) {
@@ -57,7 +58,11 @@ function roleLabel(role: string) {
 }
 
 function mailFrom() {
-  return process.env.CRESTVIEW_EMAIL_FROM ?? process.env.RESEND_FROM_EMAIL ?? process.env.EMAIL_FROM;
+  return (
+    process.env.CRESTVIEW_EMAIL_FROM ??
+    process.env.RESEND_FROM_EMAIL ??
+    process.env.EMAIL_FROM
+  );
 }
 
 function replyTo() {
@@ -90,7 +95,7 @@ function brandedPortalEmail({
   intro,
   buttonLabel,
   accountEmail,
-  accountEmailLabel
+  accountEmailLabel,
 }: {
   name: string;
   role: string;
@@ -164,7 +169,11 @@ function brandedPortalEmail({
 async function sendCrestviewEmail(to: string, subject: string, html: string) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = mailFrom();
-  if (!apiKey || !from) return { ok: false as const, message: "Crestview email provider is not configured." };
+  if (!apiKey || !from)
+    return {
+      ok: false as const,
+      message: "Crestview email provider is not configured.",
+    };
 
   const body: Record<string, unknown> = { from, to, subject, html };
   const configuredReplyTo = replyTo();
@@ -174,37 +183,89 @@ async function sendCrestviewEmail(to: string, subject: string, html: string) {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
 
-  if (!response.ok) return { ok: false as const, message: `Crestview email provider rejected the message (${response.status}).` };
+  if (!response.ok)
+    return {
+      ok: false as const,
+      message: `Crestview email provider rejected the message (${response.status}).`,
+    };
   return { ok: true as const };
 }
 
-async function sendNativeInvite(input: PortalInviteInput): Promise<InviteResult> {
-  const { admin, email, firstName, lastName, role, redirectTo = `${APP_URL}/reset-password`, metadata = {} } = input;
-  if (!isRoutableEmail(email)) return { ok: false, message: "A real email address is required before a portal access email can be sent." };
+async function sendNativeInvite(
+  input: PortalInviteInput,
+): Promise<InviteResult> {
+  const {
+    admin,
+    email,
+    firstName,
+    lastName,
+    role,
+    redirectTo = `${APP_URL}/reset-password`,
+    metadata = {},
+  } = input;
+  if (!isRoutableEmail(email))
+    return {
+      ok: false,
+      message:
+        "A real email address is required before a portal access email can be sent.",
+    };
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo,
-    data: { ...metadata, first_name: firstName, last_name: lastName, role, school_name: APP_NAME }
+    data: {
+      ...metadata,
+      first_name: firstName,
+      last_name: lastName,
+      role,
+      school_name: APP_NAME,
+    },
   });
-  if (error || !data.user) return { ok: false, message: "The secure access email could not be sent. The email may already have an account." };
-  return { ok: true, user: data.user, delivery: "supabase_auth", deliveredTo: email };
+  if (error || !data.user)
+    return {
+      ok: false,
+      message:
+        "The secure access email could not be sent. The email may already have an account.",
+    };
+  return {
+    ok: true,
+    user: data.user,
+    delivery: "supabase_auth",
+    deliveredTo: email,
+  };
 }
 
-export async function createPortalInvitation(input: PortalInviteInput): Promise<InviteResult> {
-  const { admin, email, firstName, lastName, role, redirectTo = `${APP_URL}/reset-password`, metadata = {} } = input;
+export async function createPortalInvitation(
+  input: PortalInviteInput,
+): Promise<InviteResult> {
+  const {
+    admin,
+    email,
+    firstName,
+    lastName,
+    role,
+    redirectTo = `${APP_URL}/reset-password`,
+    metadata = {},
+  } = input;
   if (!canSendCrestviewMail()) return sendNativeInvite(input);
 
-  const userMetadata = { ...metadata, first_name: firstName, last_name: lastName, role, school_name: APP_NAME };
+  const userMetadata = {
+    ...metadata,
+    first_name: firstName,
+    last_name: lastName,
+    role,
+    school_name: APP_NAME,
+  };
   const { data, error } = await admin.auth.admin.generateLink({
     type: "invite",
     email,
-    options: { redirectTo, data: userMetadata }
+    options: { redirectTo, data: userMetadata },
   });
-  if (error || !data.user || !data.properties?.action_link) return sendNativeInvite(input);
+  if (error || !data.user || !data.properties?.action_link)
+    return sendNativeInvite(input);
 
   const name = `${firstName} ${lastName}`.trim() || "Crestview user";
   const subject = `Congratulations - your ${APP_NAME} portal access is ready`;
@@ -216,7 +277,7 @@ export async function createPortalInvitation(input: PortalInviteInput): Promise<
     intro: `${APP_NAME} has created your ${roleLabel(role)} portal account. Welcome to the Crestview digital workspace.`,
     buttonLabel: "Choose password and open portal",
     accountEmail: email,
-    accountEmailLabel: "Sign-in email"
+    accountEmailLabel: "Sign-in email",
   });
   const sent = await sendCrestviewEmail(email, subject, html);
   if (!sent.ok) {
@@ -224,17 +285,29 @@ export async function createPortalInvitation(input: PortalInviteInput): Promise<
     return sendNativeInvite(input);
   }
 
-  return { ok: true, user: data.user, delivery: "crestview", deliveredTo: email };
+  return {
+    ok: true,
+    user: data.user,
+    delivery: "crestview",
+    deliveredTo: email,
+  };
 }
 
-async function sendNativeRecovery(input: PortalAccessInput): Promise<AccessResult> {
+async function sendNativeRecovery(
+  input: PortalAccessInput,
+): Promise<AccessResult> {
   const { admin, authEmail, redirectTo = `${APP_URL}/reset-password` } = input;
-  const { error } = await admin.auth.resetPasswordForEmail(authEmail, { redirectTo });
-  if (error) return { ok: false, message: "The secure access email could not be sent." };
+  const { error } = await admin.auth.resetPasswordForEmail(authEmail, {
+    redirectTo,
+  });
+  if (error)
+    return { ok: false, message: "The secure access email could not be sent." };
   return { ok: true, delivery: "supabase_auth", deliveredTo: authEmail };
 }
 
-export async function sendPortalAccessEmail(input: PortalAccessInput): Promise<AccessResult> {
+export async function sendPortalAccessEmail(
+  input: PortalAccessInput,
+): Promise<AccessResult> {
   const {
     admin,
     authEmail,
@@ -246,31 +319,38 @@ export async function sendPortalAccessEmail(input: PortalAccessInput): Promise<A
     subject = `Your ${APP_NAME} portal access link`,
     intro = `${APP_NAME} has prepared your portal account. You can now choose a password and continue into your workspace.`,
     buttonLabel = "Choose password and open portal",
-    accountEmailLabel = "Sign-in email"
+    accountEmailLabel = "Sign-in email",
   } = input;
   const authTarget = authEmail.trim().toLowerCase();
   const deliveryTarget = deliveryEmail.trim().toLowerCase();
   const sameInbox = authTarget === deliveryTarget;
   if (!isRoutableEmail(deliveryTarget)) {
-    return { ok: false, message: "No deliverable recipient email is linked to this account." };
+    return {
+      ok: false,
+      message: "No deliverable recipient email is linked to this account.",
+    };
   }
 
   if (!canSendCrestviewMail()) {
     if (sameInbox) return sendNativeRecovery(input);
     return {
       ok: false,
-      message: "Crestview email provider is not configured, so this student setup link cannot be delivered to the guardian inbox."
+      message:
+        "Crestview email provider is not configured, so this student setup link cannot be delivered to the guardian inbox.",
     };
   }
 
   const { data, error } = await admin.auth.admin.generateLink({
     type: "recovery",
     email: authTarget,
-    options: { redirectTo }
+    options: { redirectTo },
   });
   if (error || !data.properties?.action_link) {
     if (sameInbox) return sendNativeRecovery(input);
-    return { ok: false, message: "The student setup link could not be generated." };
+    return {
+      ok: false,
+      message: "The student setup link could not be generated.",
+    };
   }
 
   const name = `${firstName} ${lastName}`.trim() || "Crestview user";
@@ -282,7 +362,7 @@ export async function sendPortalAccessEmail(input: PortalAccessInput): Promise<A
     intro,
     buttonLabel,
     accountEmail: authTarget,
-    accountEmailLabel
+    accountEmailLabel,
   });
   const sent = await sendCrestviewEmail(deliveryTarget, subject, html);
   if (!sent.ok) {

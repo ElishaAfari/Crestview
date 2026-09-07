@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { isAdminRole } from "@/config/roles";
 import { requireRoles, requireUser } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.types";
@@ -25,7 +26,7 @@ export type WorkflowTaskInput = {
 
 const taskStatusSchema = z.object({
   taskId: z.string().uuid(),
-  status: z.enum(["open", "in_progress", "blocked", "completed", "cancelled"])
+  status: z.enum(["open", "in_progress", "blocked", "completed", "cancelled"]),
 });
 
 const manualTaskSchema = z.object({
@@ -36,29 +37,47 @@ const manualTaskSchema = z.object({
   dueAt: z.string().optional(),
   assignedTo: z.string().uuid().optional().or(z.literal("")),
   studentId: z.string().uuid().optional().or(z.literal("")),
-  classroomId: z.string().uuid().optional().or(z.literal(""))
+  classroomId: z.string().uuid().optional().or(z.literal("")),
 });
 
 const student360NoteSchema = z.object({
   studentId: z.string().uuid(),
-  noteType: z.enum(["general", "academic", "attendance", "finance", "wellbeing", "discipline", "parent_contact"]),
+  noteType: z.enum([
+    "general",
+    "academic",
+    "attendance",
+    "finance",
+    "wellbeing",
+    "discipline",
+    "parent_contact",
+  ]),
   title: z.string().trim().min(3).max(160),
   body: z.string().trim().min(10).max(2500),
   visibility: z.enum(["staff", "guardian", "restricted"]),
   createTask: z.string().optional(),
   notifyGuardians: z.string().optional(),
   priority: z.enum(["low", "normal", "high", "urgent"]),
-  dueAt: z.string().optional()
+  dueAt: z.string().optional(),
 });
 
 function taskNumber(prefix = "TASK") {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
 }
 
-async function userCanManageStudent(admin: ReturnType<typeof createAdminClient>, userId: string, role: string | null, studentId: string) {
-  if (["super_admin", "school_admin", "hr_staff"].includes(role ?? "")) return true;
+async function userCanManageStudent(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  role: string | null,
+  studentId: string,
+) {
+  if (isAdminRole(role) || role === "hr_staff") return true;
   if (role !== "teacher") return false;
-  const { data: studentData } = await admin.from("students").select("classroom_id").eq("id", studentId).is("deleted_at", null).maybeSingle();
+  const { data: studentData } = await admin
+    .from("students")
+    .select("classroom_id")
+    .eq("id", studentId)
+    .is("deleted_at", null)
+    .maybeSingle();
   const student = studentData as { classroom_id: string | null } | null;
   if (!student?.classroom_id) return false;
   const [leadCourses, assignedCourses] = await Promise.all([
@@ -73,7 +92,7 @@ async function userCanManageStudent(admin: ReturnType<typeof createAdminClient>,
       .select("courses!inner(classroom_id)", { count: "exact", head: true })
       .eq("teacher_id", userId)
       .eq("courses.classroom_id", student.classroom_id)
-      .is("deleted_at", null)
+      .is("deleted_at", null),
   ]);
   return Boolean((leadCourses.count ?? 0) + (assignedCourses.count ?? 0));
 }
@@ -97,7 +116,7 @@ export async function createWorkflowTask(input: WorkflowTaskInput) {
       classroom_id: input.classroomId ?? null,
       related_table: input.relatedTable ?? null,
       related_record_id: input.relatedRecordId ?? null,
-      metadata: input.metadata ?? {}
+      metadata: input.metadata ?? {},
     })
     .select("id")
     .single();
@@ -108,7 +127,7 @@ export async function createWorkflowTask(input: WorkflowTaskInput) {
 export async function completeRelatedWorkflowTasks({
   workflowKey,
   relatedTable,
-  relatedRecordId
+  relatedRecordId,
 }: {
   workflowKey: string;
   relatedTable: string;
@@ -124,7 +143,10 @@ export async function completeRelatedWorkflowTasks({
     .in("status", ["open", "in_progress", "blocked"]);
 }
 
-export async function createManualWorkflowTaskAction(_: { ok: boolean; message: string }, formData: FormData) {
+export async function createManualWorkflowTaskAction(
+  _: { ok: boolean; message: string },
+  formData: FormData,
+) {
   const result = manualTaskSchema.safeParse({
     title: String(formData.get("title") ?? ""),
     workflowKey: String(formData.get("workflowKey") ?? "general"),
@@ -133,11 +155,23 @@ export async function createManualWorkflowTaskAction(_: { ok: boolean; message: 
     dueAt: String(formData.get("dueAt") ?? ""),
     assignedTo: String(formData.get("assignedTo") ?? ""),
     studentId: String(formData.get("studentId") ?? ""),
-    classroomId: String(formData.get("classroomId") ?? "")
+    classroomId: String(formData.get("classroomId") ?? ""),
   });
-  if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the task details." };
+  if (!result.success)
+    return {
+      ok: false,
+      message: result.error.issues[0]?.message ?? "Check the task details.",
+    };
 
-  const { user } = await requireRoles(["super_admin", "school_admin", "teacher", "hr_staff", "finance_officer", "librarian", "it_support"]);
+  const { user } = await requireRoles([
+    "super_admin",
+    "school_admin",
+    "teacher",
+    "hr_staff",
+    "finance_officer",
+    "librarian",
+    "it_support",
+  ]);
   const id = await createWorkflowTask({
     title: result.data.title,
     workflowKey: result.data.workflowKey,
@@ -148,7 +182,7 @@ export async function createManualWorkflowTaskAction(_: { ok: boolean; message: 
     createdBy: user.id,
     studentId: result.data.studentId || null,
     classroomId: result.data.classroomId || null,
-    metadata: { source: "manual_portal_task" }
+    metadata: { source: "manual_portal_task" },
   });
 
   revalidatePath("/admin/automation");
@@ -157,21 +191,31 @@ export async function createManualWorkflowTaskAction(_: { ok: boolean; message: 
   revalidatePath("/finance");
   revalidatePath("/library");
   revalidatePath("/it");
-  return id ? { ok: true, message: "Workflow task created." } : { ok: false, message: "The workflow task could not be created." };
+  return id
+    ? { ok: true, message: "Workflow task created." }
+    : { ok: false, message: "The workflow task could not be created." };
 }
 
-export async function updateWorkflowTaskStatusAction(_: { ok: boolean; message: string }, formData: FormData) {
+export async function updateWorkflowTaskStatusAction(
+  _: { ok: boolean; message: string },
+  formData: FormData,
+) {
   const result = taskStatusSchema.safeParse({
     taskId: String(formData.get("taskId") ?? ""),
-    status: String(formData.get("status") ?? "")
+    status: String(formData.get("status") ?? ""),
   });
-  if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Choose a valid task status." };
+  if (!result.success)
+    return {
+      ok: false,
+      message: result.error.issues[0]?.message ?? "Choose a valid task status.",
+    };
 
   const { user } = await requireUser();
   const admin = createAdminClient();
   const updatePayload: Record<string, unknown> = {
     status: result.data.status,
-    completed_at: result.data.status === "completed" ? new Date().toISOString() : null
+    completed_at:
+      result.data.status === "completed" ? new Date().toISOString() : null,
   };
   if (result.data.status === "in_progress") updatePayload.assigned_to = user.id;
   const { error } = await admin
@@ -184,10 +228,15 @@ export async function updateWorkflowTaskStatusAction(_: { ok: boolean; message: 
   revalidatePath("/finance");
   revalidatePath("/library");
   revalidatePath("/it");
-  return error ? { ok: false, message: "The task could not be updated." } : { ok: true, message: "Task updated." };
+  return error
+    ? { ok: false, message: "The task could not be updated." }
+    : { ok: true, message: "Task updated." };
 }
 
-export async function createStudent360NoteAction(_: { ok: boolean; message: string }, formData: FormData) {
+export async function createStudent360NoteAction(
+  _: { ok: boolean; message: string },
+  formData: FormData,
+) {
   const result = student360NoteSchema.safeParse({
     studentId: String(formData.get("studentId") ?? ""),
     noteType: String(formData.get("noteType") ?? "general"),
@@ -197,19 +246,37 @@ export async function createStudent360NoteAction(_: { ok: boolean; message: stri
     createTask: String(formData.get("createTask") ?? ""),
     notifyGuardians: String(formData.get("notifyGuardians") ?? ""),
     priority: String(formData.get("priority") ?? "normal"),
-    dueAt: String(formData.get("dueAt") ?? "")
+    dueAt: String(formData.get("dueAt") ?? ""),
   });
-  if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Check the intervention note." };
+  if (!result.success)
+    return {
+      ok: false,
+      message:
+        result.error.issues[0]?.message ?? "Check the intervention note.",
+    };
 
-  const { user, role } = await requireRoles(["super_admin", "school_admin", "teacher", "hr_staff"]);
+  const { user, role } = await requireRoles([
+    "super_admin",
+    "school_admin",
+    "teacher",
+    "hr_staff",
+  ]);
   const admin = createAdminClient();
-  if (!(await userCanManageStudent(admin, user.id, role, result.data.studentId))) {
-    return { ok: false, message: "You can only add notes for learners in your permitted workspace." };
+  if (
+    !(await userCanManageStudent(admin, user.id, role, result.data.studentId))
+  ) {
+    return {
+      ok: false,
+      message:
+        "You can only add notes for learners in your permitted workspace.",
+    };
   }
 
   const { data: studentData } = await admin
     .from("students")
-    .select("id,student_number,classroom_id,profiles!students_profile_id_fkey(first_name,last_name)")
+    .select(
+      "id,student_number,classroom_id,profiles!students_profile_id_fkey(first_name,last_name)",
+    )
     .eq("id", result.data.studentId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -217,11 +284,19 @@ export async function createStudent360NoteAction(_: { ok: boolean; message: stri
     id: string;
     student_number: string;
     classroom_id: string | null;
-    profiles: { first_name: string; last_name: string } | Array<{ first_name: string; last_name: string }> | null;
+    profiles:
+      | { first_name: string; last_name: string }
+      | Array<{ first_name: string; last_name: string }>
+      | null;
   } | null;
-  if (!student) return { ok: false, message: "The learner could not be found." };
-  const profile = Array.isArray(student.profiles) ? student.profiles[0] ?? null : student.profiles;
-  const studentName = profile ? `${profile.first_name} ${profile.last_name}` : student.student_number;
+  if (!student)
+    return { ok: false, message: "The learner could not be found." };
+  const profile = Array.isArray(student.profiles)
+    ? (student.profiles[0] ?? null)
+    : student.profiles;
+  const studentName = profile
+    ? `${profile.first_name} ${profile.last_name}`
+    : student.student_number;
 
   const { data: noteData, error } = await admin
     .from("student_360_notes")
@@ -235,33 +310,40 @@ export async function createStudent360NoteAction(_: { ok: boolean; message: stri
       metadata: {
         source: "student_360_detail",
         task_requested: Boolean(result.data.createTask),
-        guardian_notice_requested: Boolean(result.data.notifyGuardians)
-      } satisfies Json
+        guardian_notice_requested: Boolean(result.data.notifyGuardians),
+      } satisfies Json,
     })
     .select("id")
     .single();
   const noteId = (noteData as { id: string } | null)?.id;
-  if (error || !noteId) return { ok: false, message: "The note could not be saved." };
+  if (error || !noteId)
+    return { ok: false, message: "The note could not be saved." };
 
   if (result.data.createTask) {
-    const workflowKey = result.data.noteType === "attendance"
-      ? "attendance_follow_up"
-      : result.data.noteType === "finance"
-        ? "finance_collection"
-        : "academic_follow_up";
+    const workflowKey =
+      result.data.noteType === "attendance"
+        ? "attendance_follow_up"
+        : result.data.noteType === "finance"
+          ? "finance_collection"
+          : "academic_follow_up";
     await createWorkflowTask({
       title: `${result.data.title} - ${studentName}`,
       workflowKey,
       description: result.data.body,
       priority: result.data.priority,
-      dueAt: result.data.dueAt ? new Date(result.data.dueAt).toISOString() : null,
+      dueAt: result.data.dueAt
+        ? new Date(result.data.dueAt).toISOString()
+        : null,
       assignedTo: user.id,
       createdBy: user.id,
       studentId: result.data.studentId,
       classroomId: student.classroom_id,
       relatedTable: "student_360_notes",
       relatedRecordId: noteId,
-      metadata: { note_type: result.data.noteType, visibility: result.data.visibility } satisfies Json
+      metadata: {
+        note_type: result.data.noteType,
+        visibility: result.data.visibility,
+      } satisfies Json,
     });
   }
 
@@ -271,15 +353,27 @@ export async function createStudent360NoteAction(_: { ok: boolean; message: stri
       .select("parent_profile_id")
       .eq("student_id", result.data.studentId)
       .is("deleted_at", null);
-    const recipients = Array.from(new Set(((parentLinks ?? []) as Array<{ parent_profile_id: string }>).map((link) => link.parent_profile_id)));
+    const recipients = Array.from(
+      new Set(
+        ((parentLinks ?? []) as Array<{ parent_profile_id: string }>).map(
+          (link) => link.parent_profile_id,
+        ),
+      ),
+    );
     if (recipients.length) {
-      await admin.from("notifications").insert(recipients.map((recipientId) => ({
-        recipient_id: recipientId,
-        title: result.data.title,
-        body: result.data.body,
-        type: "student_support",
-        metadata: { student_id: result.data.studentId, student_360_note_id: noteId, note_type: result.data.noteType } satisfies Json
-      })));
+      await admin.from("notifications").insert(
+        recipients.map((recipientId) => ({
+          recipient_id: recipientId,
+          title: result.data.title,
+          body: result.data.body,
+          type: "student_support",
+          metadata: {
+            student_id: result.data.studentId,
+            student_360_note_id: noteId,
+            note_type: result.data.noteType,
+          } satisfies Json,
+        })),
+      );
     }
   }
 
@@ -290,5 +384,10 @@ export async function createStudent360NoteAction(_: { ok: boolean; message: stri
   revalidatePath("/admin/automation");
   revalidatePath("/parent");
   revalidatePath("/student");
-  return { ok: true, message: result.data.createTask ? "Note saved and follow-up task created." : "Note saved." };
+  return {
+    ok: true,
+    message: result.data.createTask
+      ? "Note saved and follow-up task created."
+      : "Note saved.",
+  };
 }
