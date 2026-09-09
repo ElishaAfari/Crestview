@@ -1,6 +1,7 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
+import { ROLES } from "@/config/roles";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { RoleName } from "@/types/database.types";
@@ -48,11 +49,11 @@ export async function requireRoles(allowedRoles: RoleName[]) {
     profileRecord.is_active === false ||
     profileRecord.deleted_at
   ) {
-    throw new Error("This portal account is not active.");
+    redirect("/login?account=inactive");
   }
 
   if (typeof profile?.role_id !== "string")
-    throw new Error("A school profile is required.");
+    redirect("/login?account=profile-required");
 
   const { data: roleRecord } = await admin
     .from("roles")
@@ -61,12 +62,10 @@ export async function requireRoles(allowedRoles: RoleName[]) {
     .maybeSingle();
   const role = roleRecord as { name?: unknown } | null;
 
-  if (
-    typeof role?.name !== "string" ||
-    !hasAllowedRole(role.name as RoleName, allowedRoles)
-  ) {
-    throw new Error("You do not have permission to perform this action.");
-  }
+  if (typeof role?.name !== "string") redirect("/login?account=role-required");
+
+  if (!hasAllowedRole(role.name as RoleName, allowedRoles))
+    redirect(ROLES[role.name as RoleName]?.dashboard ?? "/dashboard");
 
   return { ...context, role: role.name as RoleName };
 }
