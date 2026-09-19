@@ -9,6 +9,129 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { studentSchema } from "@/lib/validations/student.schema";
 import type { Json } from "@/types/database.types";
 
+type ImportRow = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  studentNumber: string;
+  className: string;
+  enrollmentDate: string;
+  gender: "male" | "female" | "other" | "prefer_not_to_say" | null;
+  phone: string;
+};
+
+function parseCsv(text: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const next = text[index + 1];
+    if (character === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (character === '"') quoted = !quoted;
+    else if (character === "," && !quoted) {
+      row.push(cell.trim());
+      cell = "";
+    } else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && next === "\n") index += 1;
+      row.push(cell.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      cell = "";
+    } else cell += character;
+  }
+  row.push(cell.trim());
+  if (row.some(Boolean)) rows.push(row);
+  return rows;
+}
+
+function importValue(row: Record<string, string>, ...names: string[]) {
+  for (const name of names) {
+    const value = row[name.toLowerCase().replaceAll(" ", "_")];
+    if (value?.trim()) return value.trim();
+  }
+  return "";
+}
+
+function normalizeImportRow(row: Record<string, string>): ImportRow {
+  const gender = importValue(row, "gender").toLowerCase();
+  return {
+    firstName: importValue(row, "first_name", "firstname", "first name"),
+    lastName: importValue(row, "last_name", "lastname", "last name"),
+    email: importValue(row, "email", "student_email"),
+    studentNumber: importValue(row, "student_id", "student_number", "id", "index_number"),
+    className: importValue(row, "class", "classroom", "class_name", "grade"),
+    enrollmentDate: importValue(row, "enrollment_date", "date_enrolled", "enrollment date") || new Date().toISOString().slice(0, 10),
+    gender: ["male", "female", "other", "prefer_not_to_say"].includes(gender) ? gender as ImportRow["gender"] : null,
+    phone: importValue(row, "phone", "parent_phone", "guardian_phone")
+  };
+}
+
+export async function importStudentsCsvAction(formData: FormData) {
+  const { user } = await requireRoles(["super_admin", "school_admin"]);
+  const file = formData.get("file");
+  if (!(file instanceof File) || !file.size) return { ok: false, message: "Choose a CSV file to import." };
+  if (file.size > 5 * 1024 * 1024) return { ok: false, message: "The CSV must be smaller than 5 MB." };
+
+  const rows = parseCsv(await file.text());
+  if (rows.length < 2) return { ok: false, message: "The CSV needs a header row and at least one student row." };
+  const headers = rows[0].map((header) => header.toLowerCase().trim().replaceAll(" ", "_"));
+  const normalizedRows = rows.slice(1).map((values) => normalizeImportRow(Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]))));
+  if (normalizedRows.length > 500) return { ok: false, message: "Import up to 500 students per batch. Split larger registers into separate files." };
+
+  const admin = createAdminClient();
+  const { data: classrooms, error: classError } = await admin.from("classrooms").select("id,name,grade_level").is("deleted_at", null);
+  if (classError) return { ok: false, message: "Classrooms could not be loaded for this import." };
+  const classMap = new Map<string, { id: string; name: string; grade_level: string }>();
+  for (const classroom of classrooms ?? []) {
+    const value = classroom as { id: string; name: string; grade_level: string };
+    classMap.set(value.name.toLowerCase(), value);
+    classMap.set(`${value.grade_level} - ${value.name}`.toLowerCase(), value);
+  }
+
+  const errors: string[] = [];
+  const seenIds = new Set<string>();
+  const created: string[] = [];
+  const skipped: string[] = [];
+  for (const [index, input] of normalizedRows.entries()) {
+    const line = index + 2;
+    const classroom = classMap.get(input.className.toLowerCase());
+    if (!input.firstName || !input.lastName || !input.className) { errors.push(`Row ${line}: first_name, last_name, and class are required.`); continue; }
+    if (!classroom) { errors.push(`Row ${line}: class \"${input.className}\" was not found.`); continue; }
+    if (input.email && !/^\S+@\S+\.\S+$/.test(input.email)) { errors.push(`Row ${line}: email is not valid.`); continue; }
+    let studentNumber = normalizeStudentNumber(input.studentNumber);
+    if (studentNumber && !isSupportedStudentNumber(studentNumber)) { errors.push(`Row ${line}: student_id must be an 8-digit number.`); continue; }
+    if (!studentNumber) studentNumber = await generateStudentNumber(admin);
+    if (seenIds.has(studentNumber)) { errors.push(`Row ${line}: duplicate student_id ${studentNumber} in this file.`); continue; }
+    seenIds.add(studentNumber);
+    const { count } = await admin.from("students").select("id", { count: "exact", head: true }).eq("student_number", studentNumber);
+    if ((count ?? 0) > 0) { skipped.push(`${input.firstName} ${input.lastName} (${studentNumber})`); continue; }
+
+    const email = input.email.toLowerCase() || `student.${studentNumber}@crestview.local`;
+    const { data: authData, error: authError } = await admin.auth.admin.createUser({
+      email, email_confirm: true, user_metadata: { account_source: "student_csv_import", first_name: input.firstName, last_name: input.lastName }
+    });
+    if (authError || !authData.user) { errors.push(`Row ${line}: account could not be created${authError?.message ? ` (${authError.message})` : ""}.`); continue; }
+    const { data: role } = await admin.from("roles").select("id").eq("name", "student").single();
+    const { error: profileError } = await admin.from("profiles").insert({ id: authData.user.id, role_id: role?.id, first_name: input.firstName, last_name: input.lastName, email, phone: input.phone || null, gender: input.gender });
+    const { error: studentError } = profileError ? { error: profileError } : await admin.from("students").insert({ profile_id: authData.user.id, student_number: studentNumber, classroom_id: classroom.id, enrollment_date: input.enrollmentDate });
+    if (profileError || studentError) {
+      await admin.auth.admin.deleteUser(authData.user.id);
+      errors.push(`Row ${line}: student record could not be saved.`);
+      continue;
+    }
+    created.push(`${input.firstName} ${input.lastName} (${studentNumber})`);
+  }
+
+  await admin.from("audit_logs").insert({ actor_id: user.id, action: "students_csv_imported", table_name: "students", after: { created_count: created.length, skipped_count: skipped.length, error_count: errors.length, source_file: file.name } satisfies Json });
+  revalidatePath("/students");
+  revalidatePath("/admin/students");
+  return { ok: errors.length === 0, message: `${created.length} students imported, ${skipped.length} already existed.${errors.length ? ` ${errors.length} rows need attention.` : ""}`, errors: errors.slice(0, 25) };
+}
+
 export async function createStudentAction(formData: FormData) {
   const result = studentSchema.safeParse({
     firstName: String(formData.get("firstName") ?? ""),

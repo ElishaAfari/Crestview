@@ -6,7 +6,6 @@
 export const referenceRouteAliases: Record<string, string> = {
   "/help": "/it/tickets",
   "/students/enrollments": "/students/student-directory",
-  "/students/import": "/admin/students",
   "/students/promotions/legacy": "/students/academic-reports",
   "/students/guardians": "/students/guardian-links",
   "/students/reports": "/students/academic-reports",
