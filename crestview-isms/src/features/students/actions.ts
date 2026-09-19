@@ -20,8 +20,27 @@ type ImportRow = {
   phone: string;
 };
 
+function normalizeHeader(value: string) {
+  const key = value.replace(/^\uFEFF/, "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const aliases: Record<string, string> = {
+    firstname: "first_name", given_name: "first_name", forename: "first_name",
+    lastname: "last_name", surname: "last_name", family_name: "last_name",
+    student_name: "full_name", learner_name: "full_name", child_name: "full_name",
+    admission_no: "student_id", admission_number: "student_id", admission_id: "student_id",
+    index_no: "student_id", index_number: "student_id", student_no: "student_id", student_number: "student_id", student_code: "student_id", registration_number: "student_id",
+    class_name: "class", class_level: "class", grade_level: "class", form: "class",
+    date_of_admission: "enrollment_date", date_enrolled: "enrollment_date", admission_date: "enrollment_date",
+    sex: "gender", mobile: "phone", phone_number: "phone", contact: "phone", telephone: "phone",
+    email_address: "email", student_email: "email", guardian_email: "email"
+  };
+  return aliases[key] ?? key;
+}
+
 function parseCsv(text: string) {
   const rows: string[][] = [];
+  const firstLine = text.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0] ?? "";
+  const delimiters = [",", ";", "\t"];
+  const delimiter = delimiters.reduce((best, candidate) => firstLine.split(candidate).length > firstLine.split(best).length ? candidate : best, ",");
   let row: string[] = [];
   let cell = "";
   let quoted = false;
@@ -32,7 +51,7 @@ function parseCsv(text: string) {
       cell += '"';
       index += 1;
     } else if (character === '"') quoted = !quoted;
-    else if (character === "," && !quoted) {
+    else if (character === delimiter && !quoted) {
       row.push(cell.trim());
       cell = "";
     } else if ((character === "\n" || character === "\r") && !quoted) {
@@ -50,7 +69,7 @@ function parseCsv(text: string) {
 
 function importValue(row: Record<string, string>, ...names: string[]) {
   for (const name of names) {
-    const value = row[name.toLowerCase().replaceAll(" ", "_")];
+    const value = row[normalizeHeader(name)];
     if (value?.trim()) return value.trim();
   }
   return "";
@@ -58,9 +77,11 @@ function importValue(row: Record<string, string>, ...names: string[]) {
 
 function normalizeImportRow(row: Record<string, string>): ImportRow {
   const gender = importValue(row, "gender").toLowerCase();
+  const fullName = importValue(row, "full_name");
+  const nameParts = fullName.split(/\s+/).filter(Boolean);
   return {
-    firstName: importValue(row, "first_name", "firstname", "first name"),
-    lastName: importValue(row, "last_name", "lastname", "last name"),
+    firstName: importValue(row, "first_name") || nameParts[0] || "",
+    lastName: importValue(row, "last_name") || nameParts.slice(1).join(" "),
     email: importValue(row, "email", "student_email"),
     studentNumber: importValue(row, "student_id", "student_number", "id", "index_number"),
     className: importValue(row, "class", "classroom", "class_name", "grade"),
@@ -78,7 +99,7 @@ export async function importStudentsCsvAction(formData: FormData) {
 
   const rows = parseCsv(await file.text());
   if (rows.length < 2) return { ok: false, message: "The CSV needs a header row and at least one student row." };
-  const headers = rows[0].map((header) => header.toLowerCase().trim().replaceAll(" ", "_"));
+  const headers = rows[0].map(normalizeHeader);
   const normalizedRows = rows.slice(1).map((values) => normalizeImportRow(Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]))));
   if (normalizedRows.length > 500) return { ok: false, message: "Import up to 500 students per batch. Split larger registers into separate files." };
 
