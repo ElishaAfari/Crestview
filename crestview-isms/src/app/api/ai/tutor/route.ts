@@ -18,12 +18,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
-  const body = await request.json() as TutorRequest;
+  const { data: accessProfile } = await supabase
+    .from("profiles")
+    .select("is_active,roles(name)")
+    .eq("id", user.id)
+    .maybeSingle();
+  const accessRole = Array.isArray(accessProfile?.roles) ? accessProfile.roles[0] : accessProfile?.roles;
+  if (accessProfile?.is_active === false || accessRole?.name !== "student") {
+    return NextResponse.json({ error: "The AI tutor is available to student accounts only." }, { status: 403 });
+  }
+
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  if (contentLength > 32_000) return NextResponse.json({ error: "Request is too large." }, { status: 413 });
+  let body: TutorRequest;
+  try { body = await request.json() as TutorRequest; }
+  catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
   const message = body.message?.trim();
 
   if (!message) {
     return NextResponse.json({ error: "A message is required." }, { status: 400 });
   }
+  if (message.length > 4_000) return NextResponse.json({ error: "Message must be 4,000 characters or fewer." }, { status: 422 });
 
   const windowStart = new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000).toISOString();
   const { data: rateLimit } = await supabase

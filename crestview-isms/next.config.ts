@@ -18,7 +18,10 @@ const nextConfig: NextConfig = {
     return Object.entries(referenceRouteAliases).map(([source, destination]) => ({ source, destination }));
   },
   experimental: {
-    serverActions: allowedOrigins.length ? { allowedOrigins } : undefined
+    serverActions: {
+      ...(allowedOrigins.length ? { allowedOrigins } : {}),
+      bodySizeLimit: "6mb"
+    }
   }
 };
 
