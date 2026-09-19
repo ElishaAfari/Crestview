@@ -37,6 +37,7 @@ const adminGroups: SuiteGroup[] = [
     icon: Users,
     links: [
       { title: "All Students", href: "/students" },
+      { title: "Import Students", href: "/students/import" },
       { title: "New Student", href: "/students/new" },
       { title: "Enrollments", href: "/students/enrollments" },
       { title: "Promotions", href: "/students/promotions" },
