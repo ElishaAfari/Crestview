@@ -38,6 +38,7 @@ export function StudentQrCapture({
   const [scanning, setScanning] = useState(false);
   const [message, setMessage] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
   const activeRef = useRef(false);
 
@@ -45,18 +46,29 @@ export function StudentQrCapture({
     activeRef.current = false;
     controlsRef.current?.stop();
     controlsRef.current = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
     setScanning(false);
   }, []);
 
   useEffect(() => stopScan, [stopScan]);
 
   async function startScan() {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setMessage("Camera access is not available. Type the student ID instead.");
-      return;
-    }
-
     try {
+      if (!window.isSecureContext) {
+        setMessage("Camera access requires HTTPS. Open the secure school portal URL, then try Scan QR again.");
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setMessage("Chrome cannot access a camera in this browser context. Check the site address and camera permissions, then try again.");
+        return;
+      }
+      setMessage("Requesting camera permission...");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: "environment" } }
+      });
+      streamRef.current = stream;
       activeRef.current = true;
       setScanning(true);
       setMessage("Point the camera at the student ID card QR code.");
@@ -70,16 +82,23 @@ export function StudentQrCapture({
         delayBetweenScanAttempts: 120,
         delayBetweenScanSuccess: 500
       });
-      controlsRef.current = await reader.decodeFromVideoDevice(undefined, video, (result) => {
+      controlsRef.current = await reader.decodeFromStream(stream, video, (result) => {
         const text = result?.getText();
         if (!text || !activeRef.current) return;
         onValue(normalizeQrCapture(text));
         setMessage("QR code captured.");
         stopScan();
       });
-    } catch {
+    } catch (error) {
       stopScan();
-      setMessage("Camera permission was not granted. Type the student ID instead.");
+      const name = error instanceof DOMException ? error.name : "";
+      setMessage(
+        name === "NotAllowedError"
+          ? "Camera permission was blocked. Select the camera icon in Chrome's address bar, allow access for this site, then try Scan QR again."
+          : name === "NotFoundError"
+            ? "No camera was found on this device. Connect a camera or enter the student ID manually."
+            : "Chrome could not open the camera. Check site permissions and HTTPS, then try Scan QR again."
+      );
     }
   }
 
