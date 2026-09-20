@@ -2,14 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, Keyboard, QrCode, StopCircle } from "lucide-react";
+import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-type BarcodeResult = { rawValue: string };
-type BarcodeDetectorInstance = { detect(source: CanvasImageSource): Promise<BarcodeResult[]> };
-type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => BarcodeDetectorInstance;
-type WindowWithBarcodeDetector = Window & { BarcodeDetector?: BarcodeDetectorConstructor };
 
 function normalizeQrCapture(value: string) {
   const trimmed = value.trim();
@@ -42,35 +38,25 @@ export function StudentQrCapture({
   const [scanning, setScanning] = useState(false);
   const [message, setMessage] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const frameRef = useRef<number | null>(null);
+  const controlsRef = useRef<IScannerControls | null>(null);
   const activeRef = useRef(false);
 
   const stopScan = useCallback(() => {
     activeRef.current = false;
-    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
-    frameRef.current = null;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
+    controlsRef.current?.stop();
+    controlsRef.current = null;
     setScanning(false);
   }, []);
 
   useEffect(() => stopScan, [stopScan]);
 
   async function startScan() {
-    const BarcodeDetector = (window as WindowWithBarcodeDetector).BarcodeDetector;
-    if (!BarcodeDetector) {
-      setMessage("Camera QR scanning is not supported in this browser. Use Chrome/Edge with camera permission, or type/paste the 8-digit student ID.");
-      return;
-    }
     if (!navigator.mediaDevices?.getUserMedia) {
       setMessage("Camera access is not available. Type the student ID instead.");
       return;
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      streamRef.current = stream;
       activeRef.current = true;
       setScanning(true);
       setMessage("Point the camera at the student ID card QR code.");
@@ -80,28 +66,17 @@ export function StudentQrCapture({
         setMessage("The camera preview could not be initialized. Type the student ID instead.");
         return;
       }
-      video.srcObject = stream;
-      await video.play();
-      const detector = new BarcodeDetector({ formats: ["qr_code"] });
-
-      const scanFrame = async () => {
-        if (!activeRef.current || !videoRef.current) return;
-        try {
-          const codes = await detector.detect(videoRef.current);
-          const firstCode = codes[0]?.rawValue;
-          if (firstCode) {
-            onValue(normalizeQrCapture(firstCode));
-            setMessage("QR code captured.");
-            stopScan();
-            return;
-          }
-        } catch {
-          if (activeRef.current) setMessage("Still looking for a readable QR code.");
-        }
-        if (activeRef.current) frameRef.current = requestAnimationFrame(scanFrame);
-      };
-
-      frameRef.current = requestAnimationFrame(scanFrame);
+      const reader = new BrowserQRCodeReader(undefined, {
+        delayBetweenScanAttempts: 120,
+        delayBetweenScanSuccess: 500
+      });
+      controlsRef.current = await reader.decodeFromVideoDevice(undefined, video, (result) => {
+        const text = result?.getText();
+        if (!text || !activeRef.current) return;
+        onValue(normalizeQrCapture(text));
+        setMessage("QR code captured.");
+        stopScan();
+      });
     } catch {
       stopScan();
       setMessage("Camera permission was not granted. Type the student ID instead.");
