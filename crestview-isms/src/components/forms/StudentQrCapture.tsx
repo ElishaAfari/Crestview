@@ -75,7 +75,11 @@ export function StudentQrCapture({
       setScanning(true);
       setMessage("Point the camera at the student ID card QR code.");
       const video = videoRef.current;
-      if (!video) return;
+      if (!video) {
+        stopScan();
+        setMessage("The camera preview could not be initialized. Type the student ID instead.");
+        return;
+      }
       video.srcObject = stream;
       await video.play();
       const detector = new BarcodeDetector({ formats: ["qr_code"] });
@@ -92,9 +96,9 @@ export function StudentQrCapture({
             return;
           }
         } catch {
-          setMessage("Still looking for a readable QR code.");
+          if (activeRef.current) setMessage("Still looking for a readable QR code.");
         }
-        frameRef.current = requestAnimationFrame(scanFrame);
+        if (activeRef.current) frameRef.current = requestAnimationFrame(scanFrame);
       };
 
       frameRef.current = requestAnimationFrame(scanFrame);
@@ -132,7 +136,13 @@ export function StudentQrCapture({
           </Button>
         )}
       </div>
-      <video ref={videoRef} muted playsInline className={scanning ? "aspect-video w-full rounded-lg border border-[var(--portal-border)] bg-black object-cover" : "hidden"} />
+      <video
+        ref={videoRef}
+        muted
+        playsInline
+        aria-label="Student ID QR scanner camera preview"
+        className={scanning ? "aspect-video w-full rounded-lg border border-[var(--portal-border)] bg-black object-cover" : "hidden"}
+      />
       <div className="portal-subtle-card flex items-start gap-2 rounded-lg p-3 text-xs font-extrabold text-[var(--portal-muted)]">
         <Keyboard className="mt-0.5 size-4 shrink-0 text-blue-700 dark:text-blue-200" aria-hidden />
         <span>Manual fallback accepts the student&apos;s 8-digit ID, the QR payload, or a copied QR URL containing the student ID.</span>
