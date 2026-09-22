@@ -58,11 +58,12 @@ BEGIN
   FROM student_number_migration AS m
   WHERE s.id = m.id;
 
-  -- Card numbers are unique, so move them aside before assigning new values.
+  -- Card numbers are unique, and stale cards may still occupy a destination
+  -- value, so move every card aside and restore unlinked cards afterwards.
+  CREATE TEMP TABLE student_card_number_backup ON COMMIT DROP AS
+    SELECT id, card_number FROM public.student_id_cards;
   UPDATE public.student_id_cards AS c
-  SET card_number = '__student_card_migration__' || c.id::TEXT
-  FROM student_number_migration AS m
-  WHERE c.student_id = m.id;
+  SET card_number = '__student_card_migration__' || c.id::TEXT;
 
   FOR student_row IN SELECT id, source_student_number, sequence_number FROM student_number_migration ORDER BY sequence_number LOOP
     old_student_number := student_row.source_student_number;
@@ -101,6 +102,11 @@ BEGIN
     WHERE student_id = student_row.id;
 
   END LOOP;
+
+  UPDATE public.student_id_cards AS c
+  SET card_number = b.card_number
+  FROM student_card_number_backup AS b
+  WHERE c.id = b.id AND c.card_number LIKE '__student_card_migration__%';
 
   UPDATE public.student_number_sequence
   SET next_value = COALESCE((SELECT MAX(sequence_number) + 1 FROM student_number_migration), 1), updated_at = NOW()
