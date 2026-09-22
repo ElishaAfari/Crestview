@@ -11,13 +11,20 @@ import type { Json } from "@/types/database.types";
 
 type ImportRow = {
   firstName: string;
+  middleName: string;
   lastName: string;
   email: string;
   studentNumber: string;
   className: string;
+  sectionName: string;
   enrollmentDate: string;
+  dateOfBirth: string;
   gender: "male" | "female" | "other" | "prefer_not_to_say" | null;
   phone: string;
+  address: string;
+  city: string;
+  region: string;
+  status: "active" | "graduated" | "withdrawn" | "suspended";
 };
 
 function normalizeHeader(value: string) {
@@ -34,6 +41,25 @@ function normalizeHeader(value: string) {
     email_address: "email", student_email: "email", guardian_email: "email"
   };
   return aliases[key] ?? key;
+}
+
+function normalizeClassName(value: string) {
+  const key = value.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  const aliases: Record<string, string> = {
+    creche: "nursery 1",
+    "playgroup 1": "nursery 1",
+    "playgroup 2": "nursery 2",
+    "early year 1": "kg 1",
+    "early year 2": "kg 2"
+  };
+  if (aliases[key]) return aliases[key];
+  const crestMatch = key.match(/^crest\s*([1-7])$/);
+  if (crestMatch) return Number(crestMatch[1]) <= 6 ? `primary ${crestMatch[1]}` : "jhs 1";
+  return key;
+}
+
+function isDate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
 
 function parseCsv(text: string) {
@@ -81,13 +107,22 @@ function normalizeImportRow(row: Record<string, string>): ImportRow {
   const nameParts = fullName.split(/\s+/).filter(Boolean);
   return {
     firstName: importValue(row, "first_name") || nameParts[0] || "",
+    middleName: importValue(row, "middle_name"),
     lastName: importValue(row, "last_name") || nameParts.slice(1).join(" "),
     email: importValue(row, "email", "student_email"),
     studentNumber: importValue(row, "student_id", "student_number", "id", "index_number"),
     className: importValue(row, "class", "classroom", "class_name", "grade"),
+    sectionName: importValue(row, "section", "section_name", "stream"),
     enrollmentDate: importValue(row, "enrollment_date", "date_enrolled", "enrollment date") || new Date().toISOString().slice(0, 10),
+    dateOfBirth: importValue(row, "date_of_birth", "dob", "birth_date"),
     gender: ["male", "female", "other", "prefer_not_to_say"].includes(gender) ? gender as ImportRow["gender"] : null,
-    phone: importValue(row, "phone", "parent_phone", "guardian_phone")
+    phone: importValue(row, "phone", "parent_phone", "guardian_phone"),
+    address: importValue(row, "address", "home_address"),
+    city: importValue(row, "city", "town"),
+    region: importValue(row, "region"),
+    status: (["active", "graduated", "withdrawn", "suspended"] as const).includes(importValue(row, "status").toLowerCase() as ImportRow["status"])
+      ? importValue(row, "status").toLowerCase() as ImportRow["status"]
+      : "active"
   };
 }
 
@@ -109,8 +144,9 @@ export async function importStudentsCsvAction(formData: FormData) {
   const classMap = new Map<string, { id: string; name: string; grade_level: string }>();
   for (const classroom of classrooms ?? []) {
     const value = classroom as { id: string; name: string; grade_level: string };
-    classMap.set(value.name.toLowerCase(), value);
-    classMap.set(`${value.grade_level} - ${value.name}`.toLowerCase(), value);
+    classMap.set(normalizeClassName(value.name), value);
+    classMap.set(normalizeClassName(value.grade_level), value);
+    classMap.set(normalizeClassName(`${value.grade_level} - ${value.name}`), value);
   }
 
   const errors: string[] = [];
@@ -119,12 +155,15 @@ export async function importStudentsCsvAction(formData: FormData) {
   const skipped: string[] = [];
   for (const [index, input] of normalizedRows.entries()) {
     const line = index + 2;
-    const classroom = classMap.get(input.className.toLowerCase());
+    const classroom = classMap.get(normalizeClassName(input.className));
     if (!input.firstName || !input.lastName || !input.className) { errors.push(`Row ${line}: first_name, last_name, and class are required.`); continue; }
     if (!classroom) { errors.push(`Row ${line}: class \"${input.className}\" was not found.`); continue; }
     if (input.email && !/^\S+@\S+\.\S+$/.test(input.email)) { errors.push(`Row ${line}: email is not valid.`); continue; }
+    if (input.dateOfBirth && !isDate(input.dateOfBirth)) { errors.push(`Row ${line}: date_of_birth must use YYYY-MM-DD.`); continue; }
+    if (input.enrollmentDate && !isDate(input.enrollmentDate)) { errors.push(`Row ${line}: admission_date/enrollment_date must use YYYY-MM-DD.`); continue; }
     let studentNumber = normalizeStudentNumber(input.studentNumber);
-    if (studentNumber && !isSupportedStudentNumber(studentNumber)) { errors.push(`Row ${line}: student_id must be an 8-digit number.`); continue; }
+    const sourceStudentId = input.studentNumber || null;
+    if (studentNumber && (!isSupportedStudentNumber(studentNumber) || !/^\d{8}$/.test(studentNumber))) studentNumber = "";
     if (!studentNumber) studentNumber = await generateStudentNumber(admin);
     if (seenIds.has(studentNumber)) { errors.push(`Row ${line}: duplicate student_id ${studentNumber} in this file.`); continue; }
     seenIds.add(studentNumber);
@@ -137,14 +176,45 @@ export async function importStudentsCsvAction(formData: FormData) {
     });
     if (authError || !authData.user) { errors.push(`Row ${line}: account could not be created${authError?.message ? ` (${authError.message})` : ""}.`); continue; }
     const { data: role } = await admin.from("roles").select("id").eq("name", "student").single();
-    const { error: profileError } = await admin.from("profiles").insert({ id: authData.user.id, role_id: role?.id, first_name: input.firstName, last_name: input.lastName, email, phone: input.phone || null, gender: input.gender });
-    const { error: studentError } = profileError ? { error: profileError } : await admin.from("students").insert({ profile_id: authData.user.id, student_number: studentNumber, classroom_id: classroom.id, enrollment_date: input.enrollmentDate });
+    const metadata = {
+      import_source: "students_csv_import",
+      source_file: file.name,
+      source_student_id: sourceStudentId,
+      source_class_name: input.className,
+      source_section_name: input.sectionName || null,
+      source_status: input.status,
+      source_address: input.address || null,
+      source_city: input.city || null,
+      source_region: input.region || null
+    } satisfies Json;
+    const { error: profileError } = await admin.from("profiles").insert({
+      id: authData.user.id,
+      role_id: role?.id,
+      first_name: input.firstName,
+      middle_name: input.middleName || null,
+      last_name: input.lastName,
+      email,
+      phone: input.phone || null,
+      date_of_birth: input.dateOfBirth || null,
+      gender: input.gender,
+      address: input.address || input.city || input.region ? { line1: input.address || null, city: input.city || null, region: input.region || null } : null,
+      is_active: input.status === "active" || input.status === "graduated",
+      metadata
+    });
+    const { error: studentError } = profileError ? { error: profileError } : await admin.from("students").insert({
+      profile_id: authData.user.id,
+      student_number: studentNumber,
+      classroom_id: classroom.id,
+      enrollment_date: input.enrollmentDate,
+      status: input.status,
+      metadata
+    });
     if (profileError || studentError) {
       await admin.auth.admin.deleteUser(authData.user.id);
       errors.push(`Row ${line}: student record could not be saved.`);
       continue;
     }
-    created.push(`${input.firstName} ${input.lastName} (${studentNumber})`);
+    created.push(`${input.firstName} ${input.lastName} (${studentNumber}${sourceStudentId ? `, source ${sourceStudentId}` : ""})`);
   }
 
   await admin.from("audit_logs").insert({ actor_id: user.id, action: "students_csv_imported", table_name: "students", after: { created_count: created.length, skipped_count: skipped.length, error_count: errors.length, source_file: file.name } satisfies Json });
