@@ -27,6 +27,12 @@ type ImportRow = {
   status: "active" | "graduated" | "withdrawn" | "suspended";
 };
 
+type ImportCredential = {
+  name: string;
+  studentNumber: string;
+  temporaryPassword: string;
+};
+
 function normalizeHeader(value: string) {
   const key = value.replace(/^\uFEFF/, "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
   const aliases: Record<string, string> = {
@@ -56,6 +62,35 @@ function normalizeClassName(value: string) {
   const crestMatch = key.match(/^crest\s*([1-7])$/);
   if (crestMatch) return Number(crestMatch[1]) <= 6 ? `primary ${crestMatch[1]}` : "jhs 1";
   return key;
+}
+
+function normalizeImportKeyPart(value: string) {
+  return value.trim().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function importIdentity(input: ImportRow) {
+  const sourceId = normalizeImportKeyPart(input.studentNumber);
+  if (sourceId) return `source:${sourceId}`;
+  return [
+    "student",
+    normalizeImportKeyPart(input.firstName),
+    normalizeImportKeyPart(input.middleName),
+    normalizeImportKeyPart(input.lastName),
+    input.dateOfBirth || "unknown-dob",
+    normalizeClassName(input.className),
+  ].join(":");
+}
+
+function managedStudentEmail(studentNumber: string) {
+  return `student.${studentNumber.replace(/[^a-z0-9]/gi, "").toLowerCase()}@crestview.local`;
+}
+
+function createTemporaryPassword() {
+  return `Cv!${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
+}
+
+function metadataRecord(value: Json | null) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 function isDate(value: string) {
@@ -149,37 +184,63 @@ export async function importStudentsCsvAction(formData: FormData) {
     classMap.set(normalizeClassName(`${value.grade_level} - ${value.name}`), value);
   }
 
+  const { data: existingStudents, error: existingStudentsError } = await admin
+    .from("students")
+    .select("student_number,metadata")
+    .is("deleted_at", null);
+  if (existingStudentsError) return { ok: false, message: "Existing student records could not be checked before import." };
+  const existingStudentNumbers = new Set<string>();
+  const existingImportKeys = new Set<string>();
+  for (const row of existingStudents ?? []) {
+    const student = row as { student_number: string; metadata: Json | null };
+    existingStudentNumbers.add(normalizeStudentNumber(student.student_number));
+    const metadata = metadataRecord(student.metadata);
+    const storedKey = typeof metadata.import_key === "string" ? metadata.import_key : "";
+    if (storedKey) existingImportKeys.add(storedKey);
+    const sourceStudentId = typeof metadata.source_student_id === "string" ? metadata.source_student_id : "";
+    if (sourceStudentId) existingImportKeys.add(`source:${normalizeImportKeyPart(sourceStudentId)}`);
+  }
+
+  const { data: role, error: roleError } = await admin.from("roles").select("id").eq("name", "student").single();
+  if (roleError || !role) return { ok: false, message: "The student role is not configured." };
+
   const errors: string[] = [];
-  const seenIds = new Set<string>();
+  const seenImportKeys = new Set<string>();
   const created: string[] = [];
   const skipped: string[] = [];
+  const credentials: ImportCredential[] = [];
   for (const [index, input] of normalizedRows.entries()) {
     const line = index + 2;
     const classroom = classMap.get(normalizeClassName(input.className));
     if (!input.firstName || !input.lastName || !input.className) { errors.push(`Row ${line}: first_name, last_name, and class are required.`); continue; }
     if (!classroom) { errors.push(`Row ${line}: class \"${input.className}\" was not found.`); continue; }
-    if (input.email && !/^\S+@\S+\.\S+$/.test(input.email)) { errors.push(`Row ${line}: email is not valid.`); continue; }
     if (input.dateOfBirth && !isDate(input.dateOfBirth)) { errors.push(`Row ${line}: date_of_birth must use YYYY-MM-DD.`); continue; }
     if (input.enrollmentDate && !isDate(input.enrollmentDate)) { errors.push(`Row ${line}: admission_date/enrollment_date must use YYYY-MM-DD.`); continue; }
+    const importKey = importIdentity(input);
+    if (seenImportKeys.has(importKey)) { errors.push(`Row ${line}: this student appears more than once in the same file.`); continue; }
+    seenImportKeys.add(importKey);
+    if (existingImportKeys.has(importKey)) { skipped.push(`${input.firstName} ${input.lastName} (already imported)`); continue; }
     let studentNumber = normalizeStudentNumber(input.studentNumber);
     const sourceStudentId = input.studentNumber || null;
     if (studentNumber && !isSupportedStudentNumber(studentNumber)) studentNumber = "";
     if (!studentNumber) studentNumber = await generateStudentNumber(admin);
-    if (seenIds.has(studentNumber)) { errors.push(`Row ${line}: duplicate student_id ${studentNumber} in this file.`); continue; }
-    seenIds.add(studentNumber);
-    const { count } = await admin.from("students").select("id", { count: "exact", head: true }).eq("student_number", studentNumber);
-    if ((count ?? 0) > 0) { skipped.push(`${input.firstName} ${input.lastName} (${studentNumber})`); continue; }
+    if (existingStudentNumbers.has(studentNumber)) { skipped.push(`${input.firstName} ${input.lastName} (${studentNumber})`); continue; }
 
-    const email = input.email.toLowerCase() || `student.${studentNumber}@crestview.local`;
+    const email = managedStudentEmail(studentNumber);
+    const temporaryPassword = createTemporaryPassword();
     const { data: authData, error: authError } = await admin.auth.admin.createUser({
-      email, email_confirm: true, user_metadata: { account_source: "student_csv_import", first_name: input.firstName, last_name: input.lastName }
+      email,
+      password: temporaryPassword,
+      email_confirm: true,
+      user_metadata: { account_source: "student_csv_import", first_name: input.firstName, last_name: input.lastName, student_number: studentNumber }
     });
     if (authError || !authData.user) { errors.push(`Row ${line}: account could not be created${authError?.message ? ` (${authError.message})` : ""}.`); continue; }
-    const { data: role } = await admin.from("roles").select("id").eq("name", "student").single();
     const metadata = {
       import_source: "students_csv_import",
       source_file: file.name,
       source_student_id: sourceStudentId,
+      import_key: importKey,
+      source_contact_email: input.email || null,
       source_class_name: input.className,
       source_section_name: input.sectionName || null,
       source_status: input.status,
@@ -215,12 +276,20 @@ export async function importStudentsCsvAction(formData: FormData) {
       continue;
     }
     created.push(`${input.firstName} ${input.lastName} (${studentNumber}${sourceStudentId ? `, source ${sourceStudentId}` : ""})`);
+    credentials.push({ name: [input.firstName, input.middleName, input.lastName].filter(Boolean).join(" "), studentNumber, temporaryPassword });
+    existingStudentNumbers.add(studentNumber);
+    existingImportKeys.add(importKey);
   }
 
   await admin.from("audit_logs").insert({ actor_id: user.id, action: "students_csv_imported", table_name: "students", after: { created_count: created.length, skipped_count: skipped.length, error_count: errors.length, source_file: file.name } satisfies Json });
   revalidatePath("/students");
   revalidatePath("/admin/students");
-  return { ok: errors.length === 0, message: `${created.length} students imported, ${skipped.length} already existed.${errors.length ? ` ${errors.length} rows need attention.` : ""}`, errors: errors.slice(0, 25) };
+  return {
+    ok: errors.length === 0,
+    message: `${created.length} students imported, ${skipped.length} already existed.${errors.length ? ` ${errors.length} rows need attention.` : ""}`,
+    errors: errors.slice(0, 25),
+    credentials,
+  };
 }
 
 export async function createStudentAction(formData: FormData) {

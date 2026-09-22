@@ -4,7 +4,7 @@ import { loginSchema } from "./auth.schema";
 
 describe("validation schemas", () => {
   it("accepts a valid login", () => {
-    expect(loginSchema.safeParse({ email: "admin@crestview.edu", password: "Admin@123" }).success).toBe(true);
+    expect(loginSchema.safeParse({ identifier: "admin@crestview.edu", password: "Admin@123" }).success).toBe(true);
   });
 
   it("requires a valid admission guardian email", () => {

@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { APP_URL } from "@/lib/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { isSupportedStudentNumber, normalizeStudentNumber } from "@/lib/students/student-number";
 import {
   loginSchema,
   resetPasswordSchema,
@@ -18,7 +19,7 @@ export async function signInAction(
   formData: FormData,
 ): Promise<SignInState> {
   const result = loginSchema.safeParse({
-    email: String(formData.get("email") ?? ""),
+    identifier: String(formData.get("identifier") ?? ""),
     password: String(formData.get("password") ?? ""),
   });
 
@@ -26,12 +27,37 @@ export async function signInAction(
     return {
       ok: false,
       message:
-        result.error.issues[0]?.message ?? "Enter your email and password.",
+        result.error.issues[0]?.message ?? "Enter your email or student ID and password.",
     };
   }
 
+  let email = result.data.identifier.toLowerCase();
+  if (!email.includes("@")) {
+    const studentNumber = normalizeStudentNumber(result.data.identifier);
+    if (!isSupportedStudentNumber(studentNumber)) {
+      return { ok: false, message: "We could not sign you in. Check your details and try again." };
+    }
+    const admin = createAdminClient();
+    const { data: student } = await admin
+      .from("students")
+      .select("profile_id")
+      .eq("student_number", studentNumber)
+      .is("deleted_at", null)
+      .maybeSingle();
+    const profileId = typeof student?.profile_id === "string" ? student.profile_id : "";
+    if (!profileId) {
+      return { ok: false, message: "We could not sign you in. Check your details and try again." };
+    }
+    const { data: profile } = await admin.from("profiles").select("email").eq("id", profileId).maybeSingle();
+    const portalEmail = typeof profile?.email === "string" ? profile.email : "";
+    if (!portalEmail) {
+      return { ok: false, message: "We could not sign you in. Check your details and try again." };
+    }
+    email = portalEmail;
+  }
+
   const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase.auth.signInWithPassword(result.data);
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: result.data.password });
 
   if (error) {
     return {
