@@ -18,8 +18,8 @@ function normalizeQrCapture(value: string) {
     // Plain QR payloads are expected; URLs are only an optional convenience.
   }
   const withoutPrefix = trimmed.replace(/^(?:CIS-STUDENT|CRESTVIEW-STUDENT|STU)[:\s-]+/i, "");
-  const compact = withoutPrefix.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-  return compact || trimmed.toUpperCase();
+  const match = withoutPrefix.match(/^(?:CIS\s*[\/-]?\s*ST\s*[\/-]?\s*|STU\s*-?\s*)(\d{6})$/i);
+  return match ? `CIS/ST/${match[1]}` : withoutPrefix.trim();
 }
 
 export function StudentQrCapture({
@@ -27,7 +27,7 @@ export function StudentQrCapture({
   onValue,
   name = "studentLookup",
   label = "Student ID or QR code",
-  placeholder = "Scan QR or type Stu000001"
+  placeholder = "Scan QR or type CIS/ST/000001"
 }: {
   value: string;
   onValue: (value: string) => void;
@@ -139,7 +139,7 @@ export function StudentQrCapture({
       />
       <div className="portal-subtle-card flex items-start gap-2 rounded-lg p-3 text-xs font-extrabold text-[var(--portal-muted)]">
         <Keyboard className="mt-0.5 size-4 shrink-0 text-blue-700 dark:text-blue-200" aria-hidden />
-        <span>Manual fallback accepts the student&apos;s Stu000001 ID, the QR payload, or a copied QR URL containing the student ID.</span>
+        <span>Manual fallback accepts the student&apos;s CIS/ST/000001 ID, the QR payload, or a copied QR URL containing the student ID.</span>
       </div>
       {message ? <p className="text-sm font-bold text-[var(--portal-muted)]">{message}</p> : null}
     </div>

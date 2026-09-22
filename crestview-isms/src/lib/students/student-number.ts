@@ -2,12 +2,14 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export const STUDENT_NUMBER_PATTERN = /^Stu\d{6}$/;
+export const STUDENT_NUMBER_PATTERN = /^CIS\/ST\/\d{6}$/;
 
 export function normalizeStudentNumber(value: string) {
   const trimmed = value.trim();
-  const compact = trimmed.match(/^stu\s*-?\s*(\d{6})$/i);
-  return compact ? `Stu${compact[1]}` : trimmed;
+  const compact = trimmed.match(/^cis\s*[\/-]?\s*st\s*[\/-]?\s*(\d{6})$/i);
+  if (compact) return `CIS/ST/${compact[1]}`;
+  const legacy = trimmed.match(/^stu\s*-?\s*(\d{6})$/i);
+  return legacy ? `CIS/ST/${legacy[1]}` : trimmed;
 }
 
 export function isSupportedStudentNumber(value: string) {
@@ -21,13 +23,13 @@ export async function generateStudentNumber(admin: ReturnType<typeof createAdmin
   }
 
   // Compatibility fallback for a deployment before the sequence migration is applied.
-  const { data: existing } = await admin.from("students").select("student_number").like("student_number", "Stu%");
+  const { data: existing } = await admin.from("students").select("student_number").like("student_number", "CIS/ST/%");
   const highest = (existing ?? []).reduce((max, row) => {
-    const match = String((row as { student_number?: string }).student_number ?? "").match(/^Stu(\d{6})$/i);
+    const match = String((row as { student_number?: string }).student_number ?? "").match(/^(?:CIS\/ST\/|Stu)(\d{6})$/i);
     return match ? Math.max(max, Number(match[1])) : max;
   }, 0);
   for (let attempt = highest + 1; attempt <= 999999; attempt += 1) {
-    const candidate = `Stu${String(attempt).padStart(6, "0")}`;
+    const candidate = `CIS/ST/${String(attempt).padStart(6, "0")}`;
     const { count, error } = await admin
       .from("students")
       .select("id", { count: "exact", head: true })

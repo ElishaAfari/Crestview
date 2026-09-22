@@ -30,7 +30,7 @@ export function StudentForm({ classrooms = [] }: { classrooms?: SelectOption[] }
       <div><Label>First name</Label><Input {...form.register("firstName")} /></div>
       <div><Label>Last name</Label><Input {...form.register("lastName")} /></div>
       <div><Label>Email</Label><Input type="email" {...form.register("email")} /></div>
-      <div><Label>Student number</Label><Input placeholder="Stu000001 or leave blank" {...form.register("studentNumber")} /></div>
+      <div><Label>Student number</Label><Input placeholder="CIS/ST/000001 or leave blank" {...form.register("studentNumber")} /></div>
       <div>
         <Label>Classroom</Label>
         <Select {...form.register("classroomId")}>

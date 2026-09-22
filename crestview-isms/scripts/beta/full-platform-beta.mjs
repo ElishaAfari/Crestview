@@ -1157,7 +1157,7 @@ const { students, parentLinks } = await step(
         const classroom = classrooms[index % classrooms.length];
         return {
           profile_id: person.id,
-          student_number: `Stu${String(index + 1).padStart(6, "0")}`,
+          student_number: `CIS/ST/${String(index + 1).padStart(6, "0")}`,
           classroom_id: classroom.id,
           enrollment_date: "2026-09-01",
           status: "active",

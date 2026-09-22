@@ -239,7 +239,7 @@ export async function createStudentAction(formData: FormData) {
   const email = result.data.email.trim().toLowerCase();
   const providedStudentNumber = normalizeStudentNumber(result.data.studentNumber ?? "");
   const studentNumber = providedStudentNumber || await generateStudentNumber(admin);
-  if (!isSupportedStudentNumber(studentNumber)) return { ok: false, message: "Use an ID in the format Stu000001 or leave it blank for automatic generation." };
+  if (!isSupportedStudentNumber(studentNumber)) return { ok: false, message: "Use an ID in the format CIS/ST/000001 or leave it blank for automatic generation." };
   const { data: studentRole } = await admin.from("roles").select("id").eq("name", "student").single();
   if (!studentRole) return { ok: false, message: "The student role is not configured." };
 
