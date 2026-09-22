@@ -99,7 +99,13 @@ BEGIN
         card_number = 'CARD-' || new_number,
         qr_payload = new_number,
         metadata = COALESCE(metadata, '{}'::JSONB) || jsonb_build_object('legacy_student_number', old_student_number)
-    WHERE student_id = student_row.id;
+    WHERE student_id = student_row.id
+      AND id = (
+        SELECT id FROM public.student_id_cards
+        WHERE student_id = student_row.id
+        ORDER BY id
+        LIMIT 1
+      );
 
   END LOOP;
 
