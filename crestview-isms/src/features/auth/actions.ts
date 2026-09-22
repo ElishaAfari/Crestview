@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { APP_URL } from "@/lib/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -113,10 +114,14 @@ export async function requestPasswordResetAction(
     return { ok: false, message: "Enter a valid email address." };
 
   const supabase = await createServerSupabaseClient();
+  const requestHeaders = await headers();
+  const forwardedHost = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const forwardedProto = requestHeaders.get("x-forwarded-proto") ?? "https";
+  const requestOrigin = forwardedHost ? `${forwardedProto.split(",")[0].trim()}://${forwardedHost}` : APP_URL;
   const { error } = await supabase.auth.resetPasswordForEmail(
     result.data.email,
     {
-      redirectTo: `${APP_URL}/reset-password`,
+      redirectTo: `${requestOrigin}/reset-password`,
     },
   );
 
