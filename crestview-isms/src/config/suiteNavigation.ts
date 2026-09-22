@@ -258,6 +258,7 @@ const adminGroups: SuiteGroup[] = [
     title: "Settings",
     icon: Settings,
     links: [
+      { title: "My Account", href: "/account/settings" },
       { title: "Settings", href: "/admin/settings" },
       { title: "Reference Settings", href: "/settings" },
       { title: "User Access", href: "/admin/access" },
@@ -466,12 +467,22 @@ export function getSuiteNavigation(role: RoleName | null) {
     role === "school_admin"
   )
     return adminGroups;
-  return role
+  const roleNavigation = role
     ? (roleGroups[
         role as Exclude<
           RoleName,
           "super_admin" | "school_owner" | "school_admin"
         >
       ] ?? [])
+    : [];
+  return role
+    ? [
+        ...roleNavigation,
+        {
+          title: "Account",
+          icon: Settings,
+          links: [{ title: "My Account", href: "/account/settings" }],
+        },
+      ]
     : [];
 }

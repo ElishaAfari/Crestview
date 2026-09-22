@@ -30,7 +30,7 @@ type ImportRow = {
 type ImportCredential = {
   name: string;
   studentNumber: string;
-  temporaryPassword: string;
+  password: string;
 };
 
 function normalizeHeader(value: string) {
@@ -83,10 +83,6 @@ function importIdentity(input: ImportRow) {
 
 function managedStudentEmail(studentNumber: string) {
   return `student.${studentNumber.replace(/[^a-z0-9]/gi, "").toLowerCase()}@crestview.local`;
-}
-
-function createTemporaryPassword() {
-  return `Cv!${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
 }
 
 function metadataRecord(value: Json | null) {
@@ -227,10 +223,12 @@ export async function importStudentsCsvAction(formData: FormData) {
     if (existingStudentNumbers.has(studentNumber)) { skipped.push(`${input.firstName} ${input.lastName} (${studentNumber})`); continue; }
 
     const email = managedStudentEmail(studentNumber);
-    const temporaryPassword = createTemporaryPassword();
+    // Young learners use their issued student ID for both sign-in fields until
+    // the school chooses to introduce guardian-managed credentials.
+    const password = studentNumber;
     const { data: authData, error: authError } = await admin.auth.admin.createUser({
       email,
-      password: temporaryPassword,
+      password,
       email_confirm: true,
       user_metadata: { account_source: "student_csv_import", first_name: input.firstName, last_name: input.lastName, student_number: studentNumber }
     });
@@ -276,7 +274,7 @@ export async function importStudentsCsvAction(formData: FormData) {
       continue;
     }
     created.push(`${input.firstName} ${input.lastName} (${studentNumber}${sourceStudentId ? `, source ${sourceStudentId}` : ""})`);
-    credentials.push({ name: [input.firstName, input.middleName, input.lastName].filter(Boolean).join(" "), studentNumber, temporaryPassword });
+    credentials.push({ name: [input.firstName, input.middleName, input.lastName].filter(Boolean).join(" "), studentNumber, password });
     existingStudentNumbers.add(studentNumber);
     existingImportKeys.add(importKey);
   }

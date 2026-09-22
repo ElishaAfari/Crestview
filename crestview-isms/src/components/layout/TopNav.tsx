@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { LogOut, Menu, Search } from "lucide-react";
+import { LogOut, Menu, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
@@ -207,6 +208,14 @@ export function TopNav() {
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <NotificationBell />
           <ThemeToggle />
+          <Link
+            href="/account/settings"
+            className="inline-flex size-10 items-center justify-center rounded-lg font-black text-[var(--portal-text)] transition hover:bg-[var(--portal-control)]"
+            aria-label="My account settings"
+            title="My account settings"
+          >
+            <Settings className="size-4" aria-hidden />
+          </Link>
           <div className="portal-subtle-card hidden items-center gap-3 rounded-lg px-2 py-1.5 lg:flex">
             <span className="relative size-9 overflow-hidden rounded-lg bg-white">
               <Image
