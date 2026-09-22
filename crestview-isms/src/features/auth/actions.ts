@@ -129,7 +129,9 @@ export async function requestPasswordResetAction(
     ? {
         ok: false,
         message:
-          "We could not send the reset link. Please call the school for assistance.",
+          error.status === 429
+            ? "The reset email limit has been reached. Wait a little while before requesting another link, then try again once."
+            : "We could not send the reset link. Please check the account email or contact the school office.",
       }
     : {
         ok: true,
