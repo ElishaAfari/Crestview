@@ -1157,7 +1157,7 @@ const { students, parentLinks } = await step(
         const classroom = classrooms[index % classrooms.length];
         return {
           profile_id: person.id,
-          student_number: String(26000001 + index),
+          student_number: `Stu${String(index + 1).padStart(6, "0")}`,
           classroom_id: classroom.id,
           enrollment_date: "2026-09-01",
           status: "active",
@@ -1367,7 +1367,7 @@ const finance = await step(
           fee_plan_id: plan.id,
           payment_date: plusDays(day),
           student_number: student.student_number,
-          qr_payload: `CIS-STUDENT:${student.student_number.toUpperCase()}`,
+          qr_payload: student.student_number,
           amount: plan.amount,
           currency: "GHS",
           method: (index + day) % 4 === 0 ? "mobile_money" : "cash",

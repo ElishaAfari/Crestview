@@ -1,23 +1,33 @@
 import "server-only";
 
-import { randomInt } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export const COMPACT_STUDENT_NUMBER_PATTERN = /^\d{8}$/;
+export const STUDENT_NUMBER_PATTERN = /^Stu\d{6}$/;
 
 export function normalizeStudentNumber(value: string) {
-  return value.trim().toUpperCase();
+  const trimmed = value.trim();
+  const compact = trimmed.match(/^stu\s*-?\s*(\d{6})$/i);
+  return compact ? `Stu${compact[1]}` : trimmed;
 }
 
 export function isSupportedStudentNumber(value: string) {
-  const normalized = normalizeStudentNumber(value);
-  return COMPACT_STUDENT_NUMBER_PATTERN.test(normalized) || normalized.startsWith("CIS-");
+  return STUDENT_NUMBER_PATTERN.test(normalizeStudentNumber(value));
 }
 
 export async function generateStudentNumber(admin: ReturnType<typeof createAdminClient>) {
-  const yearPrefix = String(new Date().getFullYear()).slice(-2);
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    const candidate = `${yearPrefix}${String(randomInt(0, 1_000_000)).padStart(6, "0")}`;
+  const { data: sequenceNumber, error: sequenceError } = await admin.rpc("next_student_number");
+  if (!sequenceError && typeof sequenceNumber === "string" && isSupportedStudentNumber(sequenceNumber)) {
+    return normalizeStudentNumber(sequenceNumber);
+  }
+
+  // Compatibility fallback for a deployment before the sequence migration is applied.
+  const { data: existing } = await admin.from("students").select("student_number").like("student_number", "Stu%");
+  const highest = (existing ?? []).reduce((max, row) => {
+    const match = String((row as { student_number?: string }).student_number ?? "").match(/^Stu(\d{6})$/i);
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  for (let attempt = highest + 1; attempt <= 999999; attempt += 1) {
+    const candidate = `Stu${String(attempt).padStart(6, "0")}`;
     const { count, error } = await admin
       .from("students")
       .select("id", { count: "exact", head: true })
@@ -25,5 +35,5 @@ export async function generateStudentNumber(admin: ReturnType<typeof createAdmin
     if (error) throw new Error("Could not verify the next student ID.");
     if ((count ?? 0) === 0) return candidate;
   }
-  throw new Error("Could not generate a unique 8-digit student ID. Please try again.");
+  throw new Error("Could not generate a unique student ID. Please try again.");
 }

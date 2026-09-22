@@ -41,7 +41,7 @@ export async function FinancePaymentsWorkspace() {
         })}
       </section>
       <Card id="record-payment">
-        <CardHeader><CardTitle>Record a payment</CardTitle><p className="text-sm font-semibold text-[var(--portal-muted)]">Scan the student QR code or enter the eight-digit student ID. Duplicate records for the same student and date are protected.</p></CardHeader>
+        <CardHeader><CardTitle>Record a payment</CardTitle><p className="text-sm font-semibold text-[var(--portal-muted)]">Scan the student QR code or enter the Stu000001 student ID. Duplicate records for the same student and date are protected.</p></CardHeader>
         <CardContent><DailyFeePaymentForm /></CardContent>
       </Card>
       <Card>

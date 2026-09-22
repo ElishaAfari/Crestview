@@ -6,6 +6,7 @@ import { isAdminRole } from "@/config/roles";
 import { requireRoles } from "@/features/auth/guards";
 import { createWorkflowTask } from "@/features/automation/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeStudentNumber } from "@/lib/students/student-number";
 import type { Json } from "@/types/database.types";
 
 const attendanceSchema = z.object({
@@ -47,8 +48,8 @@ function one<T>(value: Relation<T> | undefined) {
 
 function normalizeStudentLookup(value: string) {
   const trimmed = value.trim();
-  const withoutPrefix = trimmed.replace(/^CIS-STUDENT[:\s-]*/i, "");
-  return withoutPrefix.trim().toUpperCase();
+  const withoutPrefix = trimmed.replace(/^(?:CIS-STUDENT|CRESTVIEW-STUDENT|STU)[:\s-]+/i, "");
+  return normalizeStudentNumber(withoutPrefix);
 }
 
 function studentDisplayName(student: StudentLookupResult) {

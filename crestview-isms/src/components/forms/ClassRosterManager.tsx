@@ -136,7 +136,7 @@ export function ClassRosterManager({ rosters = [] }: { rosters?: TeacherClassRos
           <tbody>
             {visibleRows.length ? visibleRows.map(({ row, index }) => (
               <tr key={index} className="portal-table-row">
-                <td className="px-4 py-3"><Input value={row.studentNumber} onChange={(event) => updateRow(index, "studentNumber", event.target.value)} placeholder="26000001 or blank" inputMode="numeric" /></td>
+                <td className="px-4 py-3"><Input value={row.studentNumber} onChange={(event) => updateRow(index, "studentNumber", event.target.value)} placeholder="Stu000001 or blank" /></td>
                 <td className="px-4 py-3"><Input value={row.firstName} onChange={(event) => updateRow(index, "firstName", event.target.value)} /></td>
                 <td className="px-4 py-3"><Input value={row.lastName} onChange={(event) => updateRow(index, "lastName", event.target.value)} /></td>
                 <td className="px-4 py-3">

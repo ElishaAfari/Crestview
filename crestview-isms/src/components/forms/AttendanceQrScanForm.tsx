@@ -80,7 +80,7 @@ export function AttendanceQrScanForm({
         value={studentLookup}
         onValue={(value) => form.setValue("studentLookup", value, { shouldDirty: true, shouldValidate: true })}
         label="Student ID card QR"
-        placeholder="Scan QR or type 26000001"
+        placeholder="Scan QR or type Stu000001"
       />
       <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)]">
         <div>

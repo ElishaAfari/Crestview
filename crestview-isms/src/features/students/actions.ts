@@ -163,7 +163,7 @@ export async function importStudentsCsvAction(formData: FormData) {
     if (input.enrollmentDate && !isDate(input.enrollmentDate)) { errors.push(`Row ${line}: admission_date/enrollment_date must use YYYY-MM-DD.`); continue; }
     let studentNumber = normalizeStudentNumber(input.studentNumber);
     const sourceStudentId = input.studentNumber || null;
-    if (studentNumber && (!isSupportedStudentNumber(studentNumber) || !/^\d{8}$/.test(studentNumber))) studentNumber = "";
+    if (studentNumber && !isSupportedStudentNumber(studentNumber)) studentNumber = "";
     if (!studentNumber) studentNumber = await generateStudentNumber(admin);
     if (seenIds.has(studentNumber)) { errors.push(`Row ${line}: duplicate student_id ${studentNumber} in this file.`); continue; }
     seenIds.add(studentNumber);
@@ -239,7 +239,7 @@ export async function createStudentAction(formData: FormData) {
   const email = result.data.email.trim().toLowerCase();
   const providedStudentNumber = normalizeStudentNumber(result.data.studentNumber ?? "");
   const studentNumber = providedStudentNumber || await generateStudentNumber(admin);
-  if (!isSupportedStudentNumber(studentNumber)) return { ok: false, message: "Use an 8-digit student ID or leave it blank for automatic generation." };
+  if (!isSupportedStudentNumber(studentNumber)) return { ok: false, message: "Use an ID in the format Stu000001 or leave it blank for automatic generation." };
   const { data: studentRole } = await admin.from("roles").select("id").eq("name", "student").single();
   if (!studentRole) return { ok: false, message: "The student role is not configured." };
 

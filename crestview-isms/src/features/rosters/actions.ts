@@ -127,7 +127,7 @@ async function createStudentFromRoster(
     providedStudentNumber || (await generateStudentNumber(admin));
   if (!isSupportedStudentNumber(studentNumber)) {
     throw new Error(
-      `${input.firstName.trim()} ${input.lastName.trim()} needs an 8-digit student ID or a blank ID for automatic generation.`,
+      `${input.firstName.trim()} ${input.lastName.trim()} needs a Stu000001-style student ID or a blank ID for automatic generation.`,
     );
   }
   const { data: existingStudent } = await admin

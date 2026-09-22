@@ -6,6 +6,7 @@ import { requireRoles } from "@/features/auth/guards";
 import { completeRelatedWorkflowTasks, createWorkflowTask } from "@/features/automation/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { feeSchema } from "@/lib/validations/fee.schema";
+import { normalizeStudentNumber } from "@/lib/students/student-number";
 import type { Json } from "@/types/database.types";
 
 const classInvoiceSchema = z.object({
@@ -67,8 +68,8 @@ function one<T>(value: Relation<T> | undefined) {
 
 function normalizeStudentLookup(value: string) {
   const trimmed = value.trim();
-  const withoutPrefix = trimmed.replace(/^CIS-STUDENT[:\s-]*/i, "");
-  return withoutPrefix.trim().toUpperCase();
+  const withoutPrefix = trimmed.replace(/^(?:CIS-STUDENT|CRESTVIEW-STUDENT|STU)[:\s-]+/i, "");
+  return normalizeStudentNumber(withoutPrefix);
 }
 
 function invoiceNumber(prefix = "INV") {
@@ -292,7 +293,7 @@ export async function recordDailyFeePaymentAction(formData: FormData) {
   if (result.data.status === "paid" && amount <= 0) return { ok: false, message: "Paid daily fees must have an amount above zero." };
 
   const reference = result.data.reference?.trim() || dailyFeeReference(student.student_number, result.data.paymentDate);
-  const qrPayload = `CIS-STUDENT:${student.student_number.toUpperCase()}`;
+  const qrPayload = student.student_number;
   const { data: paymentData, error } = await admin.from("daily_fee_payments").insert({
     student_id: student.id,
     classroom_id: student.classroom_id,
