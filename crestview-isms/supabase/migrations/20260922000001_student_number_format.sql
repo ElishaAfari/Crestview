@@ -41,12 +41,12 @@ GRANT EXECUTE ON FUNCTION public.next_student_number() TO service_role;
 DO $$
 DECLARE
   student_row RECORD;
-  old_number TEXT;
+  old_student_number TEXT;
   new_number TEXT;
   table_row RECORD;
 BEGIN
   CREATE TEMP TABLE student_number_migration ON COMMIT DROP AS
-    SELECT id, student_number AS old_number,
+    SELECT id, student_number AS source_student_number,
       ROW_NUMBER() OVER (ORDER BY created_at NULLS FIRST, id)::INTEGER AS sequence_number
     FROM public.students
     WHERE deleted_at IS NULL;
@@ -58,14 +58,14 @@ BEGIN
   FROM student_number_migration AS m
   WHERE s.id = m.id;
 
-  FOR student_row IN SELECT id, old_number, sequence_number FROM student_number_migration ORDER BY sequence_number LOOP
-    old_number := student_row.old_number;
+  FOR student_row IN SELECT id, source_student_number, sequence_number FROM student_number_migration ORDER BY sequence_number LOOP
+    old_student_number := student_row.source_student_number;
     new_number := 'Stu' || LPAD(student_row.sequence_number::TEXT, 6, '0');
 
     UPDATE public.students
     SET student_number = new_number,
         metadata = COALESCE(metadata, '{}'::JSONB) || jsonb_build_object(
-          'legacy_student_number', old_number,
+          'legacy_student_number', old_student_number,
           'student_number_migrated_at', NOW()
         )
     WHERE id = student_row.id;
@@ -79,14 +79,14 @@ BEGIN
         AND table_name <> 'students'
     LOOP
       EXECUTE FORMAT('UPDATE %I.%I SET student_number = $1 WHERE student_number = $2', table_row.table_schema, table_row.table_name)
-      USING new_number, old_number;
+      USING new_number, old_student_number;
     END LOOP;
 
     UPDATE public.student_id_cards
     SET student_number = new_number,
         card_number = 'CARD-' || new_number,
         qr_payload = new_number,
-        metadata = COALESCE(metadata, '{}'::JSONB) || jsonb_build_object('legacy_student_number', old_number)
+        metadata = COALESCE(metadata, '{}'::JSONB) || jsonb_build_object('legacy_student_number', old_student_number)
     WHERE student_id = student_row.id;
 
   END LOOP;
