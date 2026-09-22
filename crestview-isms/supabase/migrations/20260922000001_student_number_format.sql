@@ -58,6 +58,12 @@ BEGIN
   FROM student_number_migration AS m
   WHERE s.id = m.id;
 
+  -- Card numbers are unique, so move them aside before assigning new values.
+  UPDATE public.student_id_cards AS c
+  SET card_number = '__student_card_migration__' || c.id::TEXT
+  FROM student_number_migration AS m
+  WHERE c.student_id = m.id;
+
   FOR student_row IN SELECT id, source_student_number, sequence_number FROM student_number_migration ORDER BY sequence_number LOOP
     old_student_number := student_row.source_student_number;
     new_number := 'Stu' || LPAD(student_row.sequence_number::TEXT, 6, '0');
