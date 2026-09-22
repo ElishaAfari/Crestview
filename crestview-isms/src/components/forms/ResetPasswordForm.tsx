@@ -24,6 +24,8 @@ export function ResetPasswordForm() {
       const accessToken = hash.get("access_token");
       const refreshToken = hash.get("refresh_token");
       const code = query.get("code");
+      const tokenHash = query.get("token_hash");
+      const tokenType = query.get("type");
       const linkError = hash.get("error_description");
       let sessionReady = false;
 
@@ -40,6 +42,12 @@ export function ResetPasswordForm() {
         sessionReady = Boolean(data.session) && !error;
       } else if (code) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        sessionReady = Boolean(data.session) && !error;
+      } else if (tokenHash && (tokenType === "invite" || tokenType === "recovery")) {
+        const { data, error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: tokenType,
+        });
         sessionReady = Boolean(data.session) && !error;
       } else {
         const { data } = await supabase.auth.getSession();
