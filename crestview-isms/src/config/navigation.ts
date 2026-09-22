@@ -779,4 +779,11 @@ export const navigationItems: NavItem[] = [
     ],
     section: "Settings & Support",
   },
+  {
+    title: "My Account",
+    href: "/account/settings",
+    icon: Settings,
+    roles: ["super_admin", "school_owner", "school_admin", "teacher", "student", "parent", "hr_staff", "finance_officer", "librarian", "it_support"],
+    section: "Settings & Support",
+  },
 ];
