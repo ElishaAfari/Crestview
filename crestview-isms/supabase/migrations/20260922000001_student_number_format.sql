@@ -77,6 +77,11 @@ BEGIN
       WHERE table_schema = 'public'
         AND column_name = 'student_number'
         AND table_name <> 'students'
+        AND (table_schema, table_name) IN (
+          SELECT table_schema, table_name
+          FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+        )
     LOOP
       EXECUTE FORMAT('UPDATE %I.%I SET student_number = $1 WHERE student_number = $2', table_row.table_schema, table_row.table_name)
       USING new_number, old_student_number;
