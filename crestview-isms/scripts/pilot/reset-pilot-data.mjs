@@ -195,7 +195,7 @@ async function seedAcademicSkeleton() {
     "JHS 2",
     "JHS 3"
   ];
-  const classrooms = classNames.map((name) => ({ name, grade_level: name, academic_year_id: academicYear.id, capacity: 35 }));
+  const classrooms = classNames.map((name) => ({ name, grade_level: name, academic_year_id: academicYear.id, capacity: 100 }));
   const { data: classroomRows, error: classroomError } = await supabase.from("classrooms").upsert(classrooms, { onConflict: "name,academic_year_id" }).select("id,name");
   if (classroomError) throw new Error(`classrooms: ${classroomError.message}`);
 

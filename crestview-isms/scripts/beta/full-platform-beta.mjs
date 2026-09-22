@@ -595,31 +595,31 @@ const classPlan = [
   {
     name: "Nursery 1",
     level: "Nursery 1",
-    capacity: 35,
+    capacity: 100,
     subjects: ["Literacy", "Numeracy", "Creative Arts"],
   },
   {
     name: "Nursery 2",
     level: "Nursery 2",
-    capacity: 35,
+    capacity: 100,
     subjects: ["Literacy", "Numeracy", "Creative Arts"],
   },
   {
     name: "KG 1",
     level: "Kindergarten 1",
-    capacity: 35,
+    capacity: 100,
     subjects: ["Literacy", "Numeracy", "Creative Arts", "OWOP", "Writing"],
   },
   {
     name: "KG 2",
     level: "Kindergarten 2",
-    capacity: 35,
+    capacity: 100,
     subjects: ["Literacy", "Numeracy", "Creative Arts", "OWOP", "Writing"],
   },
   {
     name: "Primary 1",
     level: "Primary 1",
-    capacity: 35,
+    capacity: 100,
     subjects: [
       "Maths",
       "English",
@@ -634,7 +634,7 @@ const classPlan = [
   {
     name: "Primary 2",
     level: "Primary 2",
-    capacity: 35,
+    capacity: 100,
     subjects: [
       "Maths",
       "English",
@@ -649,7 +649,7 @@ const classPlan = [
   {
     name: "Primary 3",
     level: "Primary 3",
-    capacity: 35,
+    capacity: 100,
     subjects: [
       "Maths",
       "English",
@@ -664,7 +664,7 @@ const classPlan = [
   {
     name: "Primary 4",
     level: "Primary 4",
-    capacity: 35,
+    capacity: 100,
     subjects: [
       "Maths",
       "English",
@@ -679,7 +679,7 @@ const classPlan = [
   {
     name: "Primary 5",
     level: "Primary 5",
-    capacity: 35,
+    capacity: 100,
     subjects: [
       "Maths",
       "English",
@@ -694,7 +694,7 @@ const classPlan = [
   {
     name: "Primary 6",
     level: "Primary 6",
-    capacity: 35,
+    capacity: 100,
     subjects: [
       "Maths",
       "English",
@@ -709,7 +709,7 @@ const classPlan = [
   {
     name: "JHS 1",
     level: "Junior High 1",
-    capacity: 35,
+    capacity: 100,
     subjects: [
       "English Language",
       "Mathematics",
@@ -726,7 +726,7 @@ const classPlan = [
   {
     name: "JHS 2",
     level: "Junior High 2",
-    capacity: 35,
+    capacity: 100,
     subjects: [
       "English Language",
       "Mathematics",
@@ -743,7 +743,7 @@ const classPlan = [
   {
     name: "JHS 3",
     level: "Junior High 3",
-    capacity: 35,
+    capacity: 100,
     subjects: [
       "English Language",
       "Mathematics",

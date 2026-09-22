@@ -338,7 +338,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       .map((classroom) => ({
         className: classroom.name,
         students: classCounts.get(classroom.id) ?? 0,
-        capacity: classroom.capacity ?? 35
+        capacity: classroom.capacity ?? 100
       }))
       .sort((a, b) => b.students - a.students)
       .slice(0, 8),
