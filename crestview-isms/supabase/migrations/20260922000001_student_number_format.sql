@@ -104,7 +104,8 @@ BEGIN
   END LOOP;
 
   UPDATE public.student_id_cards AS c
-  SET card_number = b.card_number
+  SET card_number = 'CARD-ARCHIVED-' || c.id::TEXT,
+      metadata = COALESCE(c.metadata, '{}'::JSONB) || jsonb_build_object('legacy_card_number', b.card_number)
   FROM student_card_number_backup AS b
   WHERE c.id = b.id AND c.card_number LIKE '__student_card_migration__%';
 
