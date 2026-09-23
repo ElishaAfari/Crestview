@@ -3,6 +3,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { APP_URL } from "@/lib/constants";
+import { isPrimaryAdminRole } from "@/config/roles";
 import { requireRoles } from "@/features/auth/guards";
 import {
   createPortalInvitation,
@@ -311,7 +312,7 @@ export async function invitePortalUserAction(
   if (
     (result.data.role === "school_owner" ||
       result.data.role === "school_admin") &&
-    currentRole !== "super_admin"
+    !isPrimaryAdminRole(currentRole)
   ) {
     return {
       ok: false,
@@ -439,7 +440,7 @@ export async function updatePortalAccountAction(
     : { data: null };
   const elevatedRoles = ["super_admin", "school_owner", "school_admin"];
   if (
-    currentRole !== "super_admin" &&
+    !isPrimaryAdminRole(currentRole) &&
     (elevatedRoles.includes(result.data.role) ||
       elevatedRoles.includes(currentProfileRole?.name ?? ""))
   ) {

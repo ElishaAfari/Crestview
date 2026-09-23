@@ -19,6 +19,19 @@ export const ADMIN_ROLES: RoleName[] = [
   "school_admin",
 ];
 
+// The proprietor account is deliberately a peer of the technical super-admin
+// account. Both can operate the whole school; the separate role only preserves
+// a clear audit trail of who performed an action.
+export const PRIMARY_ADMIN_ROLES: RoleName[] = ["super_admin", "school_owner"];
+
 export function isAdminRole(role: string | null | undefined): role is RoleName {
   return typeof role === "string" && ADMIN_ROLES.includes(role as RoleName);
+}
+
+export function isPrimaryAdminRole(
+  role: string | null | undefined,
+): role is RoleName {
+  return (
+    typeof role === "string" && PRIMARY_ADMIN_ROLES.includes(role as RoleName)
+  );
 }

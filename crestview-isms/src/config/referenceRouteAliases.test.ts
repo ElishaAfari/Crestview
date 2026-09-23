@@ -244,4 +244,10 @@ describe("reference route parity", () => {
 
     expect([...new Set(missingRoutes)]).toEqual([]);
   });
+
+  it("gives the school owner the exact administrator workspace", () => {
+    expect(getSuiteNavigation("school_owner")).toEqual(
+      getSuiteNavigation("super_admin"),
+    );
+  });
 });
