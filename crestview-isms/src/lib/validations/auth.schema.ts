@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const loginSchema = z.object({
-  identifier: z.string().trim().min(3, "Enter your email address or student ID."),
+  identifier: z.string().trim().min(3, "Enter your email address, student ID, or staff ID."),
   password: z.string().min(8)
 });
 

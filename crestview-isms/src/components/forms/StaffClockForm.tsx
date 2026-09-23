@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { LogIn, LogOut } from "lucide-react";
 import { StudentQrCapture } from "@/components/forms/StudentQrCapture";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { clockStaffAttendanceAction } from "@/features/staff/clock-actions";
 
-export function StaffClockForm() {
+export function StaffClockForm({
+  attendanceDate,
+  canEditHistory,
+}: {
+  attendanceDate: string;
+  canEditHistory: boolean;
+}) {
+  const router = useRouter();
   const [staffLookup, setStaffLookup] = useState("");
   const [direction, setDirection] = useState<"in" | "out">("in");
   const [source, setSource] = useState<"qr" | "manual">("manual");
@@ -18,7 +26,9 @@ export function StaffClockForm() {
   } | null>(null);
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
-  const date = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(attendanceDate);
+
+  useEffect(() => setDate(attendanceDate), [attendanceDate]);
 
   async function saveClock(lookup: string, captureSource: "qr" | "manual") {
     if (!lookup || pendingRef.current) return;
@@ -46,7 +56,19 @@ export function StaffClockForm() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label>Date</Label>
-          <Input name="attendanceDate" type="date" value={date} readOnly />
+          <Input
+            name="attendanceDate"
+            type="date"
+            value={date}
+            max={new Date().toISOString().slice(0, 10)}
+            readOnly={!canEditHistory}
+            onChange={(event) => {
+              if (!canEditHistory) return;
+              const nextDate = event.target.value;
+              setDate(nextDate);
+              router.replace(`/staff-clock?date=${nextDate}`);
+            }}
+          />
         </div>
         <div>
           <Label>Action</Label>

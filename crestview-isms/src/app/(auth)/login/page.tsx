@@ -107,6 +107,12 @@ export default async function LoginPage({
             >
               Account access
             </Link>
+            <Link
+              href="/parent-access"
+              className="text-[#082b91] hover:text-[#cf1017]"
+            >
+              Parent access
+            </Link>
           </div>
           <a
             href={siteConfig.phones[0].href}

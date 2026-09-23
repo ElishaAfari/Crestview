@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { isAdminRole } from "@/config/roles";
+import { isAdminRole, isPrimaryAdminRole } from "@/config/roles";
 import { requireRoles } from "@/features/auth/guards";
 import { createWorkflowTask } from "@/features/automation/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -48,7 +48,10 @@ function one<T>(value: Relation<T> | undefined) {
 
 function normalizeStudentLookup(value: string) {
   const trimmed = value.trim();
-  const withoutPrefix = trimmed.replace(/^(?:CIS-STUDENT|CRESTVIEW-STUDENT|STU)[:\s-]+/i, "");
+  const withoutPrefix = trimmed.replace(
+    /^(?:CIS-STUDENT|CRESTVIEW-STUDENT|STU)[:\s-]+/i,
+    "",
+  );
   return normalizeStudentNumber(withoutPrefix);
 }
 
@@ -57,6 +60,15 @@ function studentDisplayName(student: StudentLookupResult) {
   return profile
     ? `${profile.first_name} ${profile.last_name}`
     : student.student_number;
+}
+
+function canChangeAttendanceDate(role: string, attendanceDate: string) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (attendanceDate > today)
+    return "Attendance cannot be recorded for a future date.";
+  if (attendanceDate !== today && !isPrimaryAdminRole(role))
+    return "Past attendance registers are closed. Only the school owner or super admin can make a correction.";
+  return null;
 }
 
 async function findStudentByLookup(
@@ -136,11 +148,13 @@ export async function recordAttendanceAction(formData: FormData) {
         result.error.issues[0]?.message ?? "Check the attendance details.",
     };
 
-  const { user } = await requireRoles([
+  const { user, role } = await requireRoles([
     "super_admin",
     "school_admin",
     "teacher",
   ]);
+  const dateError = canChangeAttendanceDate(role, result.data.attendanceDate);
+  if (dateError) return { ok: false, message: dateError };
   const admin = createAdminClient();
   const { error } = await admin.from("attendance_records").upsert(
     {
@@ -182,6 +196,8 @@ export async function recordScannedAttendanceAction(formData: FormData) {
     "school_admin",
     "teacher",
   ]);
+  const dateError = canChangeAttendanceDate(role, result.data.attendanceDate);
+  if (dateError) return { ok: false, message: dateError };
   const admin = createAdminClient();
   const student = await findStudentByLookup(admin, result.data.studentLookup);
   if (!student)
@@ -412,6 +428,8 @@ export async function bulkRecordAttendanceAction(formData: FormData) {
     "school_admin",
     "teacher",
   ]);
+  const dateError = canChangeAttendanceDate(role, result.data.attendanceDate);
+  if (dateError) return { ok: false, message: dateError };
   const admin = createAdminClient();
   const { data: existingRegisterData } = await admin
     .from("attendance_registers")

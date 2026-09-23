@@ -21,6 +21,7 @@ export async function createStaffAction(formData: FormData) {
     phone: String(formData.get("phone") ?? "") || undefined,
     staffNumber: String(formData.get("staffNumber") ?? "") || undefined,
     jobTitle: String(formData.get("jobTitle") ?? "") || undefined,
+    classroomId: String(formData.get("classroomId") ?? "") || undefined,
     employmentType: String(formData.get("employmentType") ?? "full_time"),
     role: String(formData.get("role") ?? ""),
   });
@@ -30,8 +31,33 @@ export async function createStaffAction(formData: FormData) {
       message: result.error.issues[0]?.message ?? "Check the staff details.",
     };
 
-  await requireRoles(["super_admin", "school_admin", "hr_staff"]);
+  const { user } = await requireRoles([
+    "super_admin",
+    "school_admin",
+    "hr_staff",
+  ]);
   const admin = createAdminClient();
+  let assignedClassroom: {
+    id: string;
+    academic_year_id: string | null;
+  } | null = null;
+  if (result.data.role === "teacher" && result.data.classroomId) {
+    const { data: classroomData } = await admin
+      .from("classrooms")
+      .select("id,academic_year_id")
+      .eq("id", result.data.classroomId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    assignedClassroom = classroomData as {
+      id: string;
+      academic_year_id: string | null;
+    } | null;
+    if (!assignedClassroom)
+      return {
+        ok: false,
+        message: "Choose a valid class before creating the teacher account.",
+      };
+  }
   const email = result.data.email.trim().toLowerCase();
   const { data: staffRole } = await admin
     .from("roles")
@@ -91,13 +117,66 @@ export async function createStaffAction(formData: FormData) {
     };
   }
 
+  if (result.data.role === "teacher" && assignedClassroom) {
+    const { error: classAssignmentError } = await admin
+      .from("staff_class_assignments")
+      .upsert(
+        {
+          profile_id: invite.user.id,
+          classroom_id: assignedClassroom.id,
+          academic_year_id: assignedClassroom.academic_year_id,
+          assignment_type: "class_teacher",
+          status: "active",
+          assigned_by: user.id,
+        },
+        {
+          onConflict:
+            "profile_id,classroom_id,academic_year_id,assignment_type",
+        },
+      );
+    if (classAssignmentError)
+      return {
+        ok: false,
+        message:
+          "The teacher account was created, but the class assignment could not be saved.",
+      };
+
+    const { data: coursesData } = await admin
+      .from("courses")
+      .select("id,teacher_id")
+      .eq("classroom_id", assignedClassroom.id)
+      .is("deleted_at", null);
+    const courses = (coursesData ?? []) as Array<{
+      id: string;
+      teacher_id: string | null;
+    }>;
+    if (courses.length) {
+      await admin.from("teacher_assignments").upsert(
+        courses.map((course) => ({
+          teacher_id: invite.user.id,
+          course_id: course.id,
+          role: "class_teacher",
+        })),
+        { onConflict: "teacher_id,course_id" },
+      );
+      const unassignedCourseIds = courses
+        .filter((course) => !course.teacher_id)
+        .map((course) => course.id);
+      if (unassignedCourseIds.length)
+        await admin
+          .from("courses")
+          .update({ teacher_id: invite.user.id })
+          .in("id", unassignedCourseIds);
+    }
+  }
+
   const delivery =
     invite.delivery === "crestview"
       ? "Crestview-branded access email"
       : "Supabase Auth access email";
   return {
     ok: true,
-    message: `Staff member invited with staff number ${staffNumber}. ${delivery} sent to ${invite.deliveredTo}.`,
+    message: `Staff member invited with staff number ${staffNumber}.${result.data.role === "teacher" && result.data.classroomId ? " Class and course access assigned." : ""} ${delivery} sent to ${invite.deliveredTo}.`,
   };
 }
 

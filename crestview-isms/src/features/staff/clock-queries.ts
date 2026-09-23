@@ -1,6 +1,6 @@
 import "server-only";
 
-import { isAdminRole } from "@/config/roles";
+import { isAdminRole, isPrimaryAdminRole } from "@/config/roles";
 import { requireRoles } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -22,6 +22,7 @@ function one<T>(value: Relation<T> | undefined) {
 
 export type StaffClockBoard = {
   date: string;
+  canEditHistory: boolean;
   scopeLabel: string;
   total: number;
   clockedIn: number;
@@ -38,10 +39,20 @@ export type StaffClockBoard = {
   }>;
 };
 
-export async function getStaffClockBoard(): Promise<StaffClockBoard> {
+export async function getStaffClockBoard(
+  requestedDate?: string,
+): Promise<StaffClockBoard> {
   const { user, role } = await requireRoles([...staffRoles]);
   const admin = createAdminClient();
   const today = new Date().toISOString().slice(0, 10);
+  const canEditHistory = isPrimaryAdminRole(role);
+  const date =
+    canEditHistory &&
+    requestedDate &&
+    /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) &&
+    requestedDate <= today
+      ? requestedDate
+      : today;
   let staffQuery = admin
     .from("staff_profiles")
     .select(
@@ -64,7 +75,7 @@ export async function getStaffClockBoard(): Promise<StaffClockBoard> {
         .from("staff_attendance_records")
         .select("staff_profile_id,status,clock_in_at,clock_out_at")
         .in("staff_profile_id", ids)
-        .eq("attendance_date", today)
+        .eq("attendance_date", date)
         .is("deleted_at", null)
     : { data: [] };
   const records = new Map(
@@ -107,7 +118,8 @@ export async function getStaffClockBoard(): Promise<StaffClockBoard> {
     (row) => row.status === "Clocked in" || row.status === "Completed",
   ).length;
   return {
-    date: today,
+    date,
+    canEditHistory,
     scopeLabel: isAdminRole(role)
       ? "Today’s staff register"
       : "Your daily clock record",

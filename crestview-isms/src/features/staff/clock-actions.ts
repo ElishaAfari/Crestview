@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { isAdminRole } from "@/config/roles";
+import { isAdminRole, isPrimaryAdminRole } from "@/config/roles";
 import { requireRoles } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeStaffNumber } from "@/lib/staff/staff-number";
@@ -77,6 +77,18 @@ export async function clockStaffAttendanceAction(formData: FormData) {
     };
 
   const { user, role } = await requireRoles([...staffRoles]);
+  const today = new Date().toISOString().slice(0, 10);
+  if (result.data.attendanceDate > today)
+    return {
+      ok: false,
+      message: "A staff clock record cannot be created for a future date.",
+    };
+  if (result.data.attendanceDate !== today && !isPrimaryAdminRole(role))
+    return {
+      ok: false,
+      message:
+        "Only the school owner or super admin can correct a past staff register.",
+    };
   const admin = createAdminClient();
   const staff = await findStaffByLookup(admin, result.data.staffLookup);
   if (!staff)
