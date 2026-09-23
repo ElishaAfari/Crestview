@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BusFront, ClipboardList, MapPinned, Route, UserRound, Wrench } from "lucide-react";
+import { ArrowRight, Banknote, BusFront, ClipboardList, MapPinned, Route, UserRound, Wrench } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { OperationsGenericTable } from "@/components/operations/OperationsGenericTable";
 import { OperationsRecordForm } from "@/components/operations/OperationsRecordForm";
@@ -23,6 +23,7 @@ export async function TransportOverview() {
     { href: "/transport/stops", label: "Stops", description: "Maintain pickup and drop-off sequence and times.", icon: MapPinned },
     { href: "/transport/trips", label: "Trip logs", description: "Record daily pickup and drop-off execution.", icon: ClipboardList },
     { href: "/transport/assignments", label: "Student assignments", description: "Connect learners to valid routes and dates.", icon: UserRound },
+    { href: "/transport/fares", label: "Transport fares", description: "Collect route fares with QR card scanning or student ID fallback.", icon: Banknote },
     { href: "/transport/maintenance", label: "Vehicle care", description: "Open fleet maintenance and readiness follow-up.", icon: Wrench }
   ];
 

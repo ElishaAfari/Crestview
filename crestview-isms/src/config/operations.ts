@@ -1941,7 +1941,7 @@ export const operationsWorkspaces: OperationsWorkspace[] = [
   {
     key: "transport",
     title: "Transport Workspace",
-    description: "Routes, stops, vehicles, trips, and student transport assignments.",
+    description: "Routes, stops, vehicles, trips, student assignments, and QR-assisted transport fare collection.",
     roles: ["finance_officer", "it_support"],
     modules: [
       {

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/features/auth/guards";
+import { APP_URL } from "@/lib/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const profileSchema = z.object({
@@ -19,6 +20,10 @@ const passwordSchema = z.object({
 }).refine((value) => value.newPassword === value.confirmPassword, {
   message: "New passwords do not match.",
   path: ["confirmPassword"],
+});
+
+const emailSchema = z.object({
+  email: z.string().trim().email().max(254),
 });
 
 export async function updateOwnProfileAction(formData: FormData) {
@@ -63,4 +68,27 @@ export async function changeOwnPasswordAction(formData: FormData) {
 
   const { error } = await supabase.auth.updateUser({ password: result.data.newPassword });
   return error ? { ok: false, message: "Your password could not be updated. Try again." } : { ok: true, message: "Password updated successfully." };
+}
+
+export async function requestOwnEmailChangeAction(formData: FormData) {
+  const result = emailSchema.safeParse({ email: String(formData.get("email") ?? "") });
+  if (!result.success) return { ok: false, message: "Enter a valid email address." };
+
+  const { user, supabase } = await requireUser();
+  const nextEmail = result.data.email.toLowerCase();
+  if (user.email?.toLowerCase() === nextEmail) {
+    return { ok: false, message: "That is already the email for this account." };
+  }
+
+  const { error } = await supabase.auth.updateUser(
+    { email: nextEmail },
+    { emailRedirectTo: `${APP_URL}/api/auth/callback?next=/account/settings` },
+  );
+  if (error) return { ok: false, message: "The email change could not be started. Check the address and try again." };
+
+  revalidatePath("/account/settings");
+  return {
+    ok: true,
+    message: "Confirm the secure email-change message sent by the school portal. Your sign-in email updates after confirmation.",
+  };
 }

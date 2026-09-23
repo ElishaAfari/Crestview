@@ -206,6 +206,7 @@ const adminGroups: SuiteGroup[] = [
     links: [
       { title: "Boarding", href: "/boarding" },
       { title: "Transport", href: "/transport" },
+      { title: "Transport Fares", href: "/transport/fares" },
       { title: "Inventory", href: "/inventory" },
       { title: "Assets", href: "/inventory/assets" },
       { title: "Scan", href: "/inventory/scan" },

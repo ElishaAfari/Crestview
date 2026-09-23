@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { z } from "zod";
+import type { User } from "@supabase/supabase-js";
 import { APP_URL } from "@/lib/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -50,21 +51,35 @@ export async function signInAction(
     };
   }
 
-  let email = result.data.identifier.toLowerCase();
-  if (!email.includes("@")) {
+  const identifier = result.data.identifier.toLowerCase();
+  let signInEmails = [identifier];
+  if (!identifier.includes("@")) {
     const studentNumber = normalizeStudentNumber(result.data.identifier);
     const staffNumber = normalizeStaffNumber(result.data.identifier);
     const admin = createAdminClient();
-    let profileId = "";
+    const profileIds = new Set<string>();
     if (isSupportedStudentNumber(studentNumber)) {
       const { data: student } = await admin
         .from("students")
-        .select("profile_id")
+        .select("id,profile_id")
         .eq("student_number", studentNumber)
         .is("deleted_at", null)
         .maybeSingle();
-      profileId =
-        typeof student?.profile_id === "string" ? student.profile_id : "";
+      if (typeof student?.profile_id === "string") profileIds.add(student.profile_id);
+
+      // A ward ID is an accepted parent login alias. We only try linked, active
+      // parent accounts, and the supplied password still selects the right account.
+      const studentId = typeof student?.id === "string" ? student.id : "";
+      if (studentId) {
+        const { data: parentLinks } = await admin
+          .from("parent_students")
+          .select("parent_profile_id")
+          .eq("student_id", studentId)
+          .is("deleted_at", null);
+        for (const link of parentLinks ?? []) {
+          if (typeof link.parent_profile_id === "string") profileIds.add(link.parent_profile_id);
+        }
+      }
     } else if (isSupportedStaffNumber(staffNumber)) {
       const { data: staff } = await admin
         .from("staff_profiles")
@@ -72,41 +87,60 @@ export async function signInAction(
         .eq("staff_number", staffNumber)
         .is("deleted_at", null)
         .maybeSingle();
-      profileId = typeof staff?.profile_id === "string" ? staff.profile_id : "";
+      if (typeof staff?.profile_id === "string") profileIds.add(staff.profile_id);
     } else {
       return {
         ok: false,
         message: "We could not sign you in. Check your details and try again.",
       };
     }
-    if (!profileId) {
+    if (!profileIds.size) {
       return {
         ok: false,
         message: "We could not sign you in. Check your details and try again.",
       };
     }
-    const { data: profile } = await admin
+    const { data: profiles } = await admin
       .from("profiles")
-      .select("email")
-      .eq("id", profileId)
-      .maybeSingle();
-    const portalEmail = typeof profile?.email === "string" ? profile.email : "";
-    if (!portalEmail) {
+      .select("id,email")
+      .in("id", Array.from(profileIds))
+      .eq("is_active", true)
+      .is("deleted_at", null);
+    const currentEmails = await Promise.all(
+      (profiles ?? []).map(async (profile) => {
+        const fallback = typeof profile.email === "string" ? profile.email.trim().toLowerCase() : "";
+        if (typeof profile.id !== "string") return fallback;
+        const { data: authUser } = await admin.auth.admin.getUserById(profile.id);
+        return authUser.user?.email?.trim().toLowerCase() || fallback;
+      }),
+    );
+    signInEmails = Array.from(
+      new Set(
+        currentEmails.filter(Boolean),
+      ),
+    );
+    if (!signInEmails.length) {
       return {
         ok: false,
         message: "We could not sign you in. Check your details and try again.",
       };
     }
-    email = portalEmail;
   }
 
   const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password: result.data.password,
-  });
+  let signedInUser: User | null = null;
+  for (const email of signInEmails) {
+    const attempt = await supabase.auth.signInWithPassword({
+      email,
+      password: result.data.password,
+    });
+    if (attempt.data.user) {
+      signedInUser = attempt.data.user;
+      break;
+    }
+  }
 
-  if (error) {
+  if (!signedInUser) {
     return {
       ok: false,
       message: "We could not sign you in. Check your details and try again.",
@@ -116,8 +150,8 @@ export async function signInAction(
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("role_id,is_active,deleted_at")
-    .eq("id", data.user.id)
+    .select("role_id,is_active,deleted_at,email")
+    .eq("id", signedInUser.id)
     .maybeSingle();
   let roleName: string | undefined;
 
@@ -139,20 +173,29 @@ export async function signInAction(
     if (typeof role?.name === "string") roleName = role.name;
   }
 
+  // Auth is the source of truth for a confirmed sign-in email. This keeps the
+  // profile directory in sync after a user changes their account email.
+  if (signedInUser.email && profile.email !== signedInUser.email) {
+    await admin
+      .from("profiles")
+      .update({ email: signedInUser.email.toLowerCase(), updated_at: new Date().toISOString() })
+      .eq("id", signedInUser.id);
+  }
+
   await admin
     .from("profiles")
     .update({
       last_seen_at: new Date().toISOString(),
       onboarding_completed_at: new Date().toISOString(),
     })
-    .eq("id", data.user.id);
+    .eq("id", signedInUser.id);
   await admin
     .from("portal_invitations")
     .update({
       status: "active",
       accepted_at: new Date().toISOString(),
     })
-    .eq("auth_user_id", data.user.id)
+    .eq("auth_user_id", signedInUser.id)
     .eq("status", "invited");
 
   const roleHome: Record<string, string> = {
