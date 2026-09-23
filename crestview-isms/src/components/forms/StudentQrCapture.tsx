@@ -62,6 +62,7 @@ export function StudentQrCapture({
   useEffect(() => stopScan, [stopScan]);
 
   async function startScan() {
+    const entityLabel = entity === "staff" ? "staff" : "student";
     try {
       if (!window.isSecureContext) {
         setMessage("Camera access requires HTTPS. Open the secure school portal URL, then try Scan QR again.");
@@ -79,11 +80,11 @@ export function StudentQrCapture({
       streamRef.current = stream;
       activeRef.current = true;
       setScanning(true);
-      setMessage("Point the camera at the student ID card QR code.");
+      setMessage(`Point the camera at the ${entityLabel} ID card QR code.`);
       const video = videoRef.current;
       if (!video) {
         stopScan();
-        setMessage("The camera preview could not be initialized. Type the student ID instead.");
+        setMessage(`The camera preview could not be initialized. Type the ${entityLabel} ID instead.`);
         return;
       }
       const reader = new BrowserQRCodeReader(undefined, {
@@ -105,7 +106,7 @@ export function StudentQrCapture({
         name === "NotAllowedError"
           ? "Camera permission was blocked. Select the camera icon in Chrome's address bar, allow access for this site, then try Scan QR again."
           : name === "NotFoundError"
-            ? "No camera was found on this device. Connect a camera or enter the student ID manually."
+            ? `No camera was found on this device. Connect a camera or enter the ${entityLabel} ID manually.`
             : "Chrome could not open the camera. Check site permissions and HTTPS, then try Scan QR again."
       );
     }
