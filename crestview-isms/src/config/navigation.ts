@@ -7,6 +7,7 @@ import {
   BriefcaseBusiness,
   Bus,
   CalendarDays,
+  Clock3,
   ClipboardCheck,
   ClipboardList,
   CreditCard,
@@ -134,6 +135,13 @@ export const navigationItems: NavItem[] = [
     icon: ClipboardCheck,
     roles: ["super_admin", "school_owner", "school_admin"],
     section: "Academics",
+  },
+  {
+    title: "Staff Clock",
+    href: "/staff-clock",
+    icon: Clock3,
+    roles: ["super_admin", "school_owner", "school_admin", "teacher", "hr_staff", "finance_officer", "librarian", "it_support"],
+    section: "Operations",
   },
   {
     title: "Assessment",

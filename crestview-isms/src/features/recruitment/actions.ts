@@ -7,6 +7,7 @@ import { APP_URL } from "@/lib/constants";
 import { requireRoles } from "@/features/auth/guards";
 import { createPortalInvitation } from "@/lib/email/portal-access";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { generateStaffNumber } from "@/lib/staff/staff-number";
 import { createWorkflowTask } from "@/features/automation/actions";
 import { jobApplicationSchema } from "@/lib/validations/recruitment.schema";
 import type { Json, RoleName } from "@/types/database.types";
@@ -374,7 +375,7 @@ async function createStaffFromApplication(
       job_application_id: record.id,
     },
   });
-  const staffNumber = `CIS-STF-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 5).toUpperCase()}`;
+  const staffNumber = await generateStaffNumber(admin);
   const { error: staffProfileError } = profileError
     ? { error: profileError }
     : await admin.from("staff_profiles").insert({

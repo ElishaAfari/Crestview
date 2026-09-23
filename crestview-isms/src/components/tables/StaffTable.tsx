@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { deactivateStaffAction } from "@/features/staff/actions";
 import { DataTable } from "./DataTable";
 
-export type StaffRow = { id: string; name: string; role: string; phone: string; status?: string };
+export type StaffRow = { id: string; name: string; staffNumber: string; role: string; phone: string; status?: string };
 
 type State = { ok: boolean; message: string };
 const initialState: State = { ok: false, message: "" };
@@ -28,6 +28,7 @@ function DeactivateStaffControl({ profileId }: { profileId: string }) {
 
 const columns: ColumnDef<StaffRow>[] = [
   { accessorKey: "name", header: "Staff" },
+  { accessorKey: "staffNumber", header: "Staff ID" },
   { accessorKey: "role", header: "Role" },
   { accessorKey: "phone", header: "Phone" },
   { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status ?? "active"} /> },

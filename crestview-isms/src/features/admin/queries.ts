@@ -94,6 +94,17 @@ export type StudentIdCardRow = {
   status: string;
   issuedAt: string;
 };
+export type StaffIdCardRow = {
+  id: string;
+  staffId: string;
+  staff: string;
+  staffNumber: string;
+  jobTitle: string;
+  cardNumber: string;
+  qrPayload: string;
+  status: string;
+  issuedAt: string;
+};
 
 export async function listAdminFormOptions() {
   await requireRoles(["super_admin", "school_admin"]);
@@ -505,6 +516,46 @@ export async function listStudentIdCards(): Promise<StudentIdCardRow[]> {
       qrPayload: card.qr_payload,
       status: card.status,
       issuedAt: card.issued_at
+    };
+  });
+}
+
+export async function listStaffIdCards(): Promise<StaffIdCardRow[]> {
+  await requireRoles(["super_admin", "school_admin", "hr_staff"]);
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("staff_id_cards")
+    .select("id,card_number,staff_number,qr_payload,status,issued_at,staff_profiles(id,job_title,profiles(first_name,last_name))")
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .order("staff_number")
+    .limit(200);
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    card_number: string;
+    staff_number: string;
+    qr_payload: string;
+    status: string;
+    issued_at: string;
+    staff_profiles: Relation<{
+      id: string;
+      job_title: string | null;
+      profiles: Relation<{ first_name: string; last_name: string }>;
+    }>;
+  }>).map((card) => {
+    const staffProfile = one(card.staff_profiles);
+    const profile = one(staffProfile?.profiles);
+    return {
+      id: card.id,
+      staffId: staffProfile?.id ?? card.id,
+      staff: profile ? `${profile.first_name} ${profile.last_name}` : card.staff_number,
+      staffNumber: card.staff_number,
+      jobTitle: staffProfile?.job_title ?? "Staff member",
+      cardNumber: card.card_number,
+      qrPayload: card.qr_payload,
+      status: card.status,
+      issuedAt: card.issued_at,
     };
   });
 }

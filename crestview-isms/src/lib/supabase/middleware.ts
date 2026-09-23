@@ -42,6 +42,7 @@ const operationalRouteRoles: Array<{ root: string; roles: string[] }> = [
     ],
   },
   { root: "/staff", roles: [...administratorRoles, "hr_staff"] },
+  { root: "/staff-clock", roles: [...administratorRoles, "teacher", "hr_staff", "finance_officer", "librarian", "it_support"] },
   { root: "/classes", roles: administratorRoles },
   { root: "/attendance", roles: administratorRoles },
   { root: "/assessment", roles: administratorRoles },

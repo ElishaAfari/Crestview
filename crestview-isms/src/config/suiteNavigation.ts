@@ -196,6 +196,7 @@ const adminGroups: SuiteGroup[] = [
       { title: "Leave Types", href: "/hr/leave/types" },
       { title: "Staff Profiles", href: "/hr/staff" },
       { title: "Payroll", href: "/hr/payroll" },
+      { title: "Staff Clock", href: "/staff-clock" },
       { title: "Recruitment", href: "/admin/recruitment" },
     ],
   },
@@ -475,9 +476,11 @@ export function getSuiteNavigation(role: RoleName | null) {
         >
       ] ?? [])
     : [];
+  const staffClockRoles: RoleName[] = ["teacher", "hr_staff", "finance_officer", "librarian", "it_support"];
   return role
     ? [
         ...roleNavigation,
+        ...(staffClockRoles.includes(role) ? [{ title: "Daily Clock", icon: ClipboardCheck, links: [{ title: "Clock in / out", href: "/staff-clock" }] }] : []),
         {
           title: "Account",
           icon: Settings,

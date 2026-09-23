@@ -112,11 +112,19 @@ export async function listStudents() {
 }
 
 export async function listStaff() {
-  const { supabase } = await requireUser();
-  const { data } = await supabase
+  await requireRoles(["super_admin", "school_admin"]);
+  const admin = createAdminClient();
+  const [{ data }, { data: staffProfiles }] = await Promise.all([
+    admin
     .from("profiles")
     .select("id,first_name,last_name,phone,is_active,roles(name)")
-    .order("last_name");
+    .is("deleted_at", null)
+    .order("last_name"),
+    admin
+      .from("staff_profiles")
+      .select("profile_id,staff_number")
+      .is("deleted_at", null),
+  ]);
   const records = (data ?? []) as unknown as Array<{
     id: string;
     first_name: string;
@@ -133,6 +141,10 @@ export async function listStaff() {
     "it_support",
     ...ADMIN_ROLES,
   ]);
+  const staffNumbers = new Map(
+    ((staffProfiles ?? []) as Array<{ profile_id: string; staff_number: string }>)
+      .map((staff) => [staff.profile_id, staff.staff_number]),
+  );
 
   return records.flatMap((profile) => {
     const role = one(profile.roles)?.name;
@@ -141,6 +153,7 @@ export async function listStaff() {
           {
             id: profile.id,
             name: `${profile.first_name} ${profile.last_name}`,
+            staffNumber: staffNumbers.get(profile.id) ?? "Not issued",
             role: role.replaceAll("_", " "),
             phone: profile.phone ?? "Not provided",
             status: profile.is_active === false ? "disabled" : "active",

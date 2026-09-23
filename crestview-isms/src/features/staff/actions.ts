@@ -5,6 +5,7 @@ import { APP_URL } from "@/lib/constants";
 import { requireRoles } from "@/features/auth/guards";
 import { createPortalInvitation } from "@/lib/email/portal-access";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { generateStaffNumber, isSupportedStaffNumber, normalizeStaffNumber } from "@/lib/staff/staff-number";
 import { staffSchema } from "@/lib/validations/staff.schema";
 
 export async function createStaffAction(formData: FormData) {
@@ -54,9 +55,9 @@ export async function createStaffAction(formData: FormData) {
     email,
     phone: result.data.phone?.trim() || null,
   });
-  const staffNumber =
-    result.data.staffNumber?.trim() ||
-    `CIS-STF-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 5).toUpperCase()}`;
+  const suppliedStaffNumber = normalizeStaffNumber(result.data.staffNumber?.trim() ?? "");
+  const staffNumber = suppliedStaffNumber || await generateStaffNumber(admin);
+  if (!isSupportedStaffNumber(staffNumber)) return { ok: false, message: "Use a staff ID in the format CIS/STA0001 or leave it blank for automatic generation." };
   const { error: staffProfileError } = profileError
     ? { error: profileError }
     : await admin.from("staff_profiles").insert({
