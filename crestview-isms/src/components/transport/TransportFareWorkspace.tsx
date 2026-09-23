@@ -1,4 +1,4 @@
-import { Banknote, ReceiptText, Route } from "lucide-react";
+import { ReceiptText, Route } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRoles } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";

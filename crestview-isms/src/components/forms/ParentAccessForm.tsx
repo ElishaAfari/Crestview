@@ -17,7 +17,7 @@ export function ParentAccessForm() {
   return (
     <form action={action} className="grid gap-4">
       <div>
-        <Label htmlFor="parent-student-number">Ward's student ID</Label>
+        <Label htmlFor="parent-student-number">Ward&apos;s student ID</Label>
         <Input
           id="parent-student-number"
           name="studentNumber"
