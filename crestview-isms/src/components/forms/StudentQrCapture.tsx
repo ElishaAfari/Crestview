@@ -41,7 +41,7 @@ export function StudentQrCapture({
   label?: string;
   placeholder?: string;
   entity?: "student" | "staff";
-  onScanned?: () => void;
+  onScanned?: (capturedValue: string) => void;
 }) {
   const [scanning, setScanning] = useState(false);
   const [message, setMessage] = useState("");
@@ -94,8 +94,9 @@ export function StudentQrCapture({
       controlsRef.current = await reader.decodeFromStream(stream, video, (result) => {
         const text = result?.getText();
         if (!text || !activeRef.current) return;
-        onValue(normalizeQrCapture(text, entity));
-        onScanned?.();
+        const capturedValue = normalizeQrCapture(text, entity);
+        onValue(capturedValue);
+        onScanned?.(capturedValue);
         setMessage("QR code captured.");
         stopScan();
       });

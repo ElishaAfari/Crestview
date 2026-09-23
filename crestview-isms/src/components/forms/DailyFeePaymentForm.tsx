@@ -105,7 +105,7 @@ export function DailyFeePaymentForm() {
       <div className="flex flex-col items-start gap-3">
         <Button type="submit" disabled={form.formState.isSubmitting}>
           <Banknote className="size-4" aria-hidden />
-          {form.formState.isSubmitting ? "Recording..." : "Record daily payment"}
+          {form.formState.isSubmitting ? "Recording..." : form.watch("status") === "waived" ? "Confirm fee waiver" : "Confirm paid fee"}
         </Button>
         {message ? <p className={`text-sm font-black ${submitted ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>{message}</p> : null}
       </div>

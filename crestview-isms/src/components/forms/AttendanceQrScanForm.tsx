@@ -43,9 +43,16 @@ export function AttendanceQrScanForm({
   });
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
   const studentLookup = form.watch("studentLookup");
 
-  async function onSubmit(values: QrAttendanceValues) {
+  async function saveAttendance(values: QrAttendanceValues) {
+    if (!values.classroomId) {
+      setSubmitted(false);
+      setMessage("Choose the class before scanning a student card.");
+      return;
+    }
+    setSaving(true);
     const formData = new FormData();
     Object.entries(values).forEach(([key, value]) => formData.set(key, String(value ?? "")));
     const result = await recordScannedAttendanceAction(formData);
@@ -59,6 +66,16 @@ export function AttendanceQrScanForm({
         status: "present"
       });
     }
+    setSaving(false);
+  }
+
+  async function onSubmit(values: QrAttendanceValues) {
+    await saveAttendance(values);
+  }
+
+  function markScannedStudentPresent(capturedValue: string) {
+    const values = form.getValues();
+    void saveAttendance({ ...values, studentLookup: capturedValue, status: "present" });
   }
 
   return (
@@ -79,6 +96,7 @@ export function AttendanceQrScanForm({
       <StudentQrCapture
         value={studentLookup}
         onValue={(value) => form.setValue("studentLookup", value, { shouldDirty: true, shouldValidate: true })}
+        onScanned={markScannedStudentPresent}
         label="Student ID card QR"
         placeholder="Scan QR or type CIS/ST/000001"
       />
@@ -98,9 +116,9 @@ export function AttendanceQrScanForm({
         </div>
       </div>
       <div className="flex flex-col items-start gap-3">
-        <Button type="submit" disabled={form.formState.isSubmitting || !options.length}>
+        <Button type="submit" disabled={saving || !options.length}>
           <ClipboardCheck className="size-4" aria-hidden />
-          {form.formState.isSubmitting ? "Saving scan..." : "Record scanned attendance"}
+          {saving ? "Saving scan..." : "Record typed attendance"}
         </Button>
         {message ? <p className={`text-sm font-black ${submitted ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>{message}</p> : null}
       </div>

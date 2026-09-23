@@ -13,6 +13,7 @@ import {
   normalizeStudentNumber,
 } from "@/lib/students/student-number";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatClassroomLabel } from "@/lib/classrooms/label";
 import type { Json } from "@/types/database.types";
 
 const rosterStudentSchema = z.object({
@@ -468,7 +469,7 @@ export async function saveClassRosterAction(formData: FormData) {
         last_name: student.lastName.trim(),
       })) satisfies Json,
       notes: classroom
-        ? `${classroom.grade_level} - ${classroom.name} roster saved from portal.`
+        ? `${formatClassroomLabel(classroom)} roster saved from portal.`
         : "Roster saved from portal.",
     })
     .select("id")

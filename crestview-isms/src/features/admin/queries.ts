@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRoles } from "@/features/auth/guards";
+import { formatClassroomLabel } from "@/lib/classrooms/label";
 import type { Json } from "@/types/database.types";
 
 type Relation<T> = T | T[] | null;
@@ -153,7 +154,7 @@ export async function listAdminFormOptions() {
     })),
     classrooms: ((classrooms.data ?? []) as unknown as Array<{ id: string; name: string; grade_level: string }>).map((item) => ({
       id: item.id,
-      label: `${item.grade_level} - ${item.name}`
+      label: formatClassroomLabel(item)
     })),
     students: ((students.data ?? []) as unknown as Array<{ id: string; student_number: string; profiles: Relation<{ first_name: string; last_name: string }> }>).map((item) => {
       const profile = one(item.profiles);
@@ -199,7 +200,7 @@ export async function listFinanceFormOptions() {
   return {
     classrooms: ((classrooms.data ?? []) as unknown as Array<{ id: string; name: string; grade_level: string }>).map((item) => ({
       id: item.id,
-      label: `${item.grade_level} - ${item.name}`
+      label: formatClassroomLabel(item)
     })),
     students: ((students.data ?? []) as unknown as Array<{ id: string; student_number: string; profiles: Relation<{ first_name: string; last_name: string }> }>).map((item) => {
       const profile = one(item.profiles);
@@ -422,7 +423,7 @@ export async function listDailyFeePlans(): Promise<DailyFeePlanRow[]> {
     const classroom = one(plan.classrooms);
     return {
       id: plan.id,
-      className: classroom ? `${classroom.grade_level} - ${classroom.name}` : "Class",
+      className: formatClassroomLabel(classroom),
       amount: `${plan.currency} ${Number(plan.amount).toLocaleString("en-GH")}`,
       rawAmount: Number(plan.amount),
       currency: plan.currency,
@@ -466,7 +467,7 @@ export async function listDailyFeePayments(): Promise<DailyFeePaymentRow[]> {
       id: payment.id,
       student: profile ? `${profile.first_name} ${profile.last_name}` : payment.student_number,
       studentNumber: payment.student_number,
-      classroom: classroom ? `${classroom.grade_level} - ${classroom.name}` : "Unassigned",
+      classroom: formatClassroomLabel(classroom, "Unassigned"),
       paymentDate: payment.payment_date,
       amount: `${payment.currency} ${Number(payment.amount).toLocaleString("en-GH")}`,
       method: payment.method.replaceAll("_", " "),
@@ -511,7 +512,7 @@ export async function listStudentIdCards(): Promise<StudentIdCardRow[]> {
       studentId: student?.id ?? card.id,
       student: profile ? `${profile.first_name} ${profile.last_name}` : card.student_number,
       studentNumber: card.student_number,
-      classroom: classroom ? `${classroom.grade_level} - ${classroom.name}` : "Unassigned",
+      classroom: formatClassroomLabel(classroom, "Unassigned"),
       cardNumber: card.card_number,
       qrPayload: card.qr_payload,
       status: card.status,

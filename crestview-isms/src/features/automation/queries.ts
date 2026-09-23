@@ -3,6 +3,7 @@ import "server-only";
 import { ADMIN_ROLES, isAdminRole } from "@/config/roles";
 import { requireRoles } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatClassroomLabel } from "@/lib/classrooms/label";
 
 type Relation<T> = T | T[] | null;
 
@@ -797,7 +798,7 @@ export async function listTaskFormOptions() {
       }>
     ).map((classroom) => ({
       id: classroom.id,
-      label: `${classroom.grade_level} - ${classroom.name}`,
+      label: formatClassroomLabel(classroom),
     })),
   };
 }

@@ -3,6 +3,7 @@ import "server-only";
 import { ADMIN_ROLES } from "@/config/roles";
 import { requireRoles, requireUser } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatClassroomLabel } from "@/lib/classrooms/label";
 
 type Relation<T> = T | T[] | null;
 type ProfileJoin = { first_name: string; last_name: string };
@@ -261,9 +262,7 @@ export async function listAttendanceRegisters(): Promise<
     const counts = register.counts ?? {};
     return {
       id: register.id,
-      classroom: classroom
-        ? `${classroom.grade_level} - ${classroom.name}`
-        : "Class",
+      classroom: formatClassroomLabel(classroom),
       date: register.attendance_date,
       status: register.status,
       submittedBy: submitter
@@ -332,9 +331,9 @@ export async function listAdminAttendanceMarkRoster(): Promise<
     }>
   ).map((classroom) => ({
     id: classroom.id,
-    label: `${classroom.grade_level} - ${classroom.name}`,
+    label: formatClassroomLabel(classroom),
     classroomId: classroom.id,
-    classroomLabel: `${classroom.grade_level} - ${classroom.name}`,
+    classroomLabel: formatClassroomLabel(classroom),
     students: studentsByClassroom.get(classroom.id) ?? [],
   }));
 }
@@ -1103,9 +1102,7 @@ export async function listFamilyDailyFeePayments(): Promise<
         ? `${profile.first_name} ${profile.last_name}`
         : payment.student_number,
       studentNumber: payment.student_number,
-      classroom: classroom
-        ? `${classroom.grade_level} - ${classroom.name}`
-        : "Unassigned",
+      classroom: formatClassroomLabel(classroom, "Unassigned"),
       paymentDate: payment.payment_date,
       amount: `${payment.currency} ${Number(payment.amount).toLocaleString("en-GH")}`,
       method: payment.method.replaceAll("_", " "),
@@ -1165,9 +1162,7 @@ export async function listCurrentStudentDailyFeePayments(): Promise<
       ? `${profile.first_name} ${profile.last_name}`
       : student.student_number,
     studentNumber: payment.student_number,
-    classroom: classroom
-      ? `${classroom.grade_level} - ${classroom.name}`
-      : "Unassigned",
+      classroom: formatClassroomLabel(classroom, "Unassigned"),
     paymentDate: payment.payment_date,
     amount: `${payment.currency} ${Number(payment.amount).toLocaleString("en-GH")}`,
     method: payment.method.replaceAll("_", " "),
@@ -1545,7 +1540,7 @@ export async function listTeacherAttendanceRoster(): Promise<
     const classroom = one(course.classrooms);
     const existing = classMap.get(course.classroom_id);
     const entry = existing ?? {
-      classroomLabel: `${classroom?.grade_level ?? "Class"} - ${classroom?.name ?? "Class"}`,
+      classroomLabel: formatClassroomLabel(classroom),
       subjects: new Set<string>(),
       students: studentsByClassroom.get(course.classroom_id) ?? [],
     };

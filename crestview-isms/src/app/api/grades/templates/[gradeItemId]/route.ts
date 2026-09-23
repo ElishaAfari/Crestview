@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
+import { formatClassroomLabel } from "@/lib/classrooms/label";
 import { isAdminRole } from "@/config/roles";
 import { requireRoles } from "@/features/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -159,9 +160,7 @@ export async function GET(
     const subjectName = subject?.name ?? "Subject";
     const subjectCode =
       subject?.code ?? subjectName.replace(/\s+/g, "").toUpperCase();
-    const className = classroom
-      ? `${classroom.grade_level} - ${classroom.name}`
-      : "Class";
+    const className = formatClassroomLabel(classroom);
     const teacherName = teacher
       ? `${teacher.first_name} ${teacher.last_name}`
       : "Assigned Teacher";

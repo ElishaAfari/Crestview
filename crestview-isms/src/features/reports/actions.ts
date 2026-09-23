@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireRoles } from "@/features/auth/guards";
 import { createWorkflowTask } from "@/features/automation/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatClassroomLabel } from "@/lib/classrooms/label";
 import type { Json } from "@/types/database.types";
 
 const reportSchema = z.object({
@@ -302,7 +303,7 @@ export async function generateReportAction(formData: FormData) {
     grade_summary: {
       student: studentName,
       student_number: student.student_number,
-      classroom: classroom ? `${classroom.grade_level} - ${classroom.name}` : "Unassigned",
+      classroom: formatClassroomLabel(classroom, "Unassigned"),
       academic_year: academicYear?.name ?? "Academic year",
       term: result.data.term.trim(),
       average: analysis.average,
