@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
-import { LogOut, Menu, Search, Settings } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { CircleHelp, LogOut, Menu, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
@@ -13,10 +13,14 @@ import { navigationItems } from "@/config/navigation";
 import { isAdminRole, ROLES } from "@/config/roles";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
+import { getSuiteNavigation } from "@/config/suiteNavigation";
+import { CampusStatus } from "@/components/layout/CampusStatus";
 
 export function TopNav() {
   const router = useRouter();
+  const pathname = usePathname();
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const toggleSidebar = useUIStore((state) => state.toggleSidebar);
   const profile = useAuthStore((state) => state.profile);
   const role = useAuthStore((state) => state.role);
@@ -34,6 +38,26 @@ export function TopNav() {
   const roleItems = role
     ? navigationItems.filter((item) => item.roles.includes(role))
     : [];
+  const currentTitle = useMemo(() => {
+    const links = getSuiteNavigation(role).flatMap((group) => group.links);
+    return (
+      links.find((link) => {
+        const href = link.href.split("?")[0];
+        return pathname === href || pathname.startsWith(`${href}/`);
+      })?.title ?? "Dashboard"
+    );
+  }, [pathname, role]);
+
+  useEffect(() => {
+    function focusSearch(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", focusSearch);
+    return () => window.removeEventListener("keydown", focusSearch);
+  }, []);
 
   function routeForSearch(query: string) {
     const normalized = query.trim().toLowerCase();
@@ -169,7 +193,7 @@ export function TopNav() {
   }
 
   return (
-    <header className="z-30 shrink-0 border-b border-[var(--portal-border)] bg-[var(--portal-surface)]/95 px-3 py-3 shadow-[0_8px_28px_-26px_rgba(7,55,127,0.65)] backdrop-blur-xl sm:px-6 lg:px-8">
+    <header className="z-30 shrink-0 border-b border-[var(--portal-border)] bg-[var(--portal-surface)] px-4 py-3 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <Button
           variant="ghost"
@@ -180,57 +204,68 @@ export function TopNav() {
         >
           <Menu className="size-5" aria-hidden />
         </Button>
-        <div className="hidden min-w-0 xl:block">
-          <p className="truncate text-sm font-black text-[var(--portal-text)]">
-            {role ? ROLES[role].label : "Workspace"}
+        <div className="hidden min-w-0 md:block">
+          <p className="truncate text-sm font-bold text-[var(--portal-text)]">
+            {currentTitle}
           </p>
-          <p className="truncate text-xs font-black text-[var(--portal-muted)]">
-            {today}
+          <p className="mt-0.5 truncate text-[11px] font-semibold text-[var(--portal-muted)]">
+            {role ? ROLES[role].label : "Workspace"} · {today}
           </p>
         </div>
         <form
           onSubmit={onSearchSubmit}
-          className="portal-field mx-auto hidden w-full max-w-xl items-center gap-2 rounded-lg border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-3 py-2 md:flex"
+          className="mx-auto hidden w-full max-w-[34rem] items-center gap-2 rounded-md border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-3 py-2 md:flex"
         >
           <Search
             className="size-4 shrink-0 text-blue-700 dark:text-blue-200"
             aria-hidden
           />
           <input
+            ref={searchRef}
             aria-label="Search workspace"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="h-7 min-w-0 flex-1 bg-transparent text-sm font-semibold text-[var(--portal-text)] outline-none placeholder:font-semibold placeholder:text-[var(--portal-muted)]"
-            placeholder="Search students, staff, events..."
+            className="h-6 min-w-0 flex-1 bg-transparent text-sm font-medium text-[var(--portal-text)] outline-none placeholder:font-medium placeholder:text-[var(--portal-muted)]"
+            placeholder="Search students, staff, pages..."
             type="search"
           />
+          <kbd className="rounded border border-[var(--portal-border)] bg-[var(--portal-surface)] px-1.5 py-0.5 font-mono text-[9px] font-bold text-[var(--portal-muted)]">Ctrl K</kbd>
         </form>
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+          <CampusStatus />
           <NotificationBell />
           <ThemeToggle />
           <Link
+            href="/help"
+            className="inline-flex size-9 items-center justify-center rounded-md text-[var(--portal-text)] transition hover:bg-[var(--portal-control)]"
+            aria-label="Help centre"
+            title="Help centre"
+          >
+            <CircleHelp className="size-4" aria-hidden />
+          </Link>
+          <Link
             href="/account/settings"
-            className="inline-flex size-10 items-center justify-center rounded-lg font-black text-[var(--portal-text)] transition hover:bg-[var(--portal-control)]"
+            className="inline-flex size-9 items-center justify-center rounded-md font-black text-[var(--portal-text)] transition hover:bg-[var(--portal-control)]"
             aria-label="My account settings"
             title="My account settings"
           >
             <Settings className="size-4" aria-hidden />
           </Link>
-          <div className="portal-subtle-card hidden items-center gap-3 rounded-lg px-2 py-1.5 lg:flex">
-            <span className="relative size-9 overflow-hidden rounded-lg bg-white">
+          <div className="hidden items-center gap-2 border-l border-[var(--portal-border)] pl-3 lg:flex">
+            <span className="relative size-8 overflow-hidden rounded-full bg-[var(--portal-control)]">
               <Image
                 src={avatarSrc}
                 alt=""
                 fill
-                sizes="36px"
+              sizes="32px"
                 className="object-contain p-1"
               />
             </span>
             <span className="min-w-0 pr-1">
-              <span className="block max-w-36 truncate text-sm font-bold text-[var(--portal-text)]">
+              <span className="block max-w-32 truncate text-xs font-bold text-[var(--portal-text)]">
                 {displayName}
               </span>
-              <span className="block truncate text-[11px] font-black text-[var(--portal-muted)]">
+              <span className="block truncate text-[10px] font-semibold text-[var(--portal-muted)]">
                 {role ? ROLES[role].label : "Loading"}
               </span>
             </span>

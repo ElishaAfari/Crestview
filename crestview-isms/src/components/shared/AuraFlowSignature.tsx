@@ -7,7 +7,7 @@ export function AuraFlowSignature({ className, compact = false }: { className?: 
         AF
       </span>
       <span className="min-w-0">
-        <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/80">Powered by</span>
+        <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-cyan-100/80">Powered by</span>
         <span className={cn("auraflow-wordmark block truncate font-heading font-black tracking-normal", compact ? "text-sm" : "text-base")}>AuraFlow</span>
       </span>
     </div>

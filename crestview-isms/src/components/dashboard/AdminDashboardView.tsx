@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Area,
@@ -25,6 +27,7 @@ import {
   GitBranch,
   GraduationCap,
   ShieldCheck,
+  Search,
   Sparkles,
   UserCheck,
   UserRoundCog,
@@ -34,6 +37,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AdminDashboardData } from "@/features/admin/queries";
 import { ANIMATIONS, cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/authStore";
 
 const toneStyles = {
   blue: "portal-tone-blue",
@@ -73,6 +77,74 @@ function formatWhen(value: string | null) {
 
 function formatEventDate(value: string) {
   return new Intl.DateTimeFormat("en-GH", { month: "short", day: "2-digit" }).format(new Date(value));
+}
+
+function DashboardWelcome() {
+  const router = useRouter();
+  const profile = useAuthStore((state) => state.profile);
+  const [query, setQuery] = useState("");
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  }, []);
+  const firstName = profile?.first_name || "Administrator";
+  const date = new Intl.DateTimeFormat("en-GH", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
+
+  function search(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    router.push(`/students?q=${encodeURIComponent(query.trim())}`);
+  }
+
+  return (
+    <section className="dashboard-welcome px-6 py-5 sm:px-7">
+      <div className="max-w-3xl">
+        <span className="inline-flex items-center gap-2 rounded-md border border-blue-200 bg-white/90 px-3 py-1.5 text-xs font-bold text-blue-700 shadow-sm dark:border-blue-300/20 dark:bg-[#173c75]/90 dark:text-blue-100">
+          <CalendarDays className="size-3.5" aria-hidden /> {date}
+        </span>
+        <h2 className="mt-4 font-heading text-3xl font-black text-[var(--portal-text)] sm:text-4xl">
+          {greeting}, {firstName}.
+        </h2>
+        <p className="mt-1 text-sm font-medium text-[var(--portal-muted)]">
+          Crestview International School
+        </p>
+        <div className="mt-5 text-center sm:text-left">
+          <p className="font-heading text-xl font-black text-[var(--portal-text)]">
+            What are you looking for?
+          </p>
+          <p className="mt-1 text-sm text-[var(--portal-muted)]">
+            Search a learner, staff member, ID number, or operational page.
+          </p>
+        </div>
+        <form
+          onSubmit={search}
+          className="dashboard-welcome-search mt-4 flex items-center gap-3 rounded-full border border-[var(--portal-border)] bg-white px-4 py-2.5 dark:bg-[#112f62]"
+        >
+          <Search className="size-5 shrink-0 text-[var(--portal-muted)]" aria-hidden />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className="min-w-0 flex-1 bg-transparent text-sm font-medium text-[var(--portal-text)] outline-none placeholder:text-[var(--portal-muted)]"
+            placeholder="Try a student name or CIS/ST number"
+            aria-label="Search student directory"
+          />
+          <button
+            type="submit"
+            aria-label="Search student directory"
+            className="grid size-9 shrink-0 place-items-center rounded-full bg-blue-600 text-white transition hover:bg-blue-700"
+          >
+            <Search className="size-4" aria-hidden />
+          </button>
+        </form>
+      </div>
+    </section>
+  );
 }
 
 function DashboardMetric({
@@ -374,6 +446,7 @@ function RolePanel({ data }: { data: AdminDashboardData["roleCounts"] }) {
 export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboardData }) {
   return (
     <motion.div className="space-y-6" {...ANIMATIONS.staggerContainer}>
+      <DashboardWelcome />
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <DashboardMetric label="Students" value={dashboard.metrics.students.toLocaleString("en-GH")} detail="Active enrollment records" tone="blue" icon={GraduationCap} />
         <DashboardMetric label="Staff" value={dashboard.metrics.staff.toLocaleString("en-GH")} detail="Active operational accounts" tone="green" icon={Users} />
