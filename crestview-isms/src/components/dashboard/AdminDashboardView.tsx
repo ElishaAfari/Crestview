@@ -38,6 +38,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AdminDashboardData } from "@/features/admin/queries";
 import { ANIMATIONS, cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
+import { CampusStatus } from "@/components/layout/CampusStatus";
 
 const toneStyles = {
   blue: "portal-tone-blue",
@@ -104,6 +105,7 @@ function DashboardWelcome() {
 
   return (
     <section className="dashboard-welcome px-6 py-5 sm:px-7">
+      <CampusStatus variant="hero" />
       <div className="max-w-3xl">
         <span className="inline-flex items-center gap-2 rounded-md border border-blue-200 bg-white/90 px-3 py-1.5 text-xs font-bold text-blue-700 shadow-sm dark:border-blue-300/20 dark:bg-[#173c75]/90 dark:text-blue-100">
           <CalendarDays className="size-3.5" aria-hidden /> {date}

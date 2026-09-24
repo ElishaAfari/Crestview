@@ -12,7 +12,7 @@ function weatherLabel(code: number) {
   return "Showers";
 }
 
-export function CampusStatus() {
+export function CampusStatus({ variant = "top" }: { variant?: "top" | "hero" }) {
   const [time, setTime] = useState("");
   const [weather, setWeather] = useState<Weather | null>(null);
 
@@ -43,7 +43,7 @@ export function CampusStatus() {
   }, []);
 
   return (
-    <div className="hidden items-center gap-3 border-r border-[var(--portal-border)] pr-4 xl:flex">
+    <div className={variant === "hero" ? "dashboard-weather-card" : "hidden items-center gap-3 border-r border-[var(--portal-border)] pr-4 xl:flex"}>
       <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--portal-muted)]">
         <Clock3 className="size-3.5" aria-hidden /> {time || "--:--"}
       </span>
@@ -51,6 +51,10 @@ export function CampusStatus() {
         <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--portal-muted)]">
           <CloudSun className="size-4 text-blue-500" aria-hidden />
           {weather.temperature}C {weather.label}
+        </span>
+      ) : variant === "hero" ? (
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--portal-muted)]">
+          <CloudSun className="size-4 text-blue-500" aria-hidden /> Campus weather
         </span>
       ) : null}
     </div>

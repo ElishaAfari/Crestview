@@ -83,6 +83,33 @@ function iconForLink(title: string): LucideIcon {
   return Settings;
 }
 
+function iconToneForSuite(title: string, active: boolean) {
+  if (active) return "text-blue-700 dark:text-blue-300";
+  const tones: Record<string, string> = {
+    Overview: "text-blue-600 dark:text-blue-300",
+    People: "text-emerald-600 dark:text-emerald-300",
+    Academics: "text-amber-600 dark:text-amber-300",
+    Admissions: "text-rose-600 dark:text-rose-300",
+    Preschool: "text-violet-600 dark:text-violet-300",
+    Finance: "text-teal-600 dark:text-teal-300",
+    "HR & Payroll": "text-orange-700 dark:text-orange-300",
+    Facilities: "text-orange-600 dark:text-orange-300",
+    Communication: "text-cyan-600 dark:text-cyan-300",
+    Reports: "text-indigo-600 dark:text-indigo-300",
+    Settings: "text-slate-600 dark:text-slate-300",
+    Teaching: "text-amber-600 dark:text-amber-300",
+    Support: "text-cyan-600 dark:text-cyan-300",
+    Learning: "text-violet-600 dark:text-violet-300",
+    Family: "text-emerald-600 dark:text-emerald-300",
+    Operations: "text-orange-600 dark:text-orange-300",
+    Library: "text-cyan-600 dark:text-cyan-300",
+    Technology: "text-indigo-600 dark:text-indigo-300",
+    Account: "text-slate-600 dark:text-slate-300",
+    "Daily Clock": "text-rose-600 dark:text-rose-300",
+  };
+  return tones[title] ?? "text-blue-600 dark:text-blue-300";
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -175,7 +202,7 @@ export function Sidebar() {
                             "bg-[#e8f1fc] text-[#1555b2] shadow-none hover:bg-[#e8f1fc] hover:text-[#1555b2] dark:bg-white/12 dark:text-white dark:hover:bg-white/16 dark:hover:text-white",
                         )}
                       >
-                        <Icon className={cn("size-4 shrink-0", active ? "text-blue-600 dark:text-blue-200" : "text-[var(--portal-sidebar-muted)]")} aria-hidden />
+                        <Icon className={cn("size-4 shrink-0", iconToneForSuite(group.title, active))} aria-hidden />
                         <span className="truncate">{item.title}</span>
                         <ChevronRight className="ml-auto size-3.5 shrink-0 text-[var(--portal-sidebar-muted)]" aria-hidden />
                       </Link>
@@ -186,16 +213,14 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="m-3 mt-2 rounded-md border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] p-3">
-        <p className="text-[10px] font-bold uppercase tracking-normal text-[var(--portal-sidebar-muted)]">
-          Workspace
-        </p>
-        <p className="mt-1 text-sm font-bold text-[var(--portal-sidebar-text)]">
+      <div className="m-3 mt-2 rounded-md border border-[var(--portal-border)] bg-[var(--portal-surface-strong)] px-3 py-2.5">
+        <p className="text-[9px] font-bold uppercase tracking-normal text-[var(--portal-sidebar-muted)]">Workspace</p>
+        <p className="mt-0.5 text-xs font-bold italic text-[var(--portal-sidebar-text)]">
           {role ? ROLES[role].label : "Loading"}
         </p>
         <AuraFlowSignature
           compact
-          className="mt-3 border-t border-[var(--portal-border)] pt-3"
+          className="mt-2 border-t border-[var(--portal-border)] pt-2 [&_.auraflow-wordmark]:italic"
         />
       </div>
     </aside>
