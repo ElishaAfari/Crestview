@@ -126,21 +126,28 @@ export async function saveLessonNoteAction(
   return { ok: true, message: submitting ? "Lesson note submitted for review." : "Lesson note saved as a draft." };
 }
 
-export async function reviewLessonNoteAction(formData: FormData) {
+export async function reviewLessonNoteAction(
+  _previous: LessonNoteActionState,
+  formData: FormData,
+): Promise<LessonNoteActionState> {
   const parsed = reviewSchema.safeParse({
     planId: String(formData.get("planId") ?? ""),
     decision: String(formData.get("decision") ?? ""),
     comment: String(formData.get("comment") ?? ""),
   });
-  if (!parsed.success) return;
-  if (parsed.data.decision === "changes_requested" && !parsed.data.comment) return;
+  if (!parsed.success) return { ok: false, message: "Check the review decision." };
+  if (parsed.data.decision === "changes_requested" && !parsed.data.comment) {
+    return { ok: false, message: "Explain the changes the teacher needs to make." };
+  }
   const { user } = await requireRoles(["super_admin", "school_admin"]);
   const admin = createAdminClient();
   const { data: note } = await admin.from("lesson_plans").select("review_status").eq("id", parsed.data.planId).is("deleted_at", null).maybeSingle();
-  if (!note || (note as { review_status: string }).review_status !== "submitted") return;
+  if (!note || (note as { review_status: string }).review_status !== "submitted") {
+    return { ok: false, message: "This lesson note is no longer awaiting review." };
+  }
   const now = new Date().toISOString();
   const decision = reviewStatusForDecision(parsed.data.decision);
-  await Promise.all([
+  const [lessonUpdate, historyInsert] = await Promise.all([
     admin.from("lesson_plans").update({
       review_status: decision,
       status: parsed.data.decision === "approved" ? "ready" : "draft",
@@ -155,7 +162,14 @@ export async function reviewLessonNoteAction(formData: FormData) {
       acted_by: user.id,
     }),
   ]);
+  if (lessonUpdate.error || historyInsert.error) {
+    return { ok: false, message: "The review decision could not be saved. Please try again." };
+  }
   revalidateLessonNotePaths();
+  return {
+    ok: true,
+    message: parsed.data.decision === "approved" ? "Lesson note approved." : "Lesson note returned to the teacher for changes.",
+  };
 }
 
 export async function saveSchemeOfWorkAction(
