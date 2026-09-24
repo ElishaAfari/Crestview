@@ -17,7 +17,7 @@ export const referenceRouteAliases: Record<string, string> = {
   "/id-cards/design": "/id-cards",
   "/classes/subjects": "/classes/subject-coverage",
   "/attendance/mark/legacy": "/attendance/student-records",
-  "/attendance/staff/mark": "/attendance/daily-registers",
+  "/attendance/staff/mark": "/staff-clock",
   "/attendance/reports": "/reports/attendance-trend",
   "/assessment/exams": "/exams/exam-windows",
   "/assessment/ca": "/assessment/marks-register",
