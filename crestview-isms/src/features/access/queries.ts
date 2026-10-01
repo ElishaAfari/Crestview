@@ -30,6 +30,25 @@ export async function listPortalAccounts() {
     onboarding_completed_at: string | null;
     roles: Relation<{ name: string }>;
   }>;
+  const studentProfileIds = records
+    .filter((profile) => one(profile.roles)?.name === "student")
+    .map((profile) => profile.id);
+  const studentNumbersByProfile = new Map<string, string>();
+  if (studentProfileIds.length) {
+    const { data: students } = await admin
+      .from("students")
+      .select("profile_id,student_number")
+      .in("profile_id", studentProfileIds)
+      .is("deleted_at", null);
+    for (const student of (students ?? []) as Array<{
+      profile_id: string;
+      student_number: string | null;
+    }>) {
+      if (student.student_number) {
+        studentNumbersByProfile.set(student.profile_id, student.student_number);
+      }
+    }
+  }
 
   return records.map((profile) => {
     const role = one(profile.roles)?.name ?? "unassigned";
@@ -39,6 +58,9 @@ export async function listPortalAccounts() {
       id: profile.id,
       name: `${profile.first_name} ${profile.last_name}`,
       email: profile.email,
+      identifier: role === "student"
+        ? studentNumbersByProfile.get(profile.id) ?? profile.email
+        : profile.email,
       roleName: role,
       role: experience?.label ?? role.replaceAll("_", " "),
       home: experience?.home ?? "/login",

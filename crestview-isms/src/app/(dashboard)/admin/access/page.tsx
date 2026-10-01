@@ -31,7 +31,12 @@ export default async function AdminAccessPage() {
                   <tbody>
                     {accounts.map((account) => (
                       <tr key={account.id} className="portal-table-row">
-                        <td className="px-4 py-3"><p className="font-black text-[var(--portal-text)]">{account.name}</p><p className="text-xs font-semibold text-[var(--portal-muted)]">{account.email}</p></td>
+                        <td className="px-4 py-3">
+                          <p className="font-black text-[var(--portal-text)]">{account.name}</p>
+                          <p className="text-xs font-semibold text-[var(--portal-muted)]">
+                            {account.roleName === "student" ? "Student ID: " : ""}{account.identifier}
+                          </p>
+                        </td>
                         <td className="px-4 py-3 font-bold text-[var(--portal-text)]">{account.role}</td>
                         <td className="px-4 py-3"><StatusBadge status={account.status} /></td>
                         <td className="px-4 py-3"><Link href={account.home} className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:text-blue-900 dark:text-blue-200">{account.home}<ExternalLink className="size-3" aria-hidden /></Link></td>
