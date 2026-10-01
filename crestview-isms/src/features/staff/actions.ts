@@ -23,6 +23,25 @@ type AssignedClassroom = {
   academic_year_id: string | null;
 };
 
+async function findAuthUserByEmail(
+  admin: ReturnType<typeof createAdminClient>,
+  email: string,
+) {
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: 1000,
+    });
+    if (error) throw new Error("The existing account could not be checked.");
+    const match = data.users.find(
+      (account) => account.email?.trim().toLowerCase() === email,
+    );
+    if (match) return match;
+    if (data.users.length < 1000) return null;
+  }
+  throw new Error("The account directory is too large to search safely.");
+}
+
 async function assignTeacherClassroom(
   admin: ReturnType<typeof createAdminClient>,
   profileId: string,
@@ -167,6 +186,18 @@ export async function createStaffAction(formData: FormData) {
     deleted_at: string | null;
   } | null;
 
+  let existingAuthUser: Awaited<ReturnType<typeof findAuthUserByEmail>>;
+  try {
+    existingAuthUser = await findAuthUserByEmail(admin, email);
+  } catch {
+    return {
+      ok: false,
+      message:
+        "The existing account could not be checked. Please try again shortly.",
+    };
+  }
+  const existingAccountId = existingProfile?.id ?? existingAuthUser?.id ?? null;
+
   if (existingProfile?.is_active && !existingProfile.deleted_at)
     return {
       ok: false,
@@ -174,12 +205,11 @@ export async function createStaffAction(formData: FormData) {
         "This email already has an active portal account. Use User Management to resend a fresh access link instead.",
     };
 
-  if (existingProfile) {
-    const { data: authAccount } = await admin.auth.admin.getUserById(
-      existingProfile.id,
-    );
+  if (existingAccountId) {
+    const { data: authAccount } =
+      await admin.auth.admin.getUserById(existingAccountId);
     const { error: authError } = await admin.auth.admin.updateUserById(
-      existingProfile.id,
+      existingAccountId,
       {
         ban_duration: "none",
         email_confirm: true,
@@ -197,19 +227,26 @@ export async function createStaffAction(formData: FormData) {
         message: "The existing staff account could not be restored.",
       };
 
-    const { error: profileError } = await admin
-      .from("profiles")
-      .update({
-        role_id: staffRole.id,
-        first_name: result.data.firstName.trim(),
-        last_name: result.data.lastName.trim(),
-        email,
-        phone: result.data.phone?.trim() || null,
-        is_active: true,
-        deleted_at: null,
-        onboarding_completed_at: null,
-      })
-      .eq("id", existingProfile.id);
+    const profileValues = {
+      role_id: staffRole.id,
+      first_name: result.data.firstName.trim(),
+      last_name: result.data.lastName.trim(),
+      email,
+      phone: result.data.phone?.trim() || null,
+      is_active: true,
+      deleted_at: null,
+      onboarding_completed_at: null,
+      metadata: { account_source: "staff_account_recovered" },
+    };
+    const { error: profileError } = existingProfile
+      ? await admin
+          .from("profiles")
+          .update(profileValues)
+          .eq("id", existingAccountId)
+      : await admin.from("profiles").insert({
+          id: existingAccountId,
+          ...profileValues,
+        });
     if (profileError)
       return {
         ok: false,
@@ -219,7 +256,7 @@ export async function createStaffAction(formData: FormData) {
     const { data: existingStaffData } = await admin
       .from("staff_profiles")
       .select("id,staff_number")
-      .eq("profile_id", existingProfile.id)
+      .eq("profile_id", existingAccountId)
       .maybeSingle();
     const existingStaff = existingStaffData as {
       id: string;
@@ -242,7 +279,7 @@ export async function createStaffAction(formData: FormData) {
           })
           .eq("id", existingStaff.id)
       : await admin.from("staff_profiles").insert({
-          profile_id: existingProfile.id,
+          profile_id: existingAccountId,
           staff_number: staffNumber,
           job_title:
             result.data.jobTitle?.trim() ||
@@ -257,7 +294,7 @@ export async function createStaffAction(formData: FormData) {
     if (result.data.role === "teacher" && assignedClassroom) {
       const assignmentError = await assignTeacherClassroom(
         admin,
-        existingProfile.id,
+        existingAccountId,
         assignedClassroom,
         user.id,
       );
@@ -283,7 +320,7 @@ export async function createStaffAction(formData: FormData) {
     const { data: priorInvitation } = await admin
       .from("portal_invitations")
       .select("id")
-      .eq("auth_user_id", existingProfile.id)
+      .eq("auth_user_id", existingAccountId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -299,7 +336,7 @@ export async function createStaffAction(formData: FormData) {
         last_name: result.data.lastName.trim(),
         role_id: staffRole.id,
         invited_by: user.id,
-        auth_user_id: existingProfile.id,
+        auth_user_id: existingAccountId,
         expires_at: expiresAt,
         metadata: { account_source: "staff_account_restored" },
       });
