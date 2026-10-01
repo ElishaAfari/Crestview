@@ -22,6 +22,7 @@ site_url = "https://crestview-fawn.vercel.app"
 additional_redirect_urls = [
   "http://localhost:3000/**",
   "https://crestview-fawn.vercel.app/**",
+  "https://www.crestviewschool.com/**",
   "https://*-elisha-afari-s-projects.vercel.app/**"
 ]
 jwt_expiry = 3600
@@ -41,7 +42,7 @@ enable_confirmations = true
 secure_password_change = false
 max_frequency = "1m0s"
 otp_length = 8
-otp_expiry = 3600
+otp_expiry = 86400
 
 [storage]
 enabled = true
