@@ -6,7 +6,7 @@ import type { Database } from "@/types/database.types";
 
 type AdminClient = SupabaseClient<Database>;
 
-type DeliveryMethod = "crestview" | "supabase_auth";
+type DeliveryMethod = "crestview" | "supabase_auth" | "supabase_auth_link";
 
 type PortalInviteInput = {
   admin: AdminClient;
@@ -16,6 +16,7 @@ type PortalInviteInput = {
   role: string;
   redirectTo?: string;
   metadata?: Record<string, unknown>;
+  allowLinkFallback?: boolean;
 };
 
 type PortalAccessInput = {
@@ -33,7 +34,7 @@ type PortalAccessInput = {
 };
 
 type InviteResult =
-  | { ok: true; user: User; delivery: DeliveryMethod; deliveredTo: string }
+  | { ok: true; user: User; delivery: DeliveryMethod; deliveredTo: string; accessLink?: string }
   | { ok: false; message: string };
 
 type AccessResult =
@@ -215,6 +216,7 @@ async function sendNativeInvite(
     role,
     redirectTo = `${APP_URL}/reset-password`,
     metadata = {},
+    allowLinkFallback = false,
   } = input;
   if (!isRoutableEmail(email))
     return {
@@ -232,12 +234,40 @@ async function sendNativeInvite(
       school_name: APP_NAME,
     },
   });
-  if (error || !data.user)
+  if (error || !data.user) {
+    if (allowLinkFallback) {
+      const fallback = await admin.auth.admin.generateLink({
+        type: "invite",
+        email,
+        options: {
+          redirectTo,
+          data: {
+            ...metadata,
+            first_name: firstName,
+            last_name: lastName,
+            role,
+            school_name: APP_NAME,
+          },
+        },
+      });
+      if (!fallback.error && fallback.data.user && fallback.data.properties?.action_link) {
+        return {
+          ok: true,
+          user: fallback.data.user,
+          delivery: "supabase_auth_link",
+          deliveredTo: email,
+          accessLink: fallback.data.properties.action_link,
+        };
+      }
+    }
     return {
       ok: false,
       message:
-        "The secure access email could not be sent. The email may already have an account.",
+        error?.code === "over_email_send_rate_limit"
+          ? "Email delivery is temporarily rate-limited. Try again later or configure the school email provider."
+          : "The secure access email could not be sent. Check whether this email already has a portal account.",
     };
+  }
   return {
     ok: true,
     user: data.user,

@@ -358,6 +358,7 @@ export async function createStaffAction(formData: FormData) {
     role: result.data.role,
     redirectTo: `${APP_URL}/reset-password`,
     metadata: { account_source: "manual_staff_create" },
+    allowLinkFallback: true,
   });
   if (!invite.ok) return { ok: false, message: invite.message };
 
@@ -423,10 +424,17 @@ export async function createStaffAction(formData: FormData) {
   const delivery =
     invite.delivery === "crestview"
       ? "Crestview-branded access email"
-      : "Supabase Auth access email";
+      : invite.delivery === "supabase_auth_link"
+        ? "secure one-time access link generated because email delivery is temporarily unavailable"
+        : "Supabase Auth access email";
+  const deliveryMessage =
+    invite.delivery === "supabase_auth_link"
+      ? `${delivery}.`
+      : `${delivery} sent to ${invite.deliveredTo}.`;
   return {
     ok: true,
-    message: `Staff member invited with staff number ${staffNumber}.${result.data.role === "teacher" && result.data.classroomId ? " Class and course access assigned." : ""} ${delivery} sent to ${invite.deliveredTo}.`,
+    message: `Staff member invited with staff number ${staffNumber}.${result.data.role === "teacher" && result.data.classroomId ? " Class and course access assigned." : ""} ${deliveryMessage}`,
+    accessLink: invite.accessLink,
   };
 }
 

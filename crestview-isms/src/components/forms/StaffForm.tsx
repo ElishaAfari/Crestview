@@ -30,6 +30,7 @@ export function StaffForm({
     defaultValues: { role: "teacher", employmentType: "full_time" },
   });
   const [message, setMessage] = useState<string | null>(null);
+  const [accessLink, setAccessLink] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
   async function onSubmit(values: StaffFormValues) {
@@ -40,6 +41,7 @@ export function StaffForm({
     const result = await createStaffAction(formData);
     setSubmitted(result.ok);
     setMessage(result.message);
+    setAccessLink("accessLink" in result && typeof result.accessLink === "string" ? result.accessLink : null);
     if (result.ok) form.reset({ role: "teacher", employmentType: "full_time" });
   }
 
@@ -121,6 +123,13 @@ export function StaffForm({
           >
             {message}
           </p>
+        ) : null}
+        {accessLink ? (
+          <div className="max-w-full rounded-lg border border-amber-300/40 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-200/30 dark:bg-amber-950/30 dark:text-amber-100">
+            <p className="font-bold">Email delivery is temporarily unavailable.</p>
+            <p className="mt-1 text-xs leading-5">Share this private one-time link with the staff member. It expires automatically.</p>
+            <a className="mt-2 block break-all text-xs font-bold underline" href={accessLink} target="_blank" rel="noreferrer">{accessLink}</a>
+          </div>
         ) : null}
       </div>
     </form>
