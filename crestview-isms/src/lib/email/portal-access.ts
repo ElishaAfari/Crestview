@@ -40,6 +40,14 @@ type AccessResult =
   | { ok: true; delivery: DeliveryMethod; deliveredTo: string }
   | { ok: false; message: string };
 
+export const PORTAL_ACCESS_LINK_LIFETIME_HOURS = 24;
+
+export function portalAccessExpiresAt() {
+  return new Date(
+    Date.now() + PORTAL_ACCESS_LINK_LIFETIME_HOURS * 60 * 60 * 1000,
+  ).toISOString();
+}
+
 const roleLabels: Record<string, string> = {
   super_admin: "Head Administrator",
   school_owner: "School Owner / Proprietor",

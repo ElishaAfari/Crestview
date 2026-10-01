@@ -11,6 +11,7 @@ import {
   sendPortalAccessEmail,
 } from "@/lib/email/portal-access";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { consumeAuthRateLimit } from "@/lib/security/auth-rate-limit";
 import {
   isSupportedStaffNumber,
   normalizeStaffNumber,
@@ -48,6 +49,25 @@ export async function signInAction(
       message:
         result.error.issues[0]?.message ??
         "Enter your email or student ID and password.",
+    };
+  }
+
+  try {
+    const allowed = await consumeAuthRateLimit({
+      action: "login",
+      identifier: result.data.identifier,
+      limit: 10,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!allowed)
+      return {
+        ok: false,
+        message: "Too many sign-in attempts. Wait 15 minutes before trying again.",
+      };
+  } catch {
+    return {
+      ok: false,
+      message: "Sign-in is temporarily unavailable. Please try again shortly.",
     };
   }
 
@@ -235,6 +255,24 @@ export async function requestParentAccessAction(
 
   const studentNumber = normalizeStudentNumber(result.data.studentNumber);
   const email = result.data.email.toLowerCase();
+  try {
+    const allowed = await consumeAuthRateLimit({
+      action: "parent_access",
+      identifier: `${studentNumber}:${email}`,
+      limit: 3,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!allowed)
+      return {
+        ok: false,
+        message: "Too many access requests. Wait an hour before requesting another link.",
+      };
+  } catch {
+    return {
+      ok: false,
+      message: "Parent access is temporarily unavailable. Please try again shortly.",
+    };
+  }
   if (!isSupportedStudentNumber(studentNumber))
     return {
       ok: false,
@@ -411,6 +449,25 @@ export async function requestPasswordResetAction(
   });
   if (!result.success)
     return { ok: false, message: "Enter a valid email address." };
+
+  try {
+    const allowed = await consumeAuthRateLimit({
+      action: "password_reset",
+      identifier: result.data.email,
+      limit: 3,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!allowed)
+      return {
+        ok: true,
+        message: "If the account exists, a reset link will be sent when the request limit resets.",
+      };
+  } catch {
+    return {
+      ok: false,
+      message: "Password recovery is temporarily unavailable. Please try again shortly.",
+    };
+  }
 
   const supabase = await createServerSupabaseClient();
   const requestHeaders = await headers();

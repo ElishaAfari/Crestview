@@ -7,8 +7,10 @@ import { isPrimaryAdminRole } from "@/config/roles";
 import { requireRoles } from "@/features/auth/guards";
 import {
   createPortalInvitation,
+  portalAccessExpiresAt,
   sendPortalAccessEmail,
 } from "@/lib/email/portal-access";
+import { consumeAuthRateLimit } from "@/lib/security/auth-rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   bootstrapAdminSchema,
@@ -538,6 +540,26 @@ export async function resendPortalAccessAction(
       message: "Enable this account before resending access.",
     };
   const roleName = one(profile.roles)?.name ?? "unassigned";
+  try {
+    const allowed = await consumeAuthRateLimit({
+      action: "access_resend",
+      identifier: `${user.id}:${profile.id}`,
+      limit: 3,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!allowed)
+      return {
+        ok: false,
+        message:
+          "This access link was already resent several times. Wait an hour before sending another one.",
+      };
+  } catch {
+    return {
+      ok: false,
+      message:
+        "Access email delivery is temporarily unavailable. Please try again shortly.",
+    };
+  }
   const deliveryEmail =
     roleName === "student"
       ? ((await resolveStudentDeliveryEmail(
@@ -568,9 +590,7 @@ export async function resendPortalAccessAction(
   });
   if (!access.ok) return { ok: false, message: access.message };
 
-  const expiresAt = new Date(
-    Date.now() + 14 * 24 * 60 * 60 * 1000,
-  ).toISOString();
+  const expiresAt = portalAccessExpiresAt();
   const { data: invitation } = await admin
     .from("portal_invitations")
     .select("id")

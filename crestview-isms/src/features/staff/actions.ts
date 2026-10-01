@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { APP_URL } from "@/lib/constants";
 import { requireRoles } from "@/features/auth/guards";
 import { isPrimaryAdminRole } from "@/config/roles";
-import { createPortalInvitation } from "@/lib/email/portal-access";
+import {
+  createPortalInvitation,
+  portalAccessExpiresAt,
+  sendPortalAccessEmail,
+} from "@/lib/email/portal-access";
+import { consumeAuthRateLimit } from "@/lib/security/auth-rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   generateStaffNumber,
@@ -12,6 +17,65 @@ import {
   normalizeStaffNumber,
 } from "@/lib/staff/staff-number";
 import { staffSchema } from "@/lib/validations/staff.schema";
+
+type AssignedClassroom = {
+  id: string;
+  academic_year_id: string | null;
+};
+
+async function assignTeacherClassroom(
+  admin: ReturnType<typeof createAdminClient>,
+  profileId: string,
+  classroom: AssignedClassroom,
+  assignedBy: string,
+) {
+  const { error: classAssignmentError } = await admin
+    .from("staff_class_assignments")
+    .upsert(
+      {
+        profile_id: profileId,
+        classroom_id: classroom.id,
+        academic_year_id: classroom.academic_year_id,
+        assignment_type: "class_teacher",
+        status: "active",
+        assigned_by: assignedBy,
+      },
+      {
+        onConflict: "profile_id,classroom_id,academic_year_id,assignment_type",
+      },
+    );
+  if (classAssignmentError)
+    return "The teacher account was saved, but the class assignment could not be saved.";
+
+  const { data: coursesData } = await admin
+    .from("courses")
+    .select("id,teacher_id")
+    .eq("classroom_id", classroom.id)
+    .is("deleted_at", null);
+  const courses = (coursesData ?? []) as Array<{
+    id: string;
+    teacher_id: string | null;
+  }>;
+  if (!courses.length) return null;
+
+  await admin.from("teacher_assignments").upsert(
+    courses.map((course) => ({
+      teacher_id: profileId,
+      course_id: course.id,
+      role: "class_teacher",
+    })),
+    { onConflict: "teacher_id,course_id" },
+  );
+  const unassignedCourseIds = courses
+    .filter((course) => !course.teacher_id)
+    .map((course) => course.id);
+  if (unassignedCourseIds.length)
+    await admin
+      .from("courses")
+      .update({ teacher_id: profileId })
+      .in("id", unassignedCourseIds);
+  return null;
+}
 
 export async function createStaffAction(formData: FormData) {
   const result = staffSchema.safeParse({
@@ -37,10 +101,7 @@ export async function createStaffAction(formData: FormData) {
     "hr_staff",
   ]);
   const admin = createAdminClient();
-  let assignedClassroom: {
-    id: string;
-    academic_year_id: string | null;
-  } | null = null;
+  let assignedClassroom: AssignedClassroom | null = null;
   if (result.data.role === "teacher" && result.data.classroomId) {
     const { data: classroomData } = await admin
       .from("classrooms")
@@ -48,10 +109,7 @@ export async function createStaffAction(formData: FormData) {
       .eq("id", result.data.classroomId)
       .is("deleted_at", null)
       .maybeSingle();
-    assignedClassroom = classroomData as {
-      id: string;
-      academic_year_id: string | null;
-    } | null;
+    assignedClassroom = classroomData as AssignedClassroom | null;
     if (!assignedClassroom)
       return {
         ok: false,
@@ -66,6 +124,194 @@ export async function createStaffAction(formData: FormData) {
     .single();
   if (!staffRole)
     return { ok: false, message: "The selected staff role is not configured." };
+
+  try {
+    const allowed = await consumeAuthRateLimit({
+      action: "staff_invite",
+      identifier: `${user.id}:${email}`,
+      limit: 25,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!allowed)
+      return {
+        ok: false,
+        message:
+          "The staff invitation limit has been reached. Try again in an hour.",
+      };
+  } catch {
+    return {
+      ok: false,
+      message:
+        "Staff invitations are temporarily unavailable. Please try again shortly.",
+    };
+  }
+
+  const suppliedStaffNumber = normalizeStaffNumber(
+    result.data.staffNumber?.trim() ?? "",
+  );
+  if (suppliedStaffNumber && !isSupportedStaffNumber(suppliedStaffNumber))
+    return {
+      ok: false,
+      message:
+        "Use a staff ID in the format CIS/STA0001 or leave it blank for automatic generation.",
+    };
+
+  const { data: existingProfileData } = await admin
+    .from("profiles")
+    .select("id,is_active,deleted_at")
+    .eq("email", email)
+    .maybeSingle();
+  const existingProfile = existingProfileData as {
+    id: string;
+    is_active: boolean | null;
+    deleted_at: string | null;
+  } | null;
+
+  if (existingProfile?.is_active && !existingProfile.deleted_at)
+    return {
+      ok: false,
+      message:
+        "This email already has an active portal account. Use User Management to resend a fresh access link instead.",
+    };
+
+  if (existingProfile) {
+    const { data: authAccount } = await admin.auth.admin.getUserById(
+      existingProfile.id,
+    );
+    const { error: authError } = await admin.auth.admin.updateUserById(
+      existingProfile.id,
+      {
+        ban_duration: "none",
+        email_confirm: true,
+        user_metadata: {
+          ...(authAccount.user?.user_metadata ?? {}),
+          first_name: result.data.firstName.trim(),
+          last_name: result.data.lastName.trim(),
+          role: result.data.role,
+        },
+      },
+    );
+    if (authError)
+      return {
+        ok: false,
+        message: "The existing staff account could not be restored.",
+      };
+
+    const { error: profileError } = await admin
+      .from("profiles")
+      .update({
+        role_id: staffRole.id,
+        first_name: result.data.firstName.trim(),
+        last_name: result.data.lastName.trim(),
+        email,
+        phone: result.data.phone?.trim() || null,
+        is_active: true,
+        deleted_at: null,
+        onboarding_completed_at: null,
+      })
+      .eq("id", existingProfile.id);
+    if (profileError)
+      return {
+        ok: false,
+        message: "The existing staff profile could not be restored.",
+      };
+
+    const { data: existingStaffData } = await admin
+      .from("staff_profiles")
+      .select("id,staff_number")
+      .eq("profile_id", existingProfile.id)
+      .maybeSingle();
+    const existingStaff = existingStaffData as {
+      id: string;
+      staff_number: string;
+    } | null;
+    const staffNumber =
+      existingStaff?.staff_number ??
+      suppliedStaffNumber ??
+      (await generateStaffNumber(admin));
+    const { error: staffProfileError } = existingStaff
+      ? await admin
+          .from("staff_profiles")
+          .update({
+            job_title:
+              result.data.jobTitle?.trim() ||
+              result.data.role.replaceAll("_", " "),
+            employment_type: result.data.employmentType,
+            deleted_at: null,
+            metadata: { role: result.data.role },
+          })
+          .eq("id", existingStaff.id)
+      : await admin.from("staff_profiles").insert({
+          profile_id: existingProfile.id,
+          staff_number: staffNumber,
+          job_title:
+            result.data.jobTitle?.trim() ||
+            result.data.role.replaceAll("_", " "),
+          employment_type: result.data.employmentType,
+          hire_date: new Date().toISOString().slice(0, 10),
+          metadata: { role: result.data.role },
+        });
+    if (staffProfileError)
+      return { ok: false, message: "The staff record could not be restored." };
+
+    if (result.data.role === "teacher" && assignedClassroom) {
+      const assignmentError = await assignTeacherClassroom(
+        admin,
+        existingProfile.id,
+        assignedClassroom,
+        user.id,
+      );
+      if (assignmentError) return { ok: false, message: assignmentError };
+    }
+
+    const access = await sendPortalAccessEmail({
+      admin,
+      authEmail: email,
+      firstName: result.data.firstName.trim(),
+      lastName: result.data.lastName.trim(),
+      role: result.data.role,
+      redirectTo: `${APP_URL}/reset-password`,
+    });
+    if (!access.ok)
+      return {
+        ok: false,
+        message:
+          "The staff account was restored, but the access email could not be sent. Open User Management and use Resend access.",
+      };
+
+    const expiresAt = portalAccessExpiresAt();
+    const { data: priorInvitation } = await admin
+      .from("portal_invitations")
+      .select("id")
+      .eq("auth_user_id", existingProfile.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (priorInvitation?.id) {
+      await admin
+        .from("portal_invitations")
+        .update({ status: "invited", expires_at: expiresAt, deleted_at: null })
+        .eq("id", priorInvitation.id);
+    } else {
+      await admin.from("portal_invitations").insert({
+        email,
+        first_name: result.data.firstName.trim(),
+        last_name: result.data.lastName.trim(),
+        role_id: staffRole.id,
+        invited_by: user.id,
+        auth_user_id: existingProfile.id,
+        expires_at: expiresAt,
+        metadata: { account_source: "staff_account_restored" },
+      });
+    }
+
+    revalidatePath("/admin/staff");
+    revalidatePath("/admin/access");
+    return {
+      ok: true,
+      message: `Existing staff account restored with staff number ${staffNumber}. A fresh access link was sent to ${access.deliveredTo}.`,
+    };
+  }
 
   const invite = await createPortalInvitation({
     admin,
@@ -86,16 +332,7 @@ export async function createStaffAction(formData: FormData) {
     email,
     phone: result.data.phone?.trim() || null,
   });
-  const suppliedStaffNumber = normalizeStaffNumber(
-    result.data.staffNumber?.trim() ?? "",
-  );
   const staffNumber = suppliedStaffNumber || (await generateStaffNumber(admin));
-  if (!isSupportedStaffNumber(staffNumber))
-    return {
-      ok: false,
-      message:
-        "Use a staff ID in the format CIS/STA0001 or leave it blank for automatic generation.",
-    };
   const { error: staffProfileError } = profileError
     ? { error: profileError }
     : await admin.from("staff_profiles").insert({
@@ -118,57 +355,33 @@ export async function createStaffAction(formData: FormData) {
   }
 
   if (result.data.role === "teacher" && assignedClassroom) {
-    const { error: classAssignmentError } = await admin
-      .from("staff_class_assignments")
-      .upsert(
-        {
-          profile_id: invite.user.id,
-          classroom_id: assignedClassroom.id,
-          academic_year_id: assignedClassroom.academic_year_id,
-          assignment_type: "class_teacher",
-          status: "active",
-          assigned_by: user.id,
-        },
-        {
-          onConflict:
-            "profile_id,classroom_id,academic_year_id,assignment_type",
-        },
-      );
-    if (classAssignmentError)
-      return {
-        ok: false,
-        message:
-          "The teacher account was created, but the class assignment could not be saved.",
-      };
-
-    const { data: coursesData } = await admin
-      .from("courses")
-      .select("id,teacher_id")
-      .eq("classroom_id", assignedClassroom.id)
-      .is("deleted_at", null);
-    const courses = (coursesData ?? []) as Array<{
-      id: string;
-      teacher_id: string | null;
-    }>;
-    if (courses.length) {
-      await admin.from("teacher_assignments").upsert(
-        courses.map((course) => ({
-          teacher_id: invite.user.id,
-          course_id: course.id,
-          role: "class_teacher",
-        })),
-        { onConflict: "teacher_id,course_id" },
-      );
-      const unassignedCourseIds = courses
-        .filter((course) => !course.teacher_id)
-        .map((course) => course.id);
-      if (unassignedCourseIds.length)
-        await admin
-          .from("courses")
-          .update({ teacher_id: invite.user.id })
-          .in("id", unassignedCourseIds);
-    }
+    const assignmentError = await assignTeacherClassroom(
+      admin,
+      invite.user.id,
+      assignedClassroom,
+      user.id,
+    );
+    if (assignmentError) return { ok: false, message: assignmentError };
   }
+
+  const { error: invitationRecordError } = await admin
+    .from("portal_invitations")
+    .insert({
+      email,
+      first_name: result.data.firstName.trim(),
+      last_name: result.data.lastName.trim(),
+      role_id: staffRole.id,
+      invited_by: user.id,
+      auth_user_id: invite.user.id,
+      expires_at: portalAccessExpiresAt(),
+      metadata: { account_source: "manual_staff_create" },
+    });
+  if (invitationRecordError)
+    return {
+      ok: false,
+      message:
+        "The staff account was created, but its access record could not be saved. Open User Management and resend access.",
+    };
 
   const delivery =
     invite.delivery === "crestview"
